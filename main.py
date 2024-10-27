@@ -117,6 +117,8 @@ def split_text_chunks(text, max_length=90):
 
 base64_video = ""
 final_video_path = ""
+MAX_DURATION = 60  # Maximum duration in seconds
+
 try:
     # Load video and audio clips
     video_clip = VideoFileClip(video_path, audio=False).set_audio(audio_clip).loop(duration=audio_clip.duration).resize(resolution)
@@ -125,20 +127,18 @@ try:
     text_chunks = split_text_chunks(text_quote, max_length=90)
     
     # Calculate the duration each chunk should last
-    total_duration = video_clip.duration
+    total_duration = min(video_clip.duration, MAX_DURATION)
     chunk_duration = total_duration / len(text_chunks)
     
     # Create text clips with semi-transparent backgrounds for each chunk
     text_clips = []
     for idx, chunk in enumerate(text_chunks):
-        # Create a text clip that shows the entire chunk of text
         fact_text = (
             TextClip(chunk, color='white', fontsize=50, align='center', method='caption')
             .set_position(('center', 'center'))
             .set_duration(chunk_duration)
         )
-    
-        # Create a semi-transparent background for each chunk of text
+        
         fact_text_width, fact_text_height = fact_text.size
         semi_transparent_bg = (
             ColorClip(size=(fact_text_width + 40, fact_text_height + 20), color=(0, 0, 0))
@@ -146,14 +146,16 @@ try:
             .set_position(('center', 'center'))
             .set_duration(chunk_duration)
         )
-    
-        # Combine the text with the semi-transparent background into a composite clip
+        
         text_clip_with_bg = CompositeVideoClip([semi_transparent_bg, fact_text])
         text_clips.append(text_clip_with_bg)
     
-    # Concatenate all text clips to form the final overlay
     final_text_clip = concatenate_videoclips(text_clips)
     final = CompositeVideoClip([video_clip, final_text_clip.set_position('center')], size=video_clip.size)
+    
+    # Trim the final video to 1 minute
+    final = final.subclip(0, MAX_DURATION)
+    
     final_video_path = f"{output_dir}/{FINAL_VIDEO}"
     final.write_videofile(final_video_path, codec="libx264")
     base64_video = video_to_base64(final_video_path)
