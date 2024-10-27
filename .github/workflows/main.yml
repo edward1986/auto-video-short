@@ -74,7 +74,7 @@ jobs:
       run: |
         response=$(curl -s https://catfact.ninja/fact | jq -r '.fact')
         sanitized_response=$(echo "$response" | sed 's/[^a-zA-Z0-9 .,!?-]//g')
-        cat_fact=$(curl -s -X POST http://localhost:11434/api/generate -d "{\"model\": \"llama3\", \"prompt\":  \"$sanitized_response make a short sentence or summarize it make it 650 words.\"}" | jq -r '.response' | tr -d '\n' | tr -d '\r')
+        cat_fact=$(curl -s -X POST http://localhost:11434/api/generate -d "{\"model\": \"llama3\", \"prompt\":  \"$sanitized_response make a short sentence or summarize it make it 299 words.\"}" | jq -r '.response' | tr -d '\n' | tr -d '\r')
         sanitized_cat_fact=$(echo "$cat_fact" | sed 's/[^a-zA-Z0-9 .,!?-]//g')  # Remove special characters
         echo "cat_fact=$sanitized_cat_fact" >> $GITHUB_ENV
 
