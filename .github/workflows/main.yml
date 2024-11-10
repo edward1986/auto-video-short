@@ -76,7 +76,7 @@ jobs:
         
         if [ "$response" -eq 200 ]; then
           # Check if the word section exists
-          word=$(grep -oP '(?<=<h2>).*(?=</h2>)' /tmp/response.html | head -n 1 | xargs)
+          word=$(grep -oP '(?<=<h2 class="word-header-txt">)[^<]+' /tmp/response.html | head -n 1 | xargs)
           
           if [ -n "$word" ]; then
             echo "Word of the Day fetched successfully: $word"
