@@ -337,7 +337,7 @@ def publish_reel(page_id, page_access_token, video_id, description):
         return None
 
 video_title = text_quote
-video_description = "https://amzn.to/4cv2MXh " +  text_quote
+video_description = "https://edwardize.blogspot.com/ " +  text_quote
 video_file_path = f"{output_dir}/{FINAL_VIDEO}"
 
 session_data = initialize_upload_session(PAGE_ID, PAGE_ACCESS_TOKEN)
@@ -454,8 +454,8 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
 
 # Example usage for YouTube
 youtube_title = shorten(text_quote, width=90, placeholder="...")
-youtube_description = "https://amzn.to/4cv2MXh " +  text_quote
-youtube_tags = ['cats', 'facts']
+youtube_description = "https://edwardize.blogspot.com/ " +  text_quote
+youtube_tags = ['cats', 'facts', 'https://edwardize.blogspot.com/']
 youtube_category_id = '22'  # YouTube category ID
 youtube_privacy_status = 'public'
 
