@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # Load environment constants
 load_dotenv(".env")
 AUDIO = os.getenv("AUDIO_NAME", "speech.mp3")
-ELEVENLABS_API_KEY = sk_14bacdb15e1a7c6350918ab24ad90596c251bf94a685459f
+ELEVENLABS_API_KEY = "sk_14bacdb15e1a7c6350918ab24ad90596c251bf94a685459f"
 
 def make_audio(quote):
     """Generate speech using ElevenLabs first, then gTTS as a backup."""
