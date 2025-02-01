@@ -20,13 +20,13 @@ VIDEO_NAME = environ["VIDEO_NAME"]
 AUDIO_NAME = environ["AUDIO_NAME"]
 FINAL_VIDEO = environ["FINAL_VIDEO"]
 
-def download_video():
+def download_video(output_dir):
     # Create random number between 0 and 49
     random_index = randint(0, 49)
     
     # Ensure output directory exists
-    if not os.path.exists('output'):
-        os.makedirs('output')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     # Request stored in response variable
     response = requests.get(VIDEOURL, headers=AUTH_TOKEN)
@@ -58,7 +58,7 @@ def download_video():
         video_response = requests.get(videoLink, stream=True)
         video_response.raise_for_status()  # Raise an exception for HTTP errors
 
-        video_path = f"output/{VIDEO_NAME}"
+        video_path = f"{output_dir}/{VIDEO_NAME}"
         with open(video_path, 'wb') as file:
             for chunk in video_response.iter_content(chunk_size=8192):
                 file.write(chunk)
