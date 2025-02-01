@@ -8,14 +8,14 @@ load_dotenv(".env")
 AUDIO = os.getenv("AUDIO_NAME", "speech.mp3")
 ELEVENLABS_API_KEY = "sk_14bacdb15e1a7c6350918ab24ad90596c251bf94a685459f"
 
-def make_audio(quote):
+def make_audio(quote, out):
     """Generate speech using ElevenLabs first, then gTTS as a backup."""
     
     if ELEVENLABS_API_KEY:
         print("🎤 Using ElevenLabs for text-to-speech...")
         elevenlabs_audio = elevenlabs_tts(quote)
         if elevenlabs_audio:
-            with open(f"output/{AUDIO}", "wb") as f:
+            with open(f"{out}/{AUDIO}", "wb") as f:
                 f.write(elevenlabs_audio)
             print(f"✅ ElevenLabs Audio saved as output/{AUDIO}")
             return  # Exit after successful ElevenLabs generation
@@ -25,7 +25,7 @@ def make_audio(quote):
     # ✅ If ElevenLabs fails, use gTTS as a fallback
     try:
         speech = gTTS(quote)
-        speech.save(f"output/{AUDIO}")
+        speech.save(f"{out}/{AUDIO}")
         print(f"✅ gTTS Audio saved as output/{AUDIO}")
     except Exception as e:
         print(f"❌ Both ElevenLabs & gTTS failed: {e}")
