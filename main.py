@@ -53,7 +53,7 @@ prompt = os.getenv("CAT_FACT", "")
 try:
     
     text_quote = sanitize_input(prompt)
-    make_audio(text_quote)
+    make_audio(text_quote, output_dir)
 except Exception as e:
     print(f"Error fetching quote or creating audio: {e}")
     exit(1)
