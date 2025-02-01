@@ -24,12 +24,12 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v2
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v2
       with:
-        python-version: '3.9'
+        python-version: '3.8'
 
     - name: Install dependencies
       run: |
@@ -39,31 +39,26 @@ jobs:
         sudo apt-get update
         curl -fsSL https://ollama.com/install.sh | sh
         sudo apt-get update
-        sudo apt-get install -y ttf-mscorefonts-installer imagemagick ghostscript curl jq
+        sudo apt-get install ttf-mscorefonts-installer
+        sudo apt-get install -y imagemagick ghostscript
         python -m pip install --upgrade pip
         pip install oauth2client
         pip install torch torchvision torchaudio
         pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
         pip install -r requirements.txt
+        sudo apt-get install -y curl jq
 
     - name: Verify Ollama Installation
       run: ollama --version
 
-    - name: Kill Ollama Process (if running)
-      continue-on-error: true
+    - name: Kill Process on Default Ollama Port (if any)
       run: |
-        PID=$(sudo lsof -t -i:11434)
-        if [ -n "$PID" ]; then
-          echo "Killing existing Ollama process: $PID"
-          sudo kill -9 $PID
-        else
-          echo "No Ollama process found."
-        fi
+        sudo kill $(sudo lsof -t -i:11434) || echo "No process running on port 11434"
 
     - name: Start Ollama Service
       run: |
-        ollama serve &  # Run Ollama in the background
-        sleep 10  # Give time for Ollama to start
+        ollama serve &
+        sleep 5  # Wait for the service to start
 
     - name: Pull Llama Model
       run: |
@@ -71,69 +66,60 @@ jobs:
 
     - name: Check Ollama Root Endpoint
       run: |
-        until curl -s --head --request GET http://localhost:11434/ | grep "200 OK" > /dev/null; do 
-          echo "Waiting for Ollama to be ready..."
-          sleep 5
-        done
-        echo "Ollama is running!"
+        curl http://localhost:11434/
 
     - name: Fetch Word of the Day
       id: fetch_word_of_the_day
       run: |
         url="https://www.merriam-webster.com/word-of-the-day"
         response=$(curl -s -o /tmp/response.html -w "%{http_code}" $url)
-
+        
         if [ "$response" -eq 200 ]; then
+          # Check if the word section exists
           word=$(grep -oP '(?<=<h2 class="word-header-txt">)[^<]+' /tmp/response.html | head -n 1 | xargs)
           
           if [ -n "$word" ]; then
-            echo "Word of the Day: $word"
+            echo "Word of the Day fetched successfully: $word"
             echo "word=$word" >> $GITHUB_ENV
           else
-            echo "Could not extract the Word of the Day."
-            echo "word=default" >> $GITHUB_ENV
+            echo "Word of the Day not found in the HTML content"
           fi
         else
-          echo "Failed to retrieve the Word of the Day. HTTP status: $response"
-          echo "word=default" >> $GITHUB_ENV
+          echo "Failed to retrieve the Word of the Day, HTTP status: $response"
+        fi
     
     - name: Generate Cat Fact Using Ollama API
       id: generate_cat_fact
       run: |
         response=$(curl -s https://catfact.ninja/fact | jq -r '.fact')
         sanitized_response=$(echo "$response" | sed 's/[^a-zA-Z0-9 .,!?-]//g')
-        cat_fact=$(curl -s -X POST http://localhost:11434/api/generate -d "{\"model\": \"llama3\", \"prompt\": \"$sanitized_response make a long sentence and use the word ${{ env.word }}\"}" | jq -r '.response' | tr -d '\n' | tr -d '\r')
-        sanitized_cat_fact=$(echo "$cat_fact" | sed 's/[^a-zA-Z0-9 .,!?-]//g')
-
-        if [ -z "$sanitized_cat_fact" ]; then
-          echo "Failed to generate cat fact. Using fallback."
-          sanitized_cat_fact="Cats are wonderful creatures."
-        fi
-
+        cat_fact=$(curl -s -X POST http://localhost:11434/api/generate -d "{\"model\": \"llama3\", \"prompt\":  \"$sanitized_response make a long sentence  and use the word ${{ env.word }}\"}" | jq -r '.response' | tr -d '\n' | tr -d '\r')
+        sanitized_cat_fact=$(echo "$cat_fact" | sed 's/[^a-zA-Z0-9 .,!?-]//g')  # Remove special characters
         echo "cat_fact=$sanitized_cat_fact" >> $GITHUB_ENV
+
 
     - name: Update ImageMagick policy
       run: |
-        POLICY_FILE=$(find /etc -name "policy.xml" 2>/dev/null | head -n 1)
-        if [ -f "$POLICY_FILE" ]; then
-          echo "Updating ImageMagick policy at $POLICY_FILE"
-          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"/<!-- <policy domain="path" rights="none" pattern="@\*" -->/' $POLICY_FILE
+        if [ -f /etc/ImageMagick-7/policy.xml ]; then
+          POLICY_FILE="/etc/ImageMagick-7/policy.xml"
+        elif [ -f /etc/ImageMagick-6/policy.xml ]; then
+          POLICY_FILE="/etc/ImageMagick-6/policy.xml"
         else
           echo "No ImageMagick policy.xml file found."
           exit 1
         fi
+        sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"/<!-- <policy domain="path" rights="none" pattern="@\*" -->/' $POLICY_FILE || true
+        sudo sed -i 's/<policy domain="coder" rights="none" pattern="PS"/<!-- <policy domain="coder" rights="none" pattern="PS" -->/' $POLICY_FILE || true
+        sudo sed -i 's/<policy domain="coder" rights="none" pattern="EPI"/<!-- <policy domain="coder" rights="none" pattern="EPI" -->/' $POLICY_FILE || true
+        sudo sed -i 's/<policy domain="coder" rights="none" pattern="URL"/<!-- <policy domain="coder" rights="none" pattern="URL" -->/' $POLICY_FILE || true
+        sudo sed -i 's/<policy domain="coder" rights="none" pattern="MVG"/<!-- <policy domain="coder" rights="none" pattern="MVG" -->/' $POLICY_FILE || true
+        sudo sed -i 's/<policy domain="coder" rights="none" pattern="MSL"/<!-- <policy domain="coder" rights="none" pattern="MSL" -->/' $POLICY_FILE || true
+        sudo sed -i 's/<policy domain="coder" rights="none" pattern="PDF"/<!-- <policy domain="coder" rights="none" pattern="PDF" -->/' $POLICY_FILE || true
 
     - name: Stop Ollama Service and Clean Up
-      continue-on-error: true
       run: |
-        PID=$(sudo lsof -t -i:11434)
-        if [ -n "$PID" ]; then
-          echo "Stopping Ollama service..."
-          sudo kill -9 $PID
-        else
-          echo "Ollama service not running."
-        fi
-        sudo rm -rf ~/.ollama  # Free up space
+        sudo kill $(sudo lsof -t -i:11434) || echo "Ollama service stopped"
+        sudo rm -rf ~/.ollama  # Remove Ollama files and models to free up space
 
     - name: Run script
       run: |
