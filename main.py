@@ -41,7 +41,7 @@ def sanitize_input(user_input):
     return safe_input
 # Ensure output directory exists
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-output_dir = "output_{timestamp}"
+output_dir = f"output_{timestamp}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
