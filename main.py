@@ -3,6 +3,7 @@ import base64
 import requests
 import smtplib
 from os import environ
+from datetime import datetime
 from dotenv import load_dotenv
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, ColorClip, concatenate_videoclips
 from textwrap import fill, shorten
@@ -39,7 +40,8 @@ def sanitize_input(user_input):
     safe_input = re.sub(r'[^a-zA-Z0-9 ]', '', user_input)
     return safe_input
 # Ensure output directory exists
-output_dir = "output"
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+output_dir = "output_{timestamp}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
