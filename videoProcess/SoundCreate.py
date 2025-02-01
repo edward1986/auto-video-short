@@ -30,7 +30,7 @@ def make_audio(quote):
     except Exception as e:
         print(f"❌ Both ElevenLabs & gTTS failed: {e}")
 
-def elevenlabs_tts(text, voice_id="Rachel"):
+def elevenlabs_tts(text, voice_id="CwhRBWXzGAHq8TQ4Fs17"):
     """Generate speech using ElevenLabs API."""
     
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
