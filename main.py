@@ -70,7 +70,7 @@ except Exception as e:
 
 # Download the video clip from an API
 try:
-    download_video()
+    download_video(output_dir)
 except Exception as e:
     print(f"Error downloading video: {e}")
     exit(1)
