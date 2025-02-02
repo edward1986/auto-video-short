@@ -20,7 +20,18 @@ ELEVENLABS_VOICE_IDS = [
     "EXAVITQu4vr4xnSDxMaL", "yoZ06aMxZJJ28mfd3POQ", "CwhRBWXzGAHq8TQ4Fs17",
     "SAz9YHcvj6GT2YYXdXww", "5Q0t7uMcjvnagumLfvZi", "ODq5zmih8GrVes37Dizd",
     "piTKgcLEGmPE4e6mEKli", "flq6f7yk4E4fJM5XTYuZ", "XrExE9yKIg1WjnnlVkGX",
-    "pFZP5JQG7iQjIQuC4Bku"
+    "pFZP5JQG7iQjIQuC4Bku", "TX3LPaxmHKxFdv7VOQHJ", "FGY2WhTYpPnrIDTdsKH5",
+    "TxGEqnHWrfWFTfGW9XjX", "Zlb1dXrM653N07WRdFW3", "t0jbNlBVZ17f02VDIeMI",
+    "cgSgspJ2msm6clMCkdW9", "bVMeCyTHy58xNoL34h3p", "ZQe5CZNOzWyzPSCn5a3c",
+    "SOYHLrjzK2X1ezoPC6cr", "oWAxZDx7w5VEj9dCyTzz", "z9fAnlkpzviPz146aGWa",
+    "zcAOhNBS3c14rBihAFp1", "jBpfuIE2acCO8z3wKNLl", "JBFqnCBsd6RMkjVDRZzb",
+    "jsCqWAovK2LkecY7zXl4", "D38z5RcWu1voky8WS1ja", "g5CIjZEefAph4nQFvHAz",
+    "cjVigY5qzO86Huf0OWal", "LcfcDJNUP1GQjkzn1xUU", "MF3mGyEYCl7XYWbV9V6O",
+    "29vD33N1CtxCmqQRPOHJ", "ThT5KcBeYPX3keUQqHPh", "AZnzlk1XvdvUeBnXmlld",
+    "CYw3kZ02Hs0563khs1Fj", "onwK4e9ZLuTAKqWW03F9", "2EiwWnXFnvU5JabPnv8n",
+    "XB0fDUnXU5powFXDhCwa", "IKne3meq5aSn9XLyUdCD", "N2lVS1w4EtoT3dr4eOWO",
+    "nPczCjzI2devNBz1zQrb", "pqHfZKP75CvOlQylNhV4", "VR6AewLTigWG4xSOukaG",
+    "9BWtsMINqrJLrRacOk9x", "ErXwobaYiN019PkySvjV"
 ]
 
 def make_audio(quote, out):
