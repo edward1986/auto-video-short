@@ -77,7 +77,7 @@ except Exception as e:
     exit(1)
 
 # Verify that the necessary files exist
-audio_path = f"{output_dir}/{AUDIO_NAME}"
+audio_path = f"{output_dir}/{timestampFile}.mp3"
 video_path = f"{output_dir}/{VIDEO_NAME}"
 
 if not os.path.exists(audio_path):
@@ -458,7 +458,7 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
 # Example usage for YouTube
 youtube_title = shorten(text_quote, width=90, placeholder="...")
 youtube_description = "https://multiculturaltoolbox.com/ " +  text_quote
-youtube_tags = ['cats', 'facts', 'https://edwardize.blogspot.com/']
+youtube_tags = ['cats', 'facts', 'https://edwardize.blogspot.com/', "http://multiculturaltoolbox.com/", "#cats", "#facts"]
 youtube_category_id = '22'  # YouTube category ID
 youtube_privacy_status = 'public'
 
