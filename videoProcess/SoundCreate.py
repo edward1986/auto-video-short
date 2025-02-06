@@ -38,7 +38,7 @@ ELEVENLABS_VOICE_IDS = [
     "9BWtsMINqrJLrRacOk9x", "ErXwobaYiN019PkySvjV"
 ]
 
-def make_audio(quote, out):
+def make_audio(quote, out, file):
     """Generate speech using ElevenLabs first, then gTTS as a backup."""
     
     for api_key in ELEVENLABS_API_KEYS:
@@ -48,9 +48,9 @@ def make_audio(quote, out):
         elevenlabs_audio = elevenlabs_tts(quote, api_key, voice_id)
         if elevenlabs_audio:
             os.makedirs(out, exist_ok=True)  # Ensure output directory exists
-            with open(f"{out}/{AUDIO}", "wb") as f:
+            with open(f"{out}/{file}.mp3", "wb") as f:
                 f.write(elevenlabs_audio)
-            print(f"✅ ElevenLabs Audio saved as {out}/{AUDIO}")
+            print(f"✅ ElevenLabs Audio saved as {out}/{file}.mp3")
             return  # Exit after successful ElevenLabs generation
     
     print("⚠️ ElevenLabs failed. Switching to gTTS...")
@@ -59,8 +59,8 @@ def make_audio(quote, out):
     try:
         speech = gTTS(quote)
         os.makedirs(out, exist_ok=True)  # Ensure output directory exists
-        speech.save(f"{out}/{AUDIO}")
-        print(f"✅ gTTS Audio saved as {out}/{AUDIO}")
+        speech.save(f"{out}/{file}.mp3")
+        print(f"✅ gTTS Audio saved as {out}/{file}.mp3")
     except Exception as e:
         print(f"❌ Both ElevenLabs & gTTS failed: {e}")
 
