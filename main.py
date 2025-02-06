@@ -41,6 +41,7 @@ def sanitize_input(user_input):
     return safe_input
 # Ensure output directory exists
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+timestampFile = datetime.now().strftime("%Y%m%d_%H%M%S")
 output_dir = f"output_{timestamp}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -53,7 +54,7 @@ prompt = os.getenv("CAT_FACT", "")
 try:
     
     text_quote = sanitize_input(prompt)
-    make_audio(text_quote, output_dir)
+    make_audio(text_quote, output_dir, timestampFile)
 except Exception as e:
     print(f"Error fetching quote or creating audio: {e}")
     exit(1)
