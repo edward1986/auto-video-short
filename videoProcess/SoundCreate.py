@@ -42,35 +42,47 @@ ELEVENLABS_VOICE_IDS = [
     "9BWtsMINqrJLrRacOk9x", "ErXwobaYiN019PkySvjV"
 ]
 
-def make_audio(quote, out, file):
+WORDS_PER_MINUTE = 150
+
+def adjust_text_length(text, target_duration=60):
+    """Adjusts text length to match the target duration in seconds (approx. 150 WPM)."""
+    words = text.split()
+    target_word_count = WORDS_PER_MINUTE * target_duration // 60
+    return " ".join(words[:target_word_count])
+
+def make_audio(text, output_dir, filename):
     """Generate speech using ElevenLabs first, then gTTS as a backup."""
-    
+    text = adjust_text_length(text, 60)  # Ensure approx. 1-minute duration
+
     for api_key in ELEVENLABS_API_KEYS:
-        voice_id = random.choice(ELEVENLABS_VOICE_IDS)  # Randomly select a voice
+        voice_id = random.choice(ELEVENLABS_VOICE_IDS)
         print(f"🎤 Trying ElevenLabs API key: {api_key[:10]}... with Voice ID: {voice_id}")
 
-        elevenlabs_audio = elevenlabs_tts(quote, api_key, voice_id)
+        elevenlabs_audio = elevenlabs_tts(text, api_key, voice_id)
         if elevenlabs_audio:
-            os.makedirs(out, exist_ok=True)  # Ensure output directory exists
-            with open(f"{out}/{file}.mp3", "wb") as f:
+            os.makedirs(output_dir, exist_ok=True)
+            file_path = os.path.join(output_dir, f"{filename}.mp3")
+            with open(file_path, "wb") as f:
                 f.write(elevenlabs_audio)
-            print(f"✅ ElevenLabs Audio saved as {out}/{file}.mp3")
-            return  # Exit after successful ElevenLabs generation
-    
+            print(f"✅ ElevenLabs Audio saved as {file_path}")
+            return file_path  # Success, return file path
+
     print("⚠️ ElevenLabs failed. Switching to gTTS...")
     
-    # ✅ If ElevenLabs fails, use gTTS as a fallback
+    # If ElevenLabs fails, use gTTS
     try:
-        speech = gTTS(quote)
-        os.makedirs(out, exist_ok=True)  # Ensure output directory exists
-        speech.save(f"{out}/{file}.mp3")
-        print(f"✅ gTTS Audio saved as {out}/{file}.mp3")
+        speech = gTTS(text)
+        os.makedirs(output_dir, exist_ok=True)
+        file_path = os.path.join(output_dir, f"{filename}.mp3")
+        speech.save(file_path)
+        print(f"✅ gTTS Audio saved as {file_path}")
+        return file_path
     except Exception as e:
         print(f"❌ Both ElevenLabs & gTTS failed: {e}")
+        return None
 
 def elevenlabs_tts(text, api_key, voice_id):
     """Generate speech using ElevenLabs API with a random voice ID."""
-    
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
         "xi-api-key": api_key,
@@ -82,11 +94,18 @@ def elevenlabs_tts(text, api_key, voice_id):
         "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}
     }
 
-    response = requests.post(url, json=data, headers=headers)
+    try:
+        response = requests.post(url, json=data, headers=headers, timeout=15)
 
-    if response.status_code == 200:
-        print("✅ ElevenLabs TTS Success!")
-        return response.content  # Returns audio file in bytes
-    else:
-        print(f"❌ ElevenLabs API error: {response.status_code} - {response.text}")
+        if response.status_code == 200:
+            print("✅ ElevenLabs TTS Success!")
+            return response.content  # Returns audio file in bytes
+        else:
+            print(f"❌ ElevenLabs API error: {response.status_code} - {response.text}")
+            return None
+    except requests.exceptions.Timeout:
+        print("⚠️ ElevenLabs API request timed out.")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"❌ ElevenLabs API request failed: {e}")
         return None
