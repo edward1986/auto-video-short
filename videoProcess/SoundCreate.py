@@ -42,7 +42,7 @@ ELEVENLABS_VOICE_IDS = [
     "9BWtsMINqrJLrRacOk9x", "ErXwobaYiN019PkySvjV"
 ]
 
-WORDS_PER_MINUTE = 150
+WORDS_PER_MINUTE = 180
 
 def adjust_text_length(text, target_duration=60):
     """Adjusts text length to match the target duration in seconds (approx. 150 WPM)."""
