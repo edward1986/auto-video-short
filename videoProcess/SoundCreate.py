@@ -16,7 +16,8 @@ ELEVENLABS_API_KEYS = [
     "sk_283d5bbca1f5fd5d7ad288907215a92bb3e40e60ace2e3c3",
     "sk_d44b0722cb0b36ec45c466c090274936b2171940bdc90ac5",
     "sk_daae0c0de846357315d7f829fcfbdb4b35ca9fecb6348cb1",
-    "sk_d78925238331831bfac502006c8415a5fbb052bdaa6688e9"
+    "sk_d78925238331831bfac502006c8415a5fbb052bdaa6688e9",
+    "sk_ab0230e48aaf55264693c09d0cd0e5822f4f14d8851c4241"
 ]
 
 # List of available ElevenLabs voice IDs
