@@ -453,19 +453,17 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
         return response
     except Exception as e:
         print(f"Error uploading video to YouTube: {e}")
+        base, ext = os.path.splitext(video_file_path)
+        new_file_path = f"{timestampFile}_{base}_retry{ext}"
 
-        if not retry:  # Prevent infinite loop
-            base, ext = os.path.splitext(video_file_path)
-            new_file_path = f"{timestampFile}_{base}_retry{ext}"
+        # Ensure we don't overwrite an existing file
+        counter = 1
+        while os.path.exists(new_file_path):
+            new_file_path = f"{timestampFile}_{base}_retry{counter}{ext}"
+            counter += 1
 
-            # Ensure we don't overwrite an existing file
-            counter = 1
-            while os.path.exists(new_file_path):
-                new_file_path = f"{timestampFile}_{base}_retry{counter}{ext}"
-                counter += 1
-
-            os.rename(video_file_path, new_file_path)
-            print(f"Renamed file to: {new_file_path}")
+        os.rename(video_file_path, new_file_path)
+        print(f"Renamed file to: {new_file_path}")
         
         return {"error": str(e)}
 
