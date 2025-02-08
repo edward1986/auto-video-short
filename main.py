@@ -1,4 +1,6 @@
 import os
+import re
+import mysql.connector
 import base64
 import requests
 import smtplib
@@ -17,7 +19,6 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
-import re
 # Load environment variables from .env file if running locally
 load_dotenv(".env")
 
@@ -79,6 +80,81 @@ except Exception as e:
 # Verify that the necessary files exist
 audio_path = f"{output_dir}/{timestampFile}.mp3"
 video_path = f"{output_dir}/{VIDEO_NAME}"
+def insert_blog_post_to_db(title, summary, content, keywords, slug, thumbnail):
+    # Fetch MySQL credentials from environment variables
+    mysql_host = os.getenv('MYSQL_HOST')
+    mysql_user = os.getenv('MYSQL_USER')
+    mysql_password = os.getenv('MYSQL_PASSWORD')
+    mysql_database = os.getenv('MYSQL_DATABASE')
+
+    # Connect to the remote MySQL database
+    db = mysql.connector.connect(
+        host=mysql_host,
+        user=mysql_user,
+        password=mysql_password,
+        database=mysql_database
+    )
+
+    cursor = db.cursor()
+    created_at = updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    page_sql = """
+    INSERT INTO `pages` (
+        `id`, `slug`, `target`, `type`, `featured_image`, 
+        `tool_name`, `icon_image`, `custom_tool_link`, `post_status`, 
+        `page_status`, `tool_status`, `ads_status`, `popular`, 
+        `position`, `category_id`, `created_at`, `updated_at`
+    ) 
+    VALUES (
+        NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+    )
+    """
+    pgSlug = re.sub(r'[^a-zA-Z0-9\s-]', '', slug.replace('The title is', '').replace('The title of this blog post is', '')).lower().strip().replace('\n', ' ').replace(' ', '-').replace('the-title-of-this-polished-and-professional-blog-post-is', "").replace('the-title-of-this-polished-and-professional-blog-post-is', "")
+    page_values = (
+        pgSlug , "_self", "post", "https://multiculturaltoolbox.com/assets/img/nastuh.jpg",
+        None, None, None,
+        1, 1,1,
+        1, 1, 1,
+        None, created_at, updated_at
+    )
+
+    # Execute the page insertion
+    cursor.execute(page_sql, page_values)
+    db.commit()
+
+    # Get the last inserted ID for `pages`
+    page_id = cursor.lastrowid
+    print(f"Inserted page ID: {page_id}")
+
+    # Insert current timestamp for created_at and updated_at
+    
+
+    # SQL query to insert the generated blog post
+
+    sql = """
+    INSERT INTO `page_translations` (
+        `locale`, 
+        `page_title`, 
+        `robots_meta`, 
+        `sitename_status`, 
+        `site_name_status`, 
+        `title`, 
+        `subtitle`, 
+        `short_description`, 
+        `description`, 
+        `page_id`, 
+        `created_at`, 
+        `updated_at`
+    ) 
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    values = (
+        "en", title.replace('The title is', '').replace('I think your revised blog post looks great', '').replace("Here is a rewritten version of the blog post with a polished and professional tone, grammar, and readability", '').replace('The title you provided is', '').replace('Here is the polished and professional version of the blog post', '').replace("Here's the revised blog post", '').replace('The title of this blog post is', '').strip('"').replace('\n', ' '), 1, 1,
+        1, title.replace('The title is', '').replace('I think your revised blog post looks great', '').replace("Here is a rewritten version of the blog post with a polished and professional tone, grammar, and readability", '').replace('The title you provided is', '').replace('Here is the polished and professional version of the blog post', '').replace("Here's the revised blog post", '').strip('"').replace('\n', ' '), title.replace('The title is', '').replace('I think your revised blog post looks great', '').replace("Here is a rewritten version of the blog post with a polished and professional tone, grammar, and readability", '').replace('The title you provided is', '').replace('Here is the polished and professional version of the blog post', '').replace("Here's the revised blog post", '').strip('"').replace('\n', ' '), title.replace('The title is', '').replace('I think your revised blog post looks great', '').replace("Here is a rewritten version of the blog post with a polished and professional tone, grammar, and readability", '').replace('The title you provided is', '').replace('Here is the polished and professional version of the blog post', '').replace("Here's the revised blog post", '').strip('"').replace('\n', ' '),
+        "<p>" +content.replace('Here is the edited blog post', '').replace("Here's is the edited blog post", '').replace("Here is a rewritten version of the blog post with a polished and professional tone, grammar, and readability", '').replace("Here's the revised blog post", '').replace('Here is the revised blog post', '').replace('\n', '<br>').replace('The title is', '').replace('The title of this blog post is', '').replace('Here is a polished and professional version of the blog post', '')+ "</p>", page_id, created_at, updated_at
+    )
+  
+    cursor.execute(sql, values)
+    db.commit()
 
 if not os.path.exists(audio_path):
     print(f"Error: Audio file {audio_path} does not exist.")
@@ -469,7 +545,7 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
 
 # Example usage for YouTube
 youtube_title = shorten(text_quote, width=90, placeholder="...")
-youtube_description = "https://multiculturaltoolbox.com/ " +  text_quote
+youtube_description = "👉 Explore now at https://multiculturaltoolbox.com/ " +  text_quote
 youtube_tags = ['cats', 'facts', 'https://edwardize.blogspot.com/', "http://multiculturaltoolbox.com/", "#cats", "#facts"]
 youtube_category_id = '22'  # YouTube category ID
 youtube_privacy_status = 'public'
@@ -479,6 +555,11 @@ response = upload_video_to_youtube(video_file_path, youtube_title, youtube_descr
 if 'id' in response:
     print('Video uploaded to YouTube successfully!')
     print('Response:', response)
+    keywords = "SEO, website, marketing, search engines"
+    slug = youtube_description.replace('"', '').replace("Here's the polished and professional version of the blog post", '').replace('The title of the blog post is', '').replace(':', '').replace('<br>', '').replace('*', '').replace('The title of this edited blog post is', '').replace('Based on your edited blog post, I would title it', '').replace('Here is the edited blog post', '').replace('Here is the revised blog post', '').replace('The title is', '').replace('The title of this blog post is', '').replace('Here is a polished and professional version of the blog post', '')
+    thumbnail = "default-thumbnail.jpg" 
+    insert_blog_post_to_db(youtube_title, shorten(text_quote, width=90, placeholder="..."), youtube_description, keywords, slug, thumbnail)
 else:
     print('Failed to upload video to YouTube.')
     print('Response:', response)
+
