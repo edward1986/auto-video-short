@@ -551,7 +551,6 @@ slug = shorten(text_quote, width=90, placeholder="").replace('"', '').replace("H
 
 # Remove unwanted special characters and non-alphanumeric characters
 slg = re.sub(r'[^a-zA-Z0-9\s-]', '', slug.replace('The title is:', ''))
-embed = f'<iframe width="560" height="315" src="https://www.youtube.com/embed/{response["id"]}?si=29DB6WpyN3vo8Ez1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>'
 # Optionally, convert to lowercase and replace spaces with hyphens for the final slug format
 slug_final = slg.lower().replace(" ", "-")
 
@@ -566,6 +565,8 @@ response = upload_video_to_youtube(video_file_path, youtube_title, youtube_descr
 if 'id' in response:
     print('Video uploaded to YouTube successfully!')
     print('Response:', response)
+    embed = f'<iframe width="560" height="315" src="https://www.youtube.com/embed/{response["id"]}?si=29DB6WpyN3vo8Ez1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>'
+
     keywords = "SEO, website, marketing, search engines"
     thumbnail = "default-thumbnail.jpg" 
     insert_blog_post_to_db(youtube_title, shorten(text_quote, width=90, placeholder="..."), embed + "" + text_quote, keywords, slug,  response.get("snippet", {}).get("thumbnails", {}).get("default", {}).get("url", "No Thumbnail Found"))
