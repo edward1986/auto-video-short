@@ -542,9 +542,10 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
         
         return {"error": str(e)}
 
-# Example usage for YouTube
+slug = text_quote.replace('"', '').replace("Here's the polished and professional version of the blog post", '').replace('The title of the blog post is', '').replace(':', '').replace('<br>', '').replace('*', '').replace('The title of this edited blog post is', '').replace('Based on your edited blog post, I would title it', '').replace('Here is the edited blog post', '').replace('Here is the revised blog post', '').replace('The title is', '').replace('The title of this blog post is', '').replace('Here is a polished and professional version of the blog post', '')
+    
 youtube_title = shorten(text_quote, width=90, placeholder="...")
-youtube_description = "👉 Explore now at https://multiculturaltoolbox.com/ " +  text_quote
+youtube_description = "👉 Explore now at https://multiculturaltoolbox.com/" + slug +  text_quote
 youtube_tags = ['cats', 'facts', 'https://edwardize.blogspot.com/', "http://multiculturaltoolbox.com/", "#cats", "#facts"]
 youtube_category_id = '22'  # YouTube category ID
 youtube_privacy_status = 'public'
@@ -555,9 +556,8 @@ if 'id' in response:
     print('Video uploaded to YouTube successfully!')
     print('Response:', response)
     keywords = "SEO, website, marketing, search engines"
-    slug = youtube_description.replace('"', '').replace("Here's the polished and professional version of the blog post", '').replace('The title of the blog post is', '').replace(':', '').replace('<br>', '').replace('*', '').replace('The title of this edited blog post is', '').replace('Based on your edited blog post, I would title it', '').replace('Here is the edited blog post', '').replace('Here is the revised blog post', '').replace('The title is', '').replace('The title of this blog post is', '').replace('Here is a polished and professional version of the blog post', '')
     thumbnail = "default-thumbnail.jpg" 
-    insert_blog_post_to_db(youtube_title, shorten(text_quote, width=90, placeholder="..."), youtube_description, keywords, slug, thumbnail)
+    insert_blog_post_to_db(youtube_title, shorten(text_quote, width=90, placeholder="..."), text_quote, keywords, slug, response.thumbnails.default.url)
 else:
     print('Failed to upload video to YouTube.')
     print('Response:', response)
