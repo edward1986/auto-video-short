@@ -551,8 +551,7 @@ slug = shorten(text_quote, width=90, placeholder="").replace('"', '').replace("H
 
 # Remove unwanted special characters and non-alphanumeric characters
 slg = re.sub(r'[^a-zA-Z0-9\s-]', '', slug.replace('The title is:', ''))
-embed = '<iframe width="560" height="315" src=f'https://www.youtube.com/embed/{response['id']}?si=29DB6WpyN3vo8Ez1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>'
-
+embed = f'<iframe width="560" height="315" src="https://www.youtube.com/embed/{response["id"]}?si=29DB6WpyN3vo8Ez1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>'
 # Optionally, convert to lowercase and replace spaces with hyphens for the final slug format
 slug_final = slg.lower().replace(" ", "-")
 
