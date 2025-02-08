@@ -1,6 +1,5 @@
 import os
 import re
-
 import mysql.connector
 import base64
 import requests
