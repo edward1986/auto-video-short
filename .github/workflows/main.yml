@@ -122,6 +122,11 @@ jobs:
         sudo rm -rf ~/.ollama  # Remove Ollama files and models to free up space
 
     - name: Run script
+      env:
+        MYSQL_HOST: ${{ secrets.MYSQL_HOST }}  # MySQL host IP (stored in GitHub Secrets)
+        MYSQL_USER: ${{ secrets.MYSQL_USER }}  # MySQL username (stored in GitHub Secrets)
+        MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}  # MySQL password (stored in GitHub Secrets)
+        MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
       run: |
         export CAT_FACT="${{ env.cat_fact }}"
         python main.py --max_tokens 100
