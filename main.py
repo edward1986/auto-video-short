@@ -82,7 +82,7 @@ audio_path = f"{output_dir}/{timestampFile}.mp3"
 video_path = f"{output_dir}/{VIDEO_NAME}"
 def insert_blog_post_to_db(title, summary, content, keywords, slug, thumbnail):
     # Fetch MySQL credentials from environment variables
-    mysql_host = os.getenv('MYSQL_HOST')
+    mysql_host = environ.get("MYSQL_HOST")
     mysql_user = os.getenv('MYSQL_USER')
     mysql_password = os.getenv('MYSQL_PASSWORD')
     mysql_database = os.getenv('MYSQL_DATABASE')
