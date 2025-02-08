@@ -21,7 +21,7 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 load_dotenv(".env")
 
-# Constants and configuration
+
 CLIENT_ID = environ.get("CLIENT_ID")
 CLIENT_SECRET = environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = environ.get("REFRESH_TOKEN")
