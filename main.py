@@ -557,7 +557,7 @@ if 'id' in response:
     print('Response:', response)
     keywords = "SEO, website, marketing, search engines"
     thumbnail = "default-thumbnail.jpg" 
-    insert_blog_post_to_db(youtube_title, shorten(text_quote, width=90, placeholder="..."), text_quote, keywords, slug, response.thumbnails.default.url)
+    insert_blog_post_to_db(youtube_title, shorten(text_quote, width=90, placeholder="..."), text_quote, keywords, slug, response.snippet.thumbnails.default.url)
 else:
     print('Failed to upload video to YouTube.')
     print('Response:', response)
