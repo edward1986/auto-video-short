@@ -1,1 +1,37 @@
+name: Sync Lofi Folder
 
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight UTC
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  sync-lofi:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Your Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Clone Target Repository
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/WintrCat/autoshorts.git temp_repo
+          cd temp_repo
+          git sparse-checkout set src/resources/music/lofi
+          cd ..
+
+      - name: Copy Lofi Folder
+        run: |
+          rsync -av temp_repo/src/resources/music/lofi/ ./lofi/
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Sync lofi folder from WintrCat/autoshorts"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
