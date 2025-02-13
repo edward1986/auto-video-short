@@ -1,32 +1,41 @@
-name: Upload parkour.mp4 from URL
+name: Upload Large File with Git LFS
 
 on:
   push:
     branches:
-      - Production  # Runs when changes are pushed to main
-  workflow_dispatch:  # Allows manual trigger from GitHub Actions
+      - main
+  workflow_dispatch:  # Allows manual trigger
 
 jobs:
-  upload_video:
+  upload_large_file:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v3
 
+    - name: Install Git LFS
+      run: |
+        git lfs install
+
     - name: Download parkour.mp4
       run: |
         curl -L -o parkour.mp4 "https://raw.githubusercontent.com/edwardlorilla1986/trivia/refs/heads/main/parkour.mp4"
+
+    - name: Track Large File with Git LFS
+      run: |
+        git lfs track "*.mp4"
+        git add .gitattributes
+        git add parkour.mp4
 
     - name: Configure Git
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Add & Commit Changes
+    - name: Commit & Push Changes
       run: |
-        git add parkour.mp4
-        git commit -m "Auto-uploaded parkour.mp4 from URL"
-        git push origin Production
+        git commit -m "Uploaded parkour.mp4 using Git LFS"
+        git push origin main
       env:
         GITHUB_TOKEN: ${{ secrets.PAT }}
