@@ -4,7 +4,7 @@ name: Generate Video
 on:
   push:
     branches:
-      - main
+      - Production
   workflow_dispatch:
 
 jobs:
