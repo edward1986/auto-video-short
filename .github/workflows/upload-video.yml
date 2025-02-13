@@ -27,6 +27,6 @@ jobs:
       run: |
         git add parkour.mp4
         git commit -m "Auto-uploaded parkour.mp4 from URL"
-        git push origin main
+        git push origin Production
       env:
         GITHUB_TOKEN: ${{ secrets.PAT }}
