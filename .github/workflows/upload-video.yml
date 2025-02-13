@@ -17,12 +17,10 @@ jobs:
 
       - name: Clone Target Repository with PAT
         run: |
-          git clone --depth 1 --filter=blob:none --sparse https://github.com/WintrCat/autoshorts.git temp_repo
+          git clone --depth 1 --filter=blob:none --sparse https://${{ secrets.PAT }}@github.com/WintrCat/autoshorts.git temp_repo
           cd temp_repo
           git sparse-checkout set src/resources/music/lofi
           cd ..
-        env:
-          GIT_ASKPASS: echo "${{ secrets.PAT_TOKEN }}"
 
       - name: Copy Lofi Folder
         run: |
@@ -34,6 +32,4 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Sync lofi folder from WintrCat/autoshorts"
-          git push https://x-access-token:${{ secrets.PAT }}@github.com/edwardlorilla1986/auto-video-short.git
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
+          git push https://${{ secrets.PAT }}@github.com/edwardlorilla1986/auto-video-short.git
