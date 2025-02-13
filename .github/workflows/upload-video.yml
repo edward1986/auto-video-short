@@ -3,7 +3,6 @@ name: Upload Large File with Git LFS
 on:
   push:
     branches:
-      - Production
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
