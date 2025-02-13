@@ -1,0 +1,32 @@
+name: Upload parkour.mp4 from URL
+
+on:
+  push:
+    branches:
+      - main  # Runs when changes are pushed to main
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions
+
+jobs:
+  upload_video:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Download parkour.mp4
+      run: |
+        curl -L -o parkour.mp4 "https://raw.githubusercontent.com/edwardlorilla1986/trivia/refs/heads/main/parkour.mp4"
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Add & Commit Changes
+      run: |
+        git add parkour.mp4
+        git commit -m "Auto-uploaded parkour.mp4 from URL"
+        git push origin main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_PAT }}
