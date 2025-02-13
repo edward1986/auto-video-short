@@ -234,11 +234,20 @@ if __name__ == "__main__":
 
         # Merge "animals" and "games" categories if present
         args["questions"] = args.get("animals", []) + args.get("games", [])
+        with open("tracks.json", "r", encoding="utf-8") as file:
+            tracks = json.load(file)
+    
+        # Select a random music track
+        selected_track = random.choice(tracks)  # Picks a random dictionary
+    
+        # Extract filename and dropTime
+        random_music_track = selected_track["filename"]
+        drop_time = selected_track["dropTime"]
     
         produce_short(
             questions=args["questions"],
             background=args["assets"]["background"],
-            music=args["assets"]["music"],
+            music=random_music_track,
             font=args["assets"]["font"],
             output=args["output"]
         )
