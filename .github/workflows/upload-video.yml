@@ -35,7 +35,8 @@ jobs:
 
     - name: Commit & Push Changes
       run: |
-        git commit -m "Uploaded parkour.mp4 using Git LFS"
-        git push https://github.com/edwardlorilla1986/auto-video-short.git HEAD:Production
+        git add -f .
+        git commit -m "Add generated video files"
+        git push origin Production
       env:
         GITHUB_TOKEN: ${{ secrets.PAT }}
