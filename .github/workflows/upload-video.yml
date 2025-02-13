@@ -3,7 +3,7 @@ name: Upload Large File with Git LFS
 on:
   push:
     branches:
-      - main
+      - Production
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
@@ -36,6 +36,6 @@ jobs:
     - name: Commit & Push Changes
       run: |
         git commit -m "Uploaded parkour.mp4 using Git LFS"
-        git push origin main
+        git push origin Production
       env:
         GITHUB_TOKEN: ${{ secrets.PAT }}
