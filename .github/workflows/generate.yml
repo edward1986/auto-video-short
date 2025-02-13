@@ -1,0 +1,81 @@
+
+name: Generate Video
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  generate_video:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Ensure Virtual Environment Exists
+        run: |
+          if [ ! -d "venv" ]; then
+            python -m venv venv  # ✅ Create venv only if missing
+          fi
+
+      - name: Reinstall Dependencies Inside venv
+        run: |
+          source venv/bin/activate  # ✅ Activate venv
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir --force-reinstall moviepy==1.0.3 numpy imageio imageio[ffmpeg] Pillow
+          pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+          pip install oauth2client
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - name: Update ImageMagick policy
+        run: |
+          if [ -f /etc/ImageMagick-7/policy.xml ]; then
+            POLICY_FILE="/etc/ImageMagick-7/policy.xml"
+          elif [ -f /etc/ImageMagick-6/policy.xml ]; then
+            POLICY_FILE="/etc/ImageMagick-6/policy.xml"
+          else
+            echo "No ImageMagick policy.xml file found."
+            exit 1
+          fi
+          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"/<!-- <policy domain="path" rights="none" pattern="@\*" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PS"/<!-- <policy domain="coder" rights="none" pattern="PS" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="EPI"/<!-- <policy domain="coder" rights="none" pattern="EPI" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="URL"/<!-- <policy domain="coder" rights="none" pattern="URL" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="MVG"/<!-- <policy domain="coder" rights="none" pattern="MVG" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="MSL"/<!-- <policy domain="coder" rights="none" pattern="MSL" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PDF"/<!-- <policy domain="coder" rights="none" pattern="PDF" -->/' $POLICY_FILE || true
+  
+
+      - name: Verify MoviePy Installation
+        run: |
+          source venv/bin/activate
+          sed -i 's/Image.ANTIALIAS/Image.LANCZOS/g' venv/lib/python3.9/site-packages/moviepy/video/fx/resize.py
+          python -m pip list | grep moviepy || echo "❌ moviepy is NOT installed!"
+          ls -R venv/lib/python3.9/site-packages/moviepy/video/fx || echo "❌ moviepy.video.fx directory is missing!"
+          ls -l venv/lib/python3.9/site-packages/moviepy || echo "❌ moviepy package folder is missing!"
+          ls -l venv/lib/python3.9/site-packages/moviepy/editor.py || echo "❌ moviepy.editor.py is missing!"
+
+      - name: Run script using Virtual Environment
+        run: |
+          source venv/bin/activate
+          python produce_short.py
+      - name: Ensure Output Directory Exists
+        run: mkdir -p out
+  
+      - name: Commit and Push Video
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add output.mp4
+          git commit -m "Auto-generated video output.mp4" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
