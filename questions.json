@@ -15960,8 +15960,8 @@
         }
     ],
     "assets": {
-    "background": "gridbackground.png",
-    "music": "music.mp3",
+    "background": "parkour.mp4",
+    "music": "src_resources_music_lofi_track1.mp3",
     "font": "default.ttf"
   },
   "output": "output.mp4"
