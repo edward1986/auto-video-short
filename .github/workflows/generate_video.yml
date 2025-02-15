@@ -17,7 +17,7 @@ jobs:
       - name: Install WINE & Dependencies
         run: |
           sudo apt update
-          sudo apt install -y wine64 python3-pip ffmpeg
+          sudo apt install -y wine64 python3-pip ffmpeg unzip wget
 
       - name: Install Python Dependencies
         run: |
@@ -83,7 +83,7 @@ jobs:
           }'
 
       - name: Upload Video Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # ✅ Updated to the latest version
         with:
           name: generated-chess-video
           path: output.mp4
