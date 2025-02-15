@@ -3,7 +3,7 @@ name: Generate Chess Video
 on:
   push:
     branches:
-      - Production
+      - main
   workflow_dispatch:  # Allows manual execution
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install chess moviepy==1.0.3 stockfish
+          pip install chess moviepy stockfish
 
       - name: Download & Extract Stockfish
         run: |
@@ -75,8 +75,8 @@ jobs:
             "pgn": "'"$(cat random_game.pgn)"'",
             "assets": {
               "background": "path/to/background.jpg",
-              "font": "default.ttf",
-              "music": "track1.mp3"
+              "font": "path/to/font.ttf",
+              "music": "path/to/music.mp3"
             },
             "musicDropTime": 5.0,
             "output": "output.mp4"
