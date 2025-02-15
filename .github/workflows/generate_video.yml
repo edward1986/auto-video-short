@@ -22,7 +22,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install chess moviepy stockfish
+          pip install chess moviepy==1.0.3 stockfish
 
       - name: Download & Extract Stockfish
         run: |
