@@ -1,0 +1,89 @@
+name: Generate Chess Video
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allows manual execution
+
+jobs:
+  generate_video:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install WINE & Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y wine64 python3-pip ffmpeg
+
+      - name: Install Python Dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install chess moviepy stockfish
+
+      - name: Download & Extract Stockfish
+        run: |
+          wget https://github.com/official-stockfish/Stockfish/releases/latest/download/stockfish-linux-x86-64.zip
+          unzip stockfish-linux-x86-64.zip -d stockfish
+          chmod +x stockfish/stockfish
+          mv stockfish/stockfish ./stockfish.exe
+
+      - name: Generate Random PGN
+        run: |
+          python3 - <<EOF
+          import chess
+          import chess.pgn
+          from io import StringIO
+          from stockfish import Stockfish
+
+          STOCKFISH_PATH = "./stockfish.exe"
+          stockfish = Stockfish(STOCKFISH_PATH)
+          stockfish.set_skill_level(5)
+          stockfish.set_depth(18)
+
+          game = chess.pgn.Game()
+          game.headers["Event"] = "Stockfish Random Game"
+          game.headers["White"] = "Stockfish"
+          game.headers["Black"] = "Stockfish"
+          board = chess.Board()
+
+          for _ in range(30):
+              if board.is_game_over():
+                  break
+              best_move = stockfish.get_best_move()
+              if best_move:
+                  move = chess.Move.from_uci(best_move)
+                  board.push(move)
+                  stockfish.set_fen_position(board.fen())
+              else:
+                  break
+
+          pgn_string = StringIO()
+          game.accept(chess.pgn.StringExporter(pgn_string))
+          with open("random_game.pgn", "w") as f:
+              f.write(pgn_string.getvalue())
+
+          print("Generated PGN:", pgn_string.getvalue())
+          EOF
+
+      - name: Run Chess Video Generator
+        run: |
+          python3 chess_video_generator.py '{
+            "pgn": "'"$(cat random_game.pgn)"'",
+            "assets": {
+              "background": "path/to/background.jpg",
+              "font": "default.ttf",
+              "music": "track1.mp3"
+            },
+            "musicDropTime": 5.0,
+            "output": "output.mp4"
+          }'
+
+      - name: Upload Video Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: generated-chess-video
+          path: output.mp4
