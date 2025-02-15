@@ -3,7 +3,7 @@ name: Generate Chess Video
 on:
   push:
     branches:
-      - main
+      - Production
   workflow_dispatch:  # Allows manual execution
 
 jobs:
