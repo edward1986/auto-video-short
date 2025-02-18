@@ -234,7 +234,7 @@ if __name__ == "__main__":
         args = json.load(file)
 
         # Merge "animals" and "games" categories if present
-        args["questions"] = args.get("sciences", []) +  args.get("animals", []) + args.get("games", [])
+        args["questions"] = args.get("science", []) +  args.get("animals", []) + args.get("games", [])
         with open("tracks.json", "r", encoding="utf-8") as file:
             tracks = json.load(file)
     
