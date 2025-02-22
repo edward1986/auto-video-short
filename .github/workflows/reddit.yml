@@ -3,8 +3,7 @@ name: Reddit Video Automation
 on:
   push:
     branches:
-      - Production
-  workflow_dispatch:  
+      - main
   schedule:
     - cron: '0 0 * * *'  # runs daily at midnight UTC
 
@@ -15,36 +14,37 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      
+
+      - name: Ensure count.txt exists
+        run: |
+          if [ ! -f count.txt ]; then
+            echo "0" > count.txt
+            echo "Created count.txt with initial value 0"
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      
+
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install praw requests moviepy==1.0.3
-      
-      - name: Run Reddit Video Script
+
+      - name: Run Reddit Script
         run: python reddit.py
-        env:
-          CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-          USER_AGENT: ${{ secrets.USER_AGENT }}
-          USERNAME: ${{ secrets.USERNAME }}
-          PASSWORD: ${{ secrets.PASSWORD }}
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          git add .
-          # Use [skip ci] in commit message to avoid triggering the workflow again.
+          git add -A
+          # [skip ci] prevents recursive workflow triggering
           git commit -m "Automated update of count and outputs [skip ci]" || echo "No changes to commit"
           git push
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
