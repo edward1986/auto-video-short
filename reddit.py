@@ -1,3 +1,4 @@
+print("reddit")
 import praw, os
 import requests, datetime
 from moviepy.editor import * 
@@ -11,7 +12,7 @@ username = "Current_Platform990"
 password = "eDwArD!@#1"
 
 folder = os.getcwd()    
-print("reddit")
+
 #            Get The First Posts
 reddit = praw.Reddit(client_id = client_id, client_secret = client_secret, user_agent = user_agent, username = username, password = password)
 print(calendar.weekday(int(datetime.datetime.now().strftime('%Y')), int(datetime.datetime.now().strftime('%m')), int(datetime.datetime.now().strftime('%d'))))
