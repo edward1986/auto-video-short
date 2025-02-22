@@ -11,13 +11,13 @@ print("reddit", flush=True)
 # Personal Reddit Info (ensure USER_AGENT is provided)
 client_id = "cteX2WuueE4oRMIyeMagAQ"
 client_secret = "7pYFeV-hJyLVhlq8in-aEKnna930Ag"
-user_agent = "MyRedditApp/0.1 by Current_Platform990"  # provide a valid user agent!
+user_agent = "MyRedditApp/0.1 by Current_Platform990"  # Set a valid user agent!
 username = "Current_Platform990"
 password = "eDwArD!@#1"
 
 folder = os.getcwd()
 
-# Create Reddit instance and log the current user (if possible)
+# Create Reddit instance
 try:
     reddit = praw.Reddit(
         client_id=client_id,
@@ -27,8 +27,6 @@ try:
         password=password
     )
     print("Reddit instance created successfully.", flush=True)
-    # Uncomment the following line to check your logged-in user (be cautious printing sensitive info)
-    # print("Logged in as:", reddit.user.me(), flush=True)
 except Exception as e:
     print("Error creating Reddit instance:", e, flush=True)
     sys.exit(1)
@@ -90,55 +88,50 @@ if os.path.exists(output_file):
     print("Video already created for today. Exiting.", flush=True)
     sys.exit(0)
 
-# Download videos from posts
+# Download videos using PRAW's video URL attribute
 videos = []
 for post in new:
     print("Post title:", post.title, flush=True)
     print("Post URL:", post.url, flush=True)
-    url_parts = post.url.split(".")
-    if url_parts[-1].lower() not in ["gif", "png", "jpg"]:
-        try:
-            req = requests.get(post.url)
-            content = req.content
-            parts = content.split(b'canonicalUrl":"')
-            if len(parts) < 2:
-                print("No canonicalUrl found; skipping post.", flush=True)
-                continue
-            postURL = parts[1].split(b'"')[0].decode("utf-8")
-            downloadURL = (
-                "https://sd.redditsave.com/download.php?permalink=" + postURL +
-                "&video_url=" + post.url + "/DASH_720.mp4?source=fallback" +
-                "&audio_url=" + post.url + "/DASH_audio.mp4?source=fallback"
-            )
-            print("Download URL:", downloadURL, flush=True)
-            reqDWN = requests.get(downloadURL)
-            video_filename = os.path.join(
-                todayfolder, f"{datetime.datetime.now().strftime('%H-%M-%S')}.mp4"
-            )
-            with open(video_filename, "wb") as f:
-                f.write(reqDWN.content)
-            videos.append(video_filename)
-        except Exception as e:
-            print("Error downloading video:", e, flush=True)
+    
+    # Process only video posts using PRAW's built-in attributes
+    if post.is_video and post.media and 'reddit_video' in post.media:
+        video_url = post.media['reddit_video'].get('fallback_url')
+        if video_url:
+            print("Video URL:", video_url, flush=True)
+            try:
+                reqDWN = requests.get(video_url)
+                video_filename = os.path.join(
+                    todayfolder, f"{datetime.datetime.now().strftime('%H-%M-%S')}.mp4"
+                )
+                with open(video_filename, "wb") as f:
+                    f.write(reqDWN.content)
+                videos.append(video_filename)
+            except Exception as e:
+                print("Error downloading video:", e, flush=True)
+        else:
+            print("No fallback_url available; skipping post.", flush=True)
     else:
-        print("Skipped image post.", flush=True)
+        print("Not a video post; skipping.", flush=True)
 
-# Merge video clips
+# Merge video clips if any were downloaded
+if not videos:
+    print("No valid clips downloaded. Exiting.", flush=True)
+    sys.exit(1)
+
 clips = []
-memes_files = os.listdir(todayfolder)
-for meme in memes_files:
-    meme_path = os.path.join(todayfolder, meme)
+for video_file in videos:
     try:
-        print("Processing file:", meme_path, flush=True)
-        clip = VideoFileClip(meme_path)
+        print("Processing file:", video_file, flush=True)
+        clip = VideoFileClip(video_file)
         clips.append(clip)
     except Exception as e:
-        print("Error with file:", meme_path, "Error:", e, flush=True)
-        os.remove(meme_path)
-        print("Removed corrupt file:", meme_path, flush=True)
+        print("Error with file:", video_file, "Error:", e, flush=True)
+        os.remove(video_file)
+        print("Removed corrupt file:", video_file, flush=True)
 
 if not clips:
-    print("No valid clips downloaded. Exiting.", flush=True)
+    print("No valid clips after processing. Exiting.", flush=True)
     sys.exit(1)
 
 print("Merging clips...", flush=True)
