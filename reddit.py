@@ -1,147 +1,162 @@
-print("reddit")
-
-import praw, os
-import requests, datetime
-from moviepy.editor import * 
+import os
+import sys
 import calendar
+import datetime
+import requests
+import praw
+from moviepy.editor import VideoFileClip, concatenate_videoclips
 
-#           Pesonal Reddit Info
+print("reddit", flush=True)
+
+# Personal Reddit Info (ensure USER_AGENT is provided)
 client_id = "cteX2WuueE4oRMIyeMagAQ"
 client_secret = "7pYFeV-hJyLVhlq8in-aEKnna930Ag"
-user_agent = ""
+user_agent = "MyRedditApp/0.1 by Current_Platform990"  # provide a valid user agent!
 username = "Current_Platform990"
 password = "eDwArD!@#1"
 
-folder = os.getcwd()    
+folder = os.getcwd()
 
-#            Get The First Posts
-reddit = praw.Reddit(client_id = client_id, client_secret = client_secret, user_agent = user_agent, username = username, password = password)
-print(calendar.weekday(int(datetime.datetime.now().strftime('%Y')), int(datetime.datetime.now().strftime('%m')), int(datetime.datetime.now().strftime('%d'))))
-weekday = calendar.weekday(int(datetime.datetime.now().strftime('%Y')), int(datetime.datetime.now().strftime('%m')), int(datetime.datetime.now().strftime('%d')))   
+# Create Reddit instance and log the current user (if possible)
+try:
+    reddit = praw.Reddit(
+        client_id=client_id,
+        client_secret=client_secret,
+        user_agent=user_agent,
+        username=username,
+        password=password
+    )
+    print("Reddit instance created successfully.", flush=True)
+    # Uncomment the following line to check your logged-in user (be cautious printing sensitive info)
+    # print("Logged in as:", reddit.user.me(), flush=True)
+except Exception as e:
+    print("Error creating Reddit instance:", e, flush=True)
+    sys.exit(1)
 
-if 0 == weekday or 4 == weekday:    #
+# Determine the current weekday
+today = datetime.datetime.now()
+weekday = calendar.weekday(today.year, today.month, today.day)
+print("Weekday (0=Mon, 6=Sun):", weekday, flush=True)
+
+# Select subreddit and post type based on weekday
+if weekday in [0, 4]:
     subred = reddit.subreddit("ClashRoyale")
-    new = subred.hot(limit = 50)
+    new = subred.hot(limit=50)
     game = "Clash Royale"
-
-elif 1 == weekday or 5 == weekday:##
-    subred = reddit.subreddit("MinecraftMemes") 
-    new = subred.hot(limit = 50)
+elif weekday in [1, 5]:
+    subred = reddit.subreddit("MinecraftMemes")
+    new = subred.hot(limit=50)
     game = "Minecraft"
-
-elif 2 == weekday:
+elif weekday == 2:
     subred = reddit.subreddit("WarzoneClips")
-    new = subred.new(limit = 50)
+    new = subred.new(limit=50)
     game = "Warzone"
-
-elif 3 == weekday:
+elif weekday == 3:
     subred = reddit.subreddit("GrandTheftAutoV")
-    new = subred.new(limit = 50)
+    new = subred.new(limit=50)
     game = "GTA"
-
-
-elif 6 == weekday:
+elif weekday == 6:
     subred = reddit.subreddit("ValorantMemes")
-    new = subred.hot(limit = 70)
+    new = subred.hot(limit=70)
     game = "Valorant"
+else:
+    print("Invalid weekday value.", flush=True)
+    sys.exit(1)
 
-
-
-#            Get The Video Count
-with open(folder+"/count.txt", "r") as f:
-    count = int(f.read())
-
-
-#           Create The Folders To Download The Memes
-todayfolder = folder + "/memes" + "/{}".format(datetime.datetime.now().strftime('%Y')) + "/{}".format(datetime.datetime.now().strftime('%m')) + "/{}".format(datetime.datetime.now().strftime('%d'))
+# Read the video count from count.txt
+count_file = os.path.join(folder, "count.txt")
 try:
-    os.mkdir(folder +"/memes/{}".format(datetime.datetime.now().strftime('%Y')))
-    os.mkdir(folder +"/memes/{}".format(datetime.datetime.now().strftime('%Y')) + "/{}".format(datetime.datetime.now().strftime('%m')))
-    os.mkdir(todayfolder)
-except OSError:
-    try:
-        os.mkdir(folder +"/memes/{}".format(datetime.datetime.now().strftime('%Y')) + "/{}".format(datetime.datetime.now().strftime('%m')))
-        os.mkdir(todayfolder)
-    except OSError:
-        try:
-            os.mkdir(todayfolder)
-        except OSError:
-            print("something went wrong while creating the memes folder")
-            os._exit(0)
+    with open(count_file, "r") as f:
+        count = int(f.read().strip())
+    print("Video count:", count, flush=True)
+except Exception as e:
+    print("Error reading count.txt:", e, flush=True)
+    count = 0
 
-    
+# Create today's folder for downloads
+todayfolder = os.path.join(
+    folder, "memes", today.strftime('%Y'), today.strftime('%m'), today.strftime('%d')
+)
+try:
+    os.makedirs(todayfolder, exist_ok=True)
+    print("Created/verified download folder:", todayfolder, flush=True)
+except Exception as e:
+    print("Error creating folder:", e, flush=True)
+    sys.exit(1)
 
-#        Make sure that the video Is Not already created
+# Check if today's video already exists
+output_file = os.path.join(folder, "output", f"output{today.strftime('%Y-%m-%d')}.mp4")
+if os.path.exists(output_file):
+    print("Video already created for today. Exiting.", flush=True)
+    sys.exit(0)
+
+# Download videos from posts
 videos = []
-try:
-    output = VideoFileClip(folder +'/output/output{}.mp4'.format(datetime.datetime.now().strftime('%Y-%m-%d')))
-    print("video alredy created")
-    os._exit(0)
-except OSError:
-    #                   Download all the videos
-    for i in new:
-        print(i.title,"\n" ,i.url, "\n")
-        format = i.url.split(".")
+for post in new:
+    print("Post title:", post.title, flush=True)
+    print("Post URL:", post.url, flush=True)
+    url_parts = post.url.split(".")
+    if url_parts[-1].lower() not in ["gif", "png", "jpg"]:
+        try:
+            req = requests.get(post.url)
+            content = req.content
+            parts = content.split(b'canonicalUrl":"')
+            if len(parts) < 2:
+                print("No canonicalUrl found; skipping post.", flush=True)
+                continue
+            postURL = parts[1].split(b'"')[0].decode("utf-8")
+            downloadURL = (
+                "https://sd.redditsave.com/download.php?permalink=" + postURL +
+                "&video_url=" + post.url + "/DASH_720.mp4?source=fallback" +
+                "&audio_url=" + post.url + "/DASH_audio.mp4?source=fallback"
+            )
+            print("Download URL:", downloadURL, flush=True)
+            reqDWN = requests.get(downloadURL)
+            video_filename = os.path.join(
+                todayfolder, f"{datetime.datetime.now().strftime('%H-%M-%S')}.mp4"
+            )
+            with open(video_filename, "wb") as f:
+                f.write(reqDWN.content)
+            videos.append(video_filename)
+        except Exception as e:
+            print("Error downloading video:", e, flush=True)
+    else:
+        print("Skipped image post.", flush=True)
 
-
-        if format[-1] != "gif" and format[-1] != "png" and format[-1] != "jpg":
-            req = requests.get(i.url)
-            try:
-                postURL = req.content.split(b'canonicalUrl":"')
-                postURL = postURL[1].split(b'"')
-                postURL = postURL[0]
-                postURL = postURL.decode("utf-8")
-
-                dowloadURL = "https://sd.redditsave.com/download.php?permalink=" + postURL + "&video_url=" + i.url + "/DASH_720.mp4?source=fallback&audio_url=" + i.url + "/DASH_audio.mp4?source=fallback"
-                print(dowloadURL, "\n\n\n")
-
-                reqDWN = requests.get(dowloadURL)
-                videos.append(reqDWN.content)
-                with open(todayfolder + "/{}.mp4".format(datetime.datetime.now().strftime('%H-%M-%S')), "wb") as f:
-                    f.write(reqDWN.content)
-            except IndexError:
-                print("\nwrong URL skipping\n")
-
-
-#           Merge all the clips into one video
+# Merge video clips
 clips = []
-memes = os.listdir(todayfolder)
-
-for meme in memes:
+memes_files = os.listdir(todayfolder)
+for meme in memes_files:
+    meme_path = os.path.join(todayfolder, meme)
     try:
-        #       Make sure the file is not corrupted
-        print(todayfolder +"/" + meme)
-        comp = concatenate_videoclips([VideoFileClip(folder +"/comp.mp4"), VideoFileClip(todayfolder + "/" + meme)], method= "compose")
-        #clips.append(VideoFileClip(todayfolder + "/"  + meme))
-        
-    except OSError:
-        os.remove(todayfolder + "/" + meme)
-        print("\nRemoving Corrupt Clip ...\n")
+        print("Processing file:", meme_path, flush=True)
+        clip = VideoFileClip(meme_path)
+        clips.append(clip)
+    except Exception as e:
+        print("Error with file:", meme_path, "Error:", e, flush=True)
+        os.remove(meme_path)
+        print("Removed corrupt file:", meme_path, flush=True)
 
-memes = os.listdir(todayfolder)
+if not clips:
+    print("No valid clips downloaded. Exiting.", flush=True)
+    sys.exit(1)
 
-for meme in memes:
-    clips.append(VideoFileClip(todayfolder + "/"  + meme))
+print("Merging clips...", flush=True)
+final_clip = concatenate_videoclips(clips, method="compose")
+output_folder = os.path.join(folder, "output")
+os.makedirs(output_folder, exist_ok=True)
+final_output = os.path.join(output_folder, f"output{today.strftime('%Y-%m-%d')}.mp4")
+final_clip.write_videofile(final_output)
 
-print("done selecting the clips ...")
-
-allclips = []
-for clip in clips:
-    allclips.append(clip)
-
-result_clip = concatenate_videoclips(allclips, method= "compose")
-result_clip.write_videofile(folder+'/output/output{}.mp4'.format(datetime.datetime.now().strftime('%Y-%m-%d')))
-
-
-#               Upload Video To Youtube
+# Prepare YouTube upload details (this part is not implemented)
 vidtitle = f"Memes/Funny Clips {game} #{count}"
-description = f"Automated Memes/Funny Clips video #{count}\n\nContact Me:  multiculturaltoolbox.com"
+description = f"Automated Memes/Funny Clips video #{count}\n\nContact Me: multiculturaltoolbox.com"
+print("Video Title:", vidtitle, flush=True)
+print("Description:", description, flush=True)
 
-
-
-
-with open(folder+"/count.txt", "w") as f:    
+# Update the video count
+with open(count_file, "w") as f:
     f.write(str(count + 1))
+print("Updated video count to:", count + 1, flush=True)
 
-# Done
-print("done")
+print("done", flush=True)
