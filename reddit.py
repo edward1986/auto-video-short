@@ -2,7 +2,6 @@ import os
 import sys
 import calendar
 from datetime import datetime
-from dotenv import load_dotenv
 import requests
 import praw
 from os import environ
