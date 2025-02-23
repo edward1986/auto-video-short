@@ -38,6 +38,24 @@ jobs:
           pip install python-dotenv
           pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
           pip install praw requests moviepy==1.0.3
+      - name: Update ImageMagick policy
+        run: |
+          if [ -f /etc/ImageMagick-7/policy.xml ]; then
+            POLICY_FILE="/etc/ImageMagick-7/policy.xml"
+          elif [ -f /etc/ImageMagick-6/policy.xml ]; then
+            POLICY_FILE="/etc/ImageMagick-6/policy.xml"
+          else
+            echo "No ImageMagick policy.xml file found."
+            exit 1
+          fi
+          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"/<!-- <policy domain="path" rights="none" pattern="@\*" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PS"/<!-- <policy domain="coder" rights="none" pattern="PS" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="EPI"/<!-- <policy domain="coder" rights="none" pattern="EPI" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="URL"/<!-- <policy domain="coder" rights="none" pattern="URL" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="MVG"/<!-- <policy domain="coder" rights="none" pattern="MVG" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="MSL"/<!-- <policy domain="coder" rights="none" pattern="MSL" -->/' $POLICY_FILE || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PDF"/<!-- <policy domain="coder" rights="none" pattern="PDF" -->/' $POLICY_FILE || true
+  
 
       - name: Run Reddit Script
         run: python reddit.py
