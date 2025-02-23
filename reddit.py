@@ -1,7 +1,6 @@
 import os
 import sys
 import calendar
-import datetime
 from datetime import datetime
 import requests
 import praw
@@ -40,7 +39,7 @@ except Exception as e:
     sys.exit(1)
 
 # Determine the current weekday
-today = datetime.datetime.now()
+today = datetime.now()
 weekday = calendar.weekday(today.year, today.month, today.day)
 print("Weekday (0=Mon, 6=Sun):", weekday, flush=True)
 
@@ -110,7 +109,7 @@ for post in new:
             try:
                 reqDWN = requests.get(video_url)
                 video_filename = os.path.join(
-                    todayfolder, f"{datetime.datetime.now().strftime('%H-%M-%S')}.mp4"
+                    todayfolder, f"{datetime.now().strftime('%H-%M-%S')}.mp4"
                 )
                 with open(video_filename, "wb") as f:
                     f.write(reqDWN.content)
