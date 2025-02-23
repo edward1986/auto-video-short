@@ -5,7 +5,10 @@ import datetime
 import requests
 import praw
 from moviepy.editor import VideoFileClip, concatenate_videoclips
-
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.credentials import Credentials
 print("reddit", flush=True)
 
 # Personal Reddit Info (ensure USER_AGENT is provided)
@@ -135,6 +138,68 @@ if not clips:
     sys.exit(1)
 
 print("Merging clips...", flush=True)
+
+
+def get_authenticated_service():
+    try:
+        credentials = Credentials(
+            None,
+            refresh_token=REFRESH_TOKEN,
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET
+        )
+        credentials.refresh(Request())
+        return build('youtube', 'v3', credentials=credentials)
+    except Exception as e:
+        print(f"Error authenticating YouTube service: {e}")
+        return None
+
+def upload_video_to_youtube(video_file_path, title, description, tags, category_id, privacy_status):
+    try:
+        youtube = get_authenticated_service()
+        if not youtube:
+            raise ValueError("Failed to get YouTube authenticated service")
+
+        body = {
+            'snippet': {
+                'title': title,
+                'description': description,
+                'tags': tags,
+                'categoryId': category_id
+            },
+            'status': {
+                'privacyStatus': privacy_status
+            }
+        }
+
+        media = MediaFileUpload(video_file_path, chunksize=-1, resumable=True)
+
+        request = youtube.videos().insert(
+            part="snippet,status",
+            body=body,
+            media_body=media
+        )
+
+        response = request.execute()
+        print(f"Video uploaded to YouTube: {response['id']}")
+        return response
+    except Exception as e:
+        print(f"Error uploading video to YouTube: {e}")
+        base, ext = os.path.splitext(video_file_path)
+        new_file_path = f"{timestampFile}_{base}_retry{ext}"
+
+        # Ensure we don't overwrite an existing file
+        counter = 1
+        while os.path.exists(new_file_path):
+            new_file_path = f"{timestampFile}_{base}_retry{counter}{ext}"
+            counter += 1
+
+        os.rename(video_file_path, new_file_path)
+        print(f"Renamed file to: {new_file_path}")
+        
+        return {"error": str(e)}
+
 final_clip = concatenate_videoclips(clips, method="compose")
 output_folder = os.path.join(folder, "output")
 os.makedirs(output_folder, exist_ok=True)
@@ -146,6 +211,11 @@ vidtitle = f"Memes/Funny Clips {game} #{count}"
 description = f"Automated Memes/Funny Clips video #{count}\n\nContact Me: multiculturaltoolbox.com"
 print("Video Title:", vidtitle, flush=True)
 print("Description:", description, flush=True)
+
+youtube_tags = [game, 'facts', 'https://edwardize.blogspot.com/', "http://multiculturaltoolbox.com/", "#{game}", "#Funny"]
+youtube_category_id = '22'  # YouTube category ID
+youtube_privacy_status = 'public'
+response = upload_video_to_youtube(final_output, vidtitle, description, youtube_tags, youtube_category_id, youtube_privacy_status)
 
 # Update the video count
 with open(count_file, "w") as f:
