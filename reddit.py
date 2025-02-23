@@ -5,18 +5,20 @@ from datetime import datetime
 import requests
 import praw
 from os import environ
-from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip, concatenate_videoclips, CompositeVideoClip, TextClip
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from dotenv import load_dotenv
+
 load_dotenv(".env")
 CLIENT_ID_YOUTUBE = environ.get("CLIENT_ID")
 CLIENT_SECRET_YOUTUBE = environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = environ.get("REFRESH_TOKEN")
 timestamp = datetime.now().strftime("%Y%m%d")
 timestampFile = datetime.now().strftime("%H%M%S")
+
 # Personal Reddit Info (ensure USER_AGENT is provided)
 client_id = "cteX2WuueE4oRMIyeMagAQ"
 client_secret = "7pYFeV-hJyLVhlq8in-aEKnna930Ag"
@@ -97,11 +99,24 @@ if os.path.exists(output_file):
     print("Video already created for today. Exiting.", flush=True)
     sys.exit(0)
 
-# Download videos using PRAW's video URL attribute
-videos = []
+# Download videos and retrieve top comment using PRAW's video URL attribute
+# Each entry is a tuple: (video_filename, top_comment)
+video_items = []
 for post in new:
     print("Post title:", post.title, flush=True)
     print("Post URL:", post.url, flush=True)
+    
+    # Retrieve top comment from the post
+    try:
+        post.comments.replace_more(limit=0)
+        if post.comments:
+            top_comment = post.comments[0].body
+        else:
+            top_comment = "No comments available."
+    except Exception as e:
+        top_comment = "Error retrieving comment."
+    
+    print("Top comment:", top_comment, flush=True)
     
     # Process only video posts using PRAW's built-in attributes
     if post.is_video and post.media and 'reddit_video' in post.media:
@@ -115,7 +130,7 @@ for post in new:
                 )
                 with open(video_filename, "wb") as f:
                     f.write(reqDWN.content)
-                videos.append(video_filename)
+                video_items.append((video_filename, top_comment))
             except Exception as e:
                 print("Error downloading video:", e, flush=True)
         else:
@@ -124,16 +139,26 @@ for post in new:
         print("Not a video post; skipping.", flush=True)
 
 # Merge video clips if any were downloaded
-if not videos:
+if not video_items:
     print("No valid clips downloaded. Exiting.", flush=True)
     sys.exit(1)
 
 clips = []
-for video_file in videos:
+for video_file, comment in video_items:
     try:
         print("Processing file:", video_file, flush=True)
         clip = VideoFileClip(video_file)
-        clips.append(clip)
+        # Create a text clip with the Reddit comment
+        comment_clip = TextClip(comment,
+                                fontsize=24,
+                                color='white',
+                                bg_color='black',
+                                method='caption',
+                                size=(clip.w, None))
+        comment_clip = comment_clip.set_duration(clip.duration).set_position(("center", "bottom"))
+        # Overlay the comment text on the video
+        composite_clip = CompositeVideoClip([clip, comment_clip])
+        clips.append(composite_clip)
     except Exception as e:
         print("Error with file:", video_file, "Error:", e, flush=True)
         os.remove(video_file)
@@ -145,6 +170,30 @@ if not clips:
 
 print("Merging clips...", flush=True)
 
+# Create entertaining intro and outro clips
+intro_text = "Welcome to Meme Madness!"
+intro_clip = TextClip(intro_text,
+                      fontsize=70,
+                      color='yellow',
+                      font='Amiri-Bold',
+                      bg_color='black',
+                      size=clips[0].size)
+intro_clip = intro_clip.set_duration(3)
+
+outro_text = "Thanks for Watching! Subscribe for More Laughs!"
+outro_clip = TextClip(outro_text,
+                      fontsize=60,
+                      color='cyan',
+                      font='Amiri-Bold',
+                      bg_color='black',
+                      size=clips[0].size)
+outro_clip = outro_clip.set_duration(3)
+
+final_clip = concatenate_videoclips([intro_clip] + clips + [outro_clip], method="compose")
+output_folder = os.path.join(folder, "output")
+os.makedirs(output_folder, exist_ok=True)
+final_output = os.path.join(output_folder, f"output{today.strftime('%Y-%m-%d')}.mp4")
+final_clip.write_videofile(final_output)
 
 def get_authenticated_service():
     try:
@@ -180,13 +229,11 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
         }
 
         media = MediaFileUpload(video_file_path, chunksize=-1, resumable=True)
-
         request = youtube.videos().insert(
             part="snippet,status",
             body=body,
             media_body=media
         )
-
         response = request.execute()
         print(f"Video uploaded to YouTube: {response['id']}")
         return response
@@ -203,14 +250,7 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
 
         os.rename(video_file_path, new_file_path)
         print(f"Renamed file to: {new_file_path}")
-        
         return {"error": str(e)}
-
-final_clip = concatenate_videoclips(clips, method="compose")
-output_folder = os.path.join(folder, "output")
-os.makedirs(output_folder, exist_ok=True)
-final_output = os.path.join(output_folder, f"output{today.strftime('%Y-%m-%d')}.mp4")
-final_clip.write_videofile(final_output)
 
 # Prepare YouTube upload details (this part is not implemented)
 vidtitle = f"Memes/Funny Clips {game} #{count}"
