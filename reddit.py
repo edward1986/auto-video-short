@@ -10,6 +10,8 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
+from dotenv import load_dotenv
+load_dotenv(".env")
 CLIENT_ID_YOUTUBE = environ.get("CLIENT_ID")
 CLIENT_SECRET_YOUTUBE = environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = environ.get("REFRESH_TOKEN")
