@@ -415,7 +415,7 @@ def publish_reel(page_id, page_access_token, video_id, description):
         return None
 
 video_title = text_quote
-video_description = "https://multiculturaltoolbox.com/ " +  text_quote
+video_description = "https://tinyurl.com/1zx00SheinGiftCardNow " +  text_quote
 video_file_path = f"{output_dir}/{FINAL_VIDEO}"
 
 session_data = initialize_upload_session(PAGE_ID, PAGE_ACCESS_TOKEN)
@@ -429,7 +429,7 @@ if "upload_url" in session_data:
         publish_response = publish_reel(PAGE_ID, PAGE_ACCESS_TOKEN, video_id, video_description)
         print("Publish Response:", publish_response)
         if 'success' in publish_response:
-            comment_message = "https://amzn.to/4cv2MXh" +"\n https://paxorex.blogspot.com/ Check out this awesome video!"
+            comment_message = "https://tinyurl.com/1zx00SheinGiftCardNow" +"\n https://paxorex.blogspot.com/ Check out this awesome video!"
             comment_response = comment_on_video(video_id, PAGE_ACCESS_TOKEN, comment_message)
             print("Comment Response:", comment_response)
 
