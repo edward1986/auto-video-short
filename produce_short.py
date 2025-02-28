@@ -156,7 +156,7 @@ def produce_short(
         temp_audiofile="out/TEMP_trivia.mp4"
     )
     youtube_title = shorten(question['title'], width=90, placeholder="...")
-    youtube_description = "👉 Explore now at https://multiculturaltoolbox.com/blog/" + " " +  question['title']
+    youtube_description = "👉 Explore now at https://tinyurl.com/1zx00SheinGiftCardNow \nhttps://multiculturaltoolbox.com/blog/" + " " +  question['title']
     youtube_tags = ['cats', 'facts', 'https://edwardize.blogspot.com/', "http://multiculturaltoolbox.com/", "#cats", "#facts"]
     youtube_category_id = '22'  # YouTube category ID
     youtube_privacy_status = 'public'
