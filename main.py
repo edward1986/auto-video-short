@@ -573,7 +573,7 @@ if response["id"]:
     print(f"::set-output name=YOUTUBE_TAGS::{','.join(youtube_tags)}")
     print(f"::set-output name=YOUTUBE_CATEGORY_ID::{youtube_category_id}")
     print(f"::set-output name=YOUTUBE_PRIVACY_STATUS::{youtube_privacy_status}")
-    print(f"::set-output name=YOUTUBE_VIDEO_ID::{response["id"]}")
+    print(f"::set-output name=YOUTUBE_VIDEO_ID::{response['id']}")
 
 else:
     print("❌ Failed to upload video. No metadata saved.")
