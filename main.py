@@ -562,6 +562,24 @@ youtube_privacy_status = 'public'
 
 response = upload_video_to_youtube(video_file_path, youtube_title, youtube_description, youtube_tags, youtube_category_id, youtube_privacy_status)
 
+if response["id"]:
+    with open(".env", "a") as env_file:
+        env_file.write(f"\nYOUTUBE_VIDEO_ID={response["id"]}\n")
+
+    print("✅ YouTube metadata saved for GitHub Actions.")
+
+    # Output metadata for GitHub Actions
+    print(f"::set-output name=YOUTUBE_TITLE::{youtube_title}")
+    print(f"::set-output name=YOUTUBE_DESCRIPTION::{youtube_description}")
+    print(f"::set-output name=YOUTUBE_TAGS::{','.join(youtube_tags)}")
+    print(f"::set-output name=YOUTUBE_CATEGORY_ID::{youtube_category_id}")
+    print(f"::set-output name=YOUTUBE_PRIVACY_STATUS::{youtube_privacy_status}")
+    print(f"::set-output name=YOUTUBE_VIDEO_ID::{response["id"]}")
+
+else:
+    print("❌ Failed to upload video. No metadata saved.")
+
+
 if 'id' in response:
     print('Video uploaded to YouTube successfully!')
     print('Response:', response)
