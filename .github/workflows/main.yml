@@ -131,10 +131,11 @@ jobs:
       run: |
         export CAT_FACT="${{ env.cat_fact }}"
         python main.py --max_tokens 100
-    - name: Load Environment Variables
+    - name: Load Environment Variables Safely
       run: |
-        export $(cat .env | xargs)
-
+        set -a
+        source .env
+        set +a
     - name: Generate YouTube Metadata
       run: |
         echo "YOUTUBE_TITLE=${YOUTUBE_TITLE}" >> $GITHUB_ENV
