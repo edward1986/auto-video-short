@@ -131,7 +131,18 @@ jobs:
       run: |
         export CAT_FACT="${{ env.cat_fact }}"
         python main.py --max_tokens 100
+    - name: Load Environment Variables
+      run: |
+        export $(cat .env | xargs)
 
+    - name: Generate YouTube Metadata
+      run: |
+        echo "YOUTUBE_TITLE=${YOUTUBE_TITLE}" >> $GITHUB_ENV
+        echo "YOUTUBE_DESCRIPTION=${YOUTUBE_DESCRIPTION}" >> $GITHUB_ENV
+        echo "YOUTUBE_TAGS=${YOUTUBE_TAGS}" >> $GITHUB_ENV
+        echo "YOUTUBE_CATEGORY_ID=${YOUTUBE_CATEGORY_ID}" >> $GITHUB_ENV
+        echo "YOUTUBE_PRIVACY_STATUS=${YOUTUBE_PRIVACY_STATUS}" >> $GITHUB_ENV
+        echo "YOUTUBE_VIDEO_ID=${YOUTUBE_VIDEO_ID}" >> $GITHUB_ENV
     - name: Commit output files
       run: |
         git config --global user.name 'github-actions'
