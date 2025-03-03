@@ -564,8 +564,7 @@ response = upload_video_to_youtube(video_file_path, youtube_title, youtube_descr
 
 if response["id"]:
     with open(".env", "a") as env_file:
-        env_file.write(f"\nYOUTUBE_VIDEO_ID={response["id"]}\n")
-
+        env_file.write(f"\nYOUTUBE_VIDEO_ID={response['id']}\n")
     print("✅ YouTube metadata saved for GitHub Actions.")
 
     # Output metadata for GitHub Actions
