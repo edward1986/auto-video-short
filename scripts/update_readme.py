@@ -10,7 +10,7 @@ feed = feedparser.parse(RSS_FEED_URL)
 
 # Extract latest posts
 latest_posts = []
-for entry in feed.entries[:5]:  # Limit to 5 latest posts
+for entry in feed.entries[:100]:  # Limit to 5 latest posts
     title = entry.title
     link = entry.link
     description = entry.description.replace("<p>", "").replace("</p>", "").strip()
