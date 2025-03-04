@@ -18,7 +18,9 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.x"
-
+      - name: Install Dependencies
+        run: |
+          pip install feedparser
       - name: Fetch Latest Blog Posts and Update README
         run: |
           python scripts/update_readme.py
