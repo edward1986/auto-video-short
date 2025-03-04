@@ -148,6 +148,9 @@ jobs:
       run: |
         git config --global user.name 'github-actions'
         git config --global user.email 'github-actions@github.com'
+        git fetch origin
+        # 2️⃣ Merge remote changes into your local branch
+        git pull origin Production --rebase
         git add -f .
         git commit -m "Add generated video files"
         git push origin Production
