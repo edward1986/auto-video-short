@@ -10,6 +10,7 @@ AUDIO = os.getenv("AUDIO_NAME", "speech.mp3")
 
 # API Keys (with fallback)
 ELEVENLABS_API_KEYS = [
+    "sk_20332f0c1d8310b0400bd0dba6e732c7659dc71ab5d2941f",
     "sk_5b833db1762b19398ec215285d6e2806d4493405a38f44d5",
     "sk_f98ef37dfa0a699708b8850eae28af91a21596a8bcd909a0",
     "sk_b1ebf59a4416868e21a8737e2b3ffbe05d02e715693e61fb",
