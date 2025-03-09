@@ -997,6 +997,506 @@
             "Brexit Referendum"
         ],
         "correct": 2
+    },
+        {
+        "title": "Which of these bones is NOT found in the human leg?",
+        "answers": [
+            "Femur",
+            "Tibia",
+            "Humerus",
+            "Fibula"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these animals is NOT a type of reptile?",
+        "answers": [
+            "Snake",
+            "Frog",
+            "Lizard",
+            "Turtle"
+        ],
+        "correct": 1
+    },
+    {
+        "title": "Which of these countries does NOT have a coastline?",
+        "answers": [
+            "Austria",
+            "Portugal",
+            "Japan",
+            "Greece"
+        ],
+        "correct": 0
+    },
+    {
+        "title": "Which of these numbers is NOT an even number?",
+        "answers": [
+            "8",
+            "14",
+            "23",
+            "42"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these Shakespeare plays is NOT a comedy?",
+        "answers": [
+            "Much Ado About Nothing",
+            "A Midsummer Night’s Dream",
+            "Hamlet",
+            "Twelfth Night"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these scientists did NOT win a Nobel Prize?",
+        "answers": [
+            "Albert Einstein",
+            "Marie Curie",
+            "Stephen Hawking",
+            "Richard Feynman"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these elements is NOT one of the four most abundant in the human body?",
+        "answers": [
+            "Oxygen",
+            "Carbon",
+            "Calcium",
+            "Hydrogen"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these colors is NOT in the visible spectrum of light?",
+        "answers": [
+            "Red",
+            "Ultraviolet",
+            "Green",
+            "Blue"
+        ],
+        "correct": 1
+    },
+    {
+        "title": "Which of these literary works was NOT written by Charles Dickens?",
+        "answers": [
+            "Great Expectations",
+            "Moby-Dick",
+            "A Tale of Two Cities",
+            "Oliver Twist"
+        ],
+        "correct": 1
+    },
+    {
+        "title": "Which of these sports does NOT involve a racquet?",
+        "answers": [
+            "Tennis",
+            "Badminton",
+            "Squash",
+            "Water Polo"
+        ],
+        "correct": 3
+    },
+        {
+        "title": "Which of these planets is NOT classified as a dwarf planet?",
+        "answers": [
+            "Pluto",
+            "Eris",
+            "Ceres",
+            "Neptune"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these chemical elements is NOT a noble gas?",
+        "answers": [
+            "Argon",
+            "Helium",
+            "Chlorine",
+            "Krypton"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these countries does NOT share a border with Russia?",
+        "answers": [
+            "China",
+            "Poland",
+            "Mongolia",
+            "Finland"
+        ],
+        "correct": 1
+    },
+    {
+        "title": "Which of these U.S. states does NOT belong to the original thirteen colonies?",
+        "answers": [
+            "Virginia",
+            "Georgia",
+            "California",
+            "Massachusetts"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these Greek gods is NOT one of the Twelve Olympians?",
+        "answers": [
+            "Zeus",
+            "Poseidon",
+            "Hades",
+            "Aphrodite"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these computer storage units is NOT smaller than a terabyte?",
+        "answers": [
+            "Gigabyte",
+            "Megabyte",
+            "Kilobyte",
+            "Petabyte"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these musical instruments does NOT use strings to produce sound?",
+        "answers": [
+            "Piano",
+            "Guitar",
+            "Flute",
+            "Violin"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these historical events did NOT take place in the 20th century?",
+        "answers": [
+            "World War I",
+            "The French Revolution",
+            "The Moon Landing",
+            "The Fall of the Berlin Wall"
+        ],
+        "correct": 1
+    },
+    {
+        "title": "Which of these animals is NOT classified as a carnivore?",
+        "answers": [
+            "Lion",
+            "Wolf",
+            "Gorilla",
+            "Eagle"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these natural disasters is NOT related to weather conditions?",
+        "answers": [
+            "Hurricane",
+            "Tornado",
+            "Earthquake",
+            "Blizzard"
+        ],
+        "correct": 2
+    },
+        {
+        "title": "Which of these metals is NOT a good conductor of electricity?",
+        "answers": [
+            "Copper",
+            "Silver",
+            "Gold",
+            "Lead"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these planets is NOT a part of the inner solar system?",
+        "answers": [
+            "Mercury",
+            "Venus",
+            "Earth",
+            "Uranus"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these famous battles did NOT take place during World War II?",
+        "answers": [
+            "Battle of Stalingrad",
+            "Battle of Midway",
+            "Battle of Hastings",
+            "Battle of Normandy"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these organs is NOT part of the human respiratory system?",
+        "answers": [
+            "Lungs",
+            "Trachea",
+            "Esophagus",
+            "Diaphragm"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these books was NOT written by J.R.R. Tolkien?",
+        "answers": [
+            "The Hobbit",
+            "The Lord of the Rings",
+            "A Game of Thrones",
+            "The Silmarillion"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these U.S. landmarks is NOT located in New York City?",
+        "answers": [
+            "Statue of Liberty",
+            "Empire State Building",
+            "Golden Gate Bridge",
+            "Times Square"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these sports is NOT played with a ball?",
+        "answers": [
+            "Soccer",
+            "Rugby",
+            "Ice Hockey",
+            "Baseball"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these numbers is NOT a Fibonacci number?",
+        "answers": [
+            "5",
+            "8",
+            "10",
+            "13"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these programming languages is NOT primarily used for web development?",
+        "answers": [
+            "JavaScript",
+            "HTML",
+            "CSS",
+            "C++"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these countries does NOT use English as an official language?",
+        "answers": [
+            "Canada",
+            "India",
+            "Brazil",
+            "Australia"
+        ],
+        "correct": 2
+    },
+        {
+        "title": "Which of these elements is NOT found in water?",
+        "answers": [
+            "Hydrogen",
+            "Oxygen",
+            "Carbon",
+            "None of the above"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these historical figures was NOT a scientist?",
+        "answers": [
+            "Isaac Newton",
+            "Galileo Galilei",
+            "Leonardo da Vinci",
+            "Napoleon Bonaparte"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these birds is NOT flightless?",
+        "answers": [
+            "Penguin",
+            "Ostrich",
+            "Eagle",
+            "Emu"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these oceans is NOT the largest in the world?",
+        "answers": [
+            "Pacific Ocean",
+            "Indian Ocean",
+            "Arctic Ocean",
+            "Atlantic Ocean"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these famous landmarks is NOT man-made?",
+        "answers": [
+            "Mount Everest",
+            "Great Wall of China",
+            "Eiffel Tower",
+            "Pyramids of Giza"
+        ],
+        "correct": 0
+    },
+    {
+        "title": "Which of these planets does NOT have a ring system?",
+        "answers": [
+            "Jupiter",
+            "Saturn",
+            "Neptune",
+            "Mars"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these U.S. presidents was NOT elected for two terms?",
+        "answers": [
+            "George Washington",
+            "Franklin D. Roosevelt",
+            "Abraham Lincoln",
+            "Barack Obama"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these bones is NOT found in the human arm?",
+        "answers": [
+            "Humerus",
+            "Radius",
+            "Femur",
+            "Ulna"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these planets is NOT closer to the Sun than Earth?",
+        "answers": [
+            "Venus",
+            "Mars",
+            "Mercury",
+            "None of the above"
+        ],
+        "correct": 1
+    },
+    {
+        "title": "Which of these musical instruments is NOT a woodwind instrument?",
+        "answers": [
+            "Clarinet",
+            "Flute",
+            "Saxophone",
+            "Trumpet"
+        ],
+        "correct": 3
+    },
+        {
+        "title": "Which of these countries is NOT located in South America?",
+        "answers": [
+            "Argentina",
+            "Peru",
+            "Ecuador",
+            "Panama"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these natural disasters is NOT caused by geological activity?",
+        "answers": [
+            "Earthquake",
+            "Tsunami",
+            "Hurricane",
+            "Volcanic eruption"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these chemical elements is NOT a metal?",
+        "answers": [
+            "Iron",
+            "Gold",
+            "Sulfur",
+            "Copper"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these planets is NOT classified as a gas giant?",
+        "answers": [
+            "Jupiter",
+            "Saturn",
+            "Uranus",
+            "Mars"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these famous artists did NOT paint during the Renaissance period?",
+        "answers": [
+            "Leonardo da Vinci",
+            "Michelangelo",
+            "Claude Monet",
+            "Raphael"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these capital cities is NOT in Asia?",
+        "answers": [
+            "Tokyo",
+            "Beijing",
+            "Cairo",
+            "Bangkok"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these U.S. states does NOT share a border with Canada?",
+        "answers": [
+            "Montana",
+            "Minnesota",
+            "Idaho",
+            "Indiana"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these historical events happened LAST?",
+        "answers": [
+            "French Revolution",
+            "American Civil War",
+            "World War I",
+            "Fall of the Berlin Wall"
+        ],
+        "correct": 3
+    },
+    {
+        "title": "Which of these mathematical shapes does NOT have any straight edges?",
+        "answers": [
+            "Triangle",
+            "Rectangle",
+            "Sphere",
+            "Pentagon"
+        ],
+        "correct": 2
+    },
+    {
+        "title": "Which of these animals is NOT a mammal?",
+        "answers": [
+            "Dolphin",
+            "Bat",
+            "Frog",
+            "Whale"
+        ],
+        "correct": 2
     }
     ],
     "animals": [
