@@ -14,11 +14,10 @@ import math
 # Load environment constants
 load_dotenv(".env")
 
-VIDEOURL = environ["VIDEOURL"]
-VIDEO_NAME = environ["VIDEO_NAME"]
-AUDIO_NAME = environ["AUDIO_NAME"]
-FINAL_VIDEO = environ["FINAL_VIDEO"]
-
+VIDEOURL = "https://api.pexels.com/videos/search?query=cats&orientation=portrait&per_page=49"
+VIDEO_NAME = "video.mp4"
+AUDIO_NAME = "audio.mp3"
+FINAL_VIDEO = "final_video.mp4"
 def download_video(output_dir):
     # Create random number between 0 and 49
     random_index = randint(0, 49)
