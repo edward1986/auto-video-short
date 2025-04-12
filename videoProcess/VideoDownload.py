@@ -15,7 +15,6 @@ import math
 load_dotenv(".env")
 
 VIDEOURL = environ["VIDEOURL"]
-AUTH_TOKEN = json.loads(environ["AUTH_TOKEN"])  # Use json.loads instead of ast.literal_eval for JSON
 VIDEO_NAME = environ["VIDEO_NAME"]
 AUDIO_NAME = environ["AUDIO_NAME"]
 FINAL_VIDEO = environ["FINAL_VIDEO"]
@@ -29,7 +28,7 @@ def download_video(output_dir):
         os.makedirs(output_dir)
 
     # Request stored in response variable
-    response = requests.get(VIDEOURL, headers=AUTH_TOKEN)
+    response = requests.get(VIDEOURL, headers={"Authorization": "RHCHpYa7xVhGqDxMtDbEd9aFCyrTAAg4EHhot3rdlkLyWAtXFjE6hHsD"})
 
     # Check if the response was successful
     if response.status_code != 200:
