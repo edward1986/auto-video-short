@@ -195,7 +195,7 @@ def split_text_chunks(text, max_length=90):
 
 base64_video = ""
 final_video_path = ""
-MAX_DURATION = 168
+MAX_DURATION = 59
 
 try:
     # Load video and audio clips
