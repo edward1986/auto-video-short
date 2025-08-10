@@ -1,0 +1,115 @@
+name: Build Chess Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      lichess_game_id:
+        description: 'Lichess game ID (e.g., Va7Zr5H8). Leave blank if using pgn_url.'
+        required: false
+        default: ''
+      pgn_url:
+        description: 'Direct PGN URL. Leave blank if using lichess_game_id.'
+        required: false
+        default: ''
+      base_frame_rate:
+        description: 'Frames per move (e.g., 2 = 0.5s per move before 30fps output).'
+        required: true
+        default: '2'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (optional)
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies (FFmpeg & Cairo libs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libcairo2 libpango-1.0-0 libgdk-pixbuf2.0-0 librsvg2-2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install python-chess cairosvg requests
+
+      - name: Fetch PGN
+        id: fetch
+        env:
+          LICHESS_ID: ${{ github.event.inputs.lichess_game_id }}
+          PGN_URL: ${{ github.event.inputs.pgn_url }}
+        run: |
+          set -e
+          if [ -n "$PGN_URL" ]; then
+            echo "Using pgn_url..."
+            curl -L "$PGN_URL" -o game.pgn
+          elif [ -n "$LICHESS_ID" ]; then
+            echo "Using Lichess game id..."
+            curl -L "https://lichess.org/game/export/${LICHESS_ID}.pgn" -o game.pgn
+          else
+            echo "No PGN source provided. Provide either lichess_game_id or pgn_url." >&2
+            exit 1
+          fi
+          echo "pgn_ready=true" >> $GITHUB_OUTPUT
+
+      - name: Render frames
+        if: steps.fetch.outputs.pgn_ready == 'true'
+        run: |
+          python - <<'PY'
+          import os, chess, chess.pgn, chess.svg, cairosvg
+
+          FRAMES_DIR = "frames"
+          SIZE = 720
+          SHOW_COORDS = True
+
+          os.makedirs(FRAMES_DIR, exist_ok=True)
+
+          with open("game.pgn","r",encoding="utf-8") as f:
+              game = chess.pgn.read_game(f)
+          if game is None:
+              raise SystemExit("Could not parse PGN")
+
+          board = game.board()
+
+          # Intro frame
+          svg = chess.svg.board(board=board, size=SIZE, coordinates=SHOW_COORDS)
+          cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=f"{FRAMES_DIR}/0000.png")
+
+          ply = 1
+          for move in game.mainline_moves():
+              board.push(move)
+              svg = chess.svg.board(
+                  board=board,
+                  size=SIZE,
+                  coordinates=SHOW_COORDS,
+                  lastmove=move,
+                  check=board.king(board.turn) if board.is_check() else None
+              )
+              idx = f"{ply:04d}"
+              cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=f"{FRAMES_DIR}/{idx}.png")
+              ply += 1
+
+          print(f"Rendered {ply} frames to '{FRAMES_DIR}'.")
+          PY
+
+      - name: Build video with FFmpeg
+        env:
+          BASE_FPS: ${{ github.event.inputs.base_frame_rate }}
+        run: |
+          # BASE_FPS controls how long each move-frame is shown before 30fps output
+          ffmpeg -y -framerate "$BASE_FPS" -i frames/%04d.png \
+            -vf "fps=30,format=yuv420p" \
+            chess_game.mp4
+
+      - name: Upload artifact (MP4)
+        uses: actions/upload-artifact@v4
+        with:
+          name: chess-video-${{ github.run_id }}
+          path: chess_game.mp4
+          if-no-files-found: error
