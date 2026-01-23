@@ -176,7 +176,7 @@ def elevenlabs_tts(text, api_key, voice_id):
     }
     data = {
         "text": text,
-        "model_id": "eleven_monolingual_v1",
+        "model_id": "eleven_multilingual_v2",
         "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}
     }
 
