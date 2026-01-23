@@ -21,7 +21,82 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 load_dotenv(".env")
 
+WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
+CATFACT_URL = "https://catfact.ninja/fact"
 
+
+def http_get_text(url: str, headers: Optional[dict] = None, timeout: int = 30) -> tuple[int, str]:
+    req = Request(url, headers=headers or {}, method="GET")
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            status = int(getattr(resp, "status", 200))
+            text = resp.read().decode("utf-8", errors="replace")
+            return status, text
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+        return int(e.code), body
+    except URLError as e:
+        return 0, str(e)
+
+
+def http_post_json(url: str, payload: dict, headers: Optional[dict] = None, timeout: int = 30) -> tuple[int, str]:
+    data = json.dumps(payload).encode("utf-8")
+    base_headers = {"Content-Type": "application/json"}
+    if headers:
+        base_headers.update(headers)
+
+    req = Request(url, data=data, headers=base_headers, method="POST")
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            status = int(getattr(resp, "status", 200))
+            text = resp.read().decode("utf-8", errors="replace")
+            return status, text
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+        return int(e.code), body
+    except URLError as e:
+        return 0, str(e)
+
+
+def sanitize_text(s: str) -> str:
+    # Matches your sed: keep alphanum, space, and these punctuations: . , ! ? -
+    return re.sub(r"[^a-zA-Z0-9 \.\,\!\?\-]", "", s)
+
+
+def extract_word_of_the_day(html: str) -> Optional[str]:
+    # Similar intent to grep:
+    # grep -oP '(?<=<h2 class="word-header-txt">)[^<]+'
+    m = re.search(r'<h2\s+class="word-header-txt"\s*>\s*([^<]+)\s*</h2>', html, re.IGNORECASE)
+    if not m:
+        return None
+    return m.group(1).strip()
+
+
+def find_first_response_string(obj: Any) -> Optional[str]:
+    # Recursively find the first non-empty string under any key named "response"
+    if isinstance(obj, dict):
+        if "response" in obj and isinstance(obj["response"], str) and obj["response"].strip():
+            return obj["response"]
+        for v in obj.values():
+            found = find_first_response_string(v)
+            if found:
+                return found
+    elif isinstance(obj, list):
+        for item in obj:
+            found = find_first_response_string(item)
+            if found:
+                return found
+    return None
+
+
+def write_github_env(key: str, value: str) -> None:
+    github_env = os.getenv("GITHUB_ENV")
+    if not github_env:
+        # Local run: just print
+        print(f"{key}={value}")
+        return
+    with open(github_env, "a", encoding="utf-8") as f:
+        f.write(f"{key}={value}\n")
 CLIENT_ID = environ.get("CLIENT_ID")
 CLIENT_SECRET = environ.get("CLIENT_SECRET")
 REFRESH_TOKEN = environ.get("REFRESH_TOKEN")
@@ -35,6 +110,7 @@ PAGE_ID = environ.get("PAGE_ID")
 PAGE_ACCESS_TOKEN = environ.get("PAGE_ACCESS_TOKEN")
 IG_USER_ID = environ.get("IG_USER_ID")
 IG_ACCESS_TOKEN = environ.get("IG_ACCESS_TOKEN")
+sanitized_blog = ""
 def sanitize_input(user_input):
     # Only allow alphanumeric characters and spaces
     safe_input = re.sub(r'[^a-zA-Z0-9 ]', '', user_input)
@@ -49,7 +125,100 @@ if not os.path.exists(output_dir):
 # Display a title using Figlet
 fig_font = Figlet(font="slant", justify="left")
 print(fig_font.renderText("Auto Video Short!!!"))
-prompt = os.getenv("CAT_FACT", "")
+
+
+
+cf_worker_url = os.getenv("CF_WORKER_URL", "").strip()
+app_api_key = os.getenv("APP_API_KEY", "").strip()
+
+model = os.getenv("MODEL", "@cf/meta/llama-4-scout-17b-16e-instruct")
+try:
+    max_output_tokens = int(os.getenv("MAX_OUTPUT_TOKENS", "256"))
+except ValueError:
+    max_output_tokens = 256
+
+# 1) Fetch Word of the Day
+status, html = http_get_text(WORD_URL, headers={"User-Agent": "Mozilla/5.0"})
+if status == 200:
+    word = extract_word_of_the_day(html)
+    if word:
+        print(f"Word of the Day fetched successfully: {word}")
+    else:
+        print("Word of the Day not found in the HTML content")
+        word = "word"
+else:
+    print(f"Failed to retrieve the Word of the Day, HTTP status: {status}")
+    word = "word"
+
+write_github_env("word", word)
+
+# 2) Generate blog using Cloudflare AI Worker
+if not cf_worker_url:
+    print("Missing env var CF_WORKER_URL", file=sys.stderr)
+    return 1
+
+status, cat_json = http_get_text(CATFACT_URL, headers={"User-Agent": "Mozilla/5.0"})
+if status != 200:
+    print(f"Failed to fetch cat fact, HTTP status: {status}", file=sys.stderr)
+    return 1
+
+try:
+    cat_fact = json.loads(cat_json).get("fact", "")
+except Exception:
+    print("Failed to parse cat fact JSON.", file=sys.stderr)
+    return 1
+
+sanitized_fact = sanitize_text(str(cat_fact))
+prompt = f"{sanitized_fact} make a blog and use the word {word}"
+print(prompt)
+
+payload = {
+    "input": prompt,
+    "instructions": "Write a short blog. Use simple English. Keep it clear and natural.",
+    "model": model,
+    "max_output_tokens": max_output_tokens,
+}
+
+headers = {}
+if app_api_key:
+    headers["X-APP-KEY"] = app_api_key
+
+status, result_text = http_post_json(cf_worker_url, payload, headers=headers)
+
+if status == 0 or status >= 400:
+    print("Cloudflare Worker raw response:", file=sys.stderr)
+    print(result_text, file=sys.stderr)
+    return 1
+
+try:
+    result_obj = json.loads(result_text)
+except Exception:
+    # Worker might already return plain text JSON-ish; still print for debugging
+    print("Cloudflare Worker returned non-JSON response:", file=sys.stderr)
+    print(result_text, file=sys.stderr)
+    return 1
+
+blog = find_first_response_string(result_obj)
+if not blog:
+    # fallback shapes
+    blog = (
+        (result_obj.get("result") or {}).get("response")
+        if isinstance(result_obj.get("result"), dict)
+        else None
+    ) or result_obj.get("response")
+
+if not blog or str(blog).strip().lower() == "null":
+    print("Cloudflare Worker raw response:", file=sys.stderr)
+    print(result_text, file=sys.stderr)
+    return 1
+
+sanitized_blog = sanitize_text(str(blog)).replace("\n", "").replace("\r", "")
+print(sanitized_blog)
+
+
+
+
+prompt = sanitized_blog
 # Get a quote and save it to a variable
 try:
     
