@@ -31,21 +31,6 @@ jobs:
       with:
         python-version: '3.8'
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get clean
-        sudo rm -rf /var/lib/apt/lists/*
-        df -h
-        sudo apt-get update
-        sudo apt-get install -y ttf-mscorefonts-installer
-        sudo apt-get install -y imagemagick ghostscript
-        sudo apt-get install -y curl jq
-        python -m pip install --upgrade pip
-        pip install oauth2client
-        pip install mysql-connector-python
-        pip install torch torchvision torchaudio
-        pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
-        pip install -r requirements.txt
 
     - name: Fetch Word of the Day
       id: fetch_word_of_the_day
@@ -84,7 +69,7 @@ jobs:
         sanitized_response=$(echo "$response" | sed 's/[^a-zA-Z0-9 .,!?-]//g')
 
         prompt="$sanitized_response make a blog and use the word ${{ env.word }}"
-        echo prompt
+        echo "$prompt"
         payload=$(jq -n \
           --arg input "$prompt" \
           --arg instructions "Write a short blog. Use simple English. Keep it clear and natural." \
@@ -119,6 +104,24 @@ jobs:
 
         sanitized_blog=$(echo "$blog" | tr -d '\n' | tr -d '\r' | sed 's/[^a-zA-Z0-9 .,!?-]//g')
         echo "cat_fact=$sanitized_blog" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get clean
+        sudo rm -rf /var/lib/apt/lists/*
+        df -h
+        sudo apt-get update
+        sudo apt-get install -y ttf-mscorefonts-installer
+        sudo apt-get install -y imagemagick ghostscript
+        sudo apt-get install -y curl jq
+        python -m pip install --upgrade pip
+        pip install oauth2client
+        pip install mysql-connector-python
+        pip install torch torchvision torchaudio
+        pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+        pip install -r requirements.txt
+
+    
 
     - name: Update ImageMagick policy
       run: |
