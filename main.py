@@ -456,7 +456,7 @@ def send_email(subject, body, to, base64_video):
         print(f"Email sent to {to} with embedded video")
     except Exception as e:
         print(f"Error sending email: {e}")
-
+print(text_quote)
 send_email(
     subject=text_quote,
     body="Please find the embedded video below.",
