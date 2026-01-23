@@ -19,6 +19,9 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
+from typing import Any, Optional
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 load_dotenv(".env")
 
 WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
