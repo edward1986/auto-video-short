@@ -352,7 +352,15 @@ def shorten_text(text, max_length=30):
     if len(text) > max_length:
         return text[:max_length - 3] + '...'  # Truncate and add ellipsis
     return text
-
+# Convert video to base64
+def video_to_base64(video_path):
+    try:
+        with open(video_path, "rb") as video_file:
+            base64_encoded_video = base64.b64encode(video_file.read()).decode('utf-8')
+        return base64_encoded_video
+    except Exception as e:
+        print(f"Error converting video to base64: {e}")
+        return None
 def split_text_chunks(text, max_length=90):
     words = text.split()
     chunks = []
@@ -414,15 +422,7 @@ try:
 except Exception as e:
     print(f"Error processing video: {e}")
 
-# Convert video to base64
-def video_to_base64(video_path):
-    try:
-        with open(video_path, "rb") as video_file:
-            base64_encoded_video = base64.b64encode(video_file.read()).decode('utf-8')
-        return base64_encoded_video
-    except Exception as e:
-        print(f"Error converting video to base64: {e}")
-        return None
+
 
 
 
