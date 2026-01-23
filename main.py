@@ -19,7 +19,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 load_dotenv(".env")
@@ -28,7 +28,7 @@ WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
 CATFACT_URL = "https://catfact.ninja/fact"
 
 
-def http_get_text(url: str, headers: Optional[dict] = None, timeout: int = 30) -> tuple[int, str]:
+def http_get_text(url: str, headers: Optional[dict] = None, timeout: int = 30) -> Tuple[int, str]:
     req = Request(url, headers=headers or {}, method="GET")
     try:
         with urlopen(req, timeout=timeout) as resp:
