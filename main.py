@@ -192,19 +192,26 @@ status, result_text = http_post_json(cf_worker_url, payload, headers=headers)
 if status == 0 or status >= 400:
     print("Cloudflare Worker raw response:", file=sys.stderr)
     print(result_text, file=sys.stderr)
-    
 
 try:
     result_obj = json.loads(result_text)
 except Exception:
-    # Worker might already return plain text JSON-ish; still print for debugging
     print("Cloudflare Worker returned non-JSON response:", file=sys.stderr)
     print(result_text, file=sys.stderr)
-    
 
-blog = find_first_response_string(result_obj)
+# ✅ Correct extraction for your response shape
+blog = None
+try:
+    blog = (
+        result_obj.get("result", {})
+                 .get("choices", [{}])[0]
+                 .get("message", {})
+                 .get("content")
+    )
+except Exception:
+    blog = None
+
 if not blog:
-    # fallback shapes
     blog = (
         (result_obj.get("result") or {}).get("response")
         if isinstance(result_obj.get("result"), dict)
@@ -214,10 +221,10 @@ if not blog:
 if not blog or str(blog).strip().lower() == "null":
     print("Cloudflare Worker raw response:", file=sys.stderr)
     print(result_text, file=sys.stderr)
-    
 
-sanitized_blog = sanitize_text(str(blog)).replace("\n", "").replace("\r", "")
+sanitized_blog = sanitize_text(str(blog)).replace("\n", " ").replace("\r", " ").strip()
 print(sanitized_blog)
+
 
 
 text_quote = ""
