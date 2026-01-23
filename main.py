@@ -158,18 +158,17 @@ write_github_env("word", word)
 # 2) Generate blog using Cloudflare AI Worker
 if not cf_worker_url:
     print("Missing env var CF_WORKER_URL", file=sys.stderr)
-    return 1
 
 status, cat_json = http_get_text(CATFACT_URL, headers={"User-Agent": "Mozilla/5.0"})
 if status != 200:
     print(f"Failed to fetch cat fact, HTTP status: {status}", file=sys.stderr)
-    return 1
+    
 
 try:
     cat_fact = json.loads(cat_json).get("fact", "")
 except Exception:
     print("Failed to parse cat fact JSON.", file=sys.stderr)
-    return 1
+    
 
 sanitized_fact = sanitize_text(str(cat_fact))
 prompt = f"{sanitized_fact} make a blog and use the word {word}"
@@ -191,7 +190,7 @@ status, result_text = http_post_json(cf_worker_url, payload, headers=headers)
 if status == 0 or status >= 400:
     print("Cloudflare Worker raw response:", file=sys.stderr)
     print(result_text, file=sys.stderr)
-    return 1
+    
 
 try:
     result_obj = json.loads(result_text)
@@ -199,7 +198,7 @@ except Exception:
     # Worker might already return plain text JSON-ish; still print for debugging
     print("Cloudflare Worker returned non-JSON response:", file=sys.stderr)
     print(result_text, file=sys.stderr)
-    return 1
+    
 
 blog = find_first_response_string(result_obj)
 if not blog:
@@ -213,7 +212,7 @@ if not blog:
 if not blog or str(blog).strip().lower() == "null":
     print("Cloudflare Worker raw response:", file=sys.stderr)
     print(result_text, file=sys.stderr)
-    return 1
+    
 
 sanitized_blog = sanitize_text(str(blog)).replace("\n", "").replace("\r", "")
 print(sanitized_blog)
