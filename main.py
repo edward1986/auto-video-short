@@ -42,7 +42,7 @@ def http_get_text(url: str, headers: Optional[dict] = None, timeout: int = 30) -
         return 0, str(e)
 
 
-def http_post_json(url: str, payload: dict, headers: Optional[dict] = None, timeout: int = 30) -> tuple[int, str]:
+def http_post_json(url: str, payload: dict, headers: Optional[dict] = None, timeout: int = 30) -> Tuple[int, str]:
     data = json.dumps(payload).encode("utf-8")
     base_headers = {"Content-Type": "application/json"}
     if headers:
