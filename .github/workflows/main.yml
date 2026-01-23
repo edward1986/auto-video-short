@@ -84,7 +84,7 @@ jobs:
         sanitized_response=$(echo "$response" | sed 's/[^a-zA-Z0-9 .,!?-]//g')
 
         prompt="$sanitized_response make a blog and use the word ${{ env.word }}"
-
+        echo prompt
         payload=$(jq -n \
           --arg input "$prompt" \
           --arg instructions "Write a short blog. Use simple English. Keep it clear and natural." \
