@@ -220,7 +220,7 @@ sanitized_blog = sanitize_text(str(blog)).replace("\n", "").replace("\r", "")
 print(sanitized_blog)
 
 
-
+text_quote = ""
 
 prompt = sanitized_blog
 # Get a quote and save it to a variable
