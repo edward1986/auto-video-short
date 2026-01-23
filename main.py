@@ -131,7 +131,7 @@ print(fig_font.renderText("Auto Video Short!!!"))
 
 
 
-cf_worker_url = os.getenv("CF_WORKER_URL", "").strip()
+cf_worker_url = "https://morning-dew-a596.ntcedge2.workers.dev"
 app_api_key = os.getenv("APP_API_KEY", "").strip()
 
 model = os.getenv("MODEL", "@cf/meta/llama-4-scout-17b-16e-instruct")
