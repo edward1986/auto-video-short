@@ -17,13 +17,13 @@ from videoProcess.SoundCreate import make_audio
 from videoProcess.VideoDownload import download_video
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from typing import Any, Optional, Tuple
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from urllib.request import Request as UrlRequest, urlopen
 load_dotenv(".env")
 
 WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
@@ -31,7 +31,7 @@ CATFACT_URL = "https://catfact.ninja/fact"
 
 
 def http_get_text(url: str, headers: Optional[dict] = None, timeout: int = 30) -> Tuple[int, str]:
-    req = Request(url, headers=headers or {}, method="GET")
+    req = UrlRequest(url, headers=headers or {}, method="GET")
     try:
         with urlopen(req, timeout=timeout) as resp:
             status = int(getattr(resp, "status", 200))
@@ -50,7 +50,7 @@ def http_post_json(url: str, payload: dict, headers: Optional[dict] = None, time
     if headers:
         base_headers.update(headers)
 
-    req = Request(url, data=data, headers=base_headers, method="POST")
+    req = UrlRequest(url, data=data, headers=base_headers, method="POST")
     try:
         with urlopen(req, timeout=timeout) as resp:
             status = int(getattr(resp, "status", 200))
@@ -597,7 +597,7 @@ def publish_reel(page_id, page_access_token, video_id, description):
         return None
 
 video_title = text_quote
-video_description = "https://tinyurl.com/1zx00SheinGiftCardNow " +  text_quote
+video_description =  text_quote
 video_file_path = f"{output_dir}/{FINAL_VIDEO}"
 
 session_data = initialize_upload_session(PAGE_ID, PAGE_ACCESS_TOKEN)
@@ -673,7 +673,7 @@ def get_authenticated_service():
             client_id=CLIENT_ID,
             client_secret=CLIENT_SECRET
         )
-        credentials.refresh(Request())
+        credentials.refresh(GoogleAuthRequest())
         return build('youtube', 'v3', credentials=credentials)
     except Exception as e:
         print(f"Error authenticating YouTube service: {e}")
