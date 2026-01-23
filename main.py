@@ -737,7 +737,7 @@ slg = re.sub(r'[^a-zA-Z0-9\s-]', '', slug.replace('The title is:', ''))
 slug_final = slg.lower().replace(" ", "-")
 
 youtube_title = shorten(text_quote, width=90, placeholder="...")
-youtube_description = "👉 Explore now at https://tinyurl.com/fileszc \nhttps://multiculturaltoolbox.com/blog/" + slug_final + " " +  text_quote
+youtube_description = "👉 Explore now at https://multiculturaltoolbox.com/blog/" + slug_final + " " +  text_quote
 youtube_tags = ['cats', 'facts', 'https://edwardize.blogspot.com/', "http://multiculturaltoolbox.com/", "#cats", "#facts"]
 youtube_category_id = '22'  # YouTube category ID
 youtube_privacy_status = 'public'
