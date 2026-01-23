@@ -234,6 +234,8 @@ except Exception as e:
 
 # Save the quote to a text file
 quote_file_path = os.path.join(output_dir, "quote.txt")
+print(quote_file_path)
+print("quote_file_path")
 try:
     with open(quote_file_path, "w") as file:
         file.write(shorten(text_quote, width=90, placeholder="..."))
