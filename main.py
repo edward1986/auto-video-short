@@ -116,6 +116,7 @@ PAGE_ACCESS_TOKEN = environ.get("PAGE_ACCESS_TOKEN")
 IG_USER_ID = environ.get("IG_USER_ID")
 IG_ACCESS_TOKEN = environ.get("IG_ACCESS_TOKEN")
 sanitized_blog = ""
+result_obj = ""
 def sanitize_input(user_input):
     # Only allow alphanumeric characters and spaces
     safe_input = re.sub(r'[^a-zA-Z0-9 ]', '', user_input)
