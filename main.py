@@ -213,20 +213,26 @@ if app_api_key:
 
 
 
-status, result_text = http_post_json(cf_worker_url, payload, headers=headers)
+status, result_text, resp_headers = http_post_json(cf_worker_url, payload, headers=headers)
+
+content_type = (resp_headers.get("content-type") or "").lower()
 
 if status == 0 or status >= 400:
-    print("Cloudflare Worker raw response:", file=sys.stderr)
-    print(result_text, file=sys.stderr)
+    print(f"Worker HTTP error: {status}", file=sys.stderr)
+    print(result_text[:800], file=sys.stderr)
+    sys.exit(1)
 
-print(result_text)
+if "application/json" not in content_type:
+    # This is where Cloudflare 1010 usually lands (HTML/text)
+    if "error code: 1010" in result_text.lower():
+        print("Blocked by Cloudflare (1010).", file=sys.stderr)
+    else:
+        print("Non-JSON response from Worker.", file=sys.stderr)
+    print("Content-Type:", content_type, file=sys.stderr)
+    print(result_text[:800], file=sys.stderr)
+    sys.exit(1)
 
-try:
-    result_obj = json.loads(result_text)
-    print(result_text)
-except Exception:
-    print("Cloudflare Worker returned non-JSON response:", file=sys.stderr)
-    print(result_text, file=sys.stderr)
+result_obj = json.loads(result_text)
 
 # ✅ Correct extraction for your response shape
 blog = None
