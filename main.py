@@ -212,10 +212,6 @@ if app_api_key:
     headers["X-APP-KEY"] = app_api_key
 
 
-var r = http_post_json(cf_worker_url, payload, headers=headers)
-
-print
-
 
 status, result_text = http_post_json(cf_worker_url, payload, headers=headers)
 
