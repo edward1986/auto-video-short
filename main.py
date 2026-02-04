@@ -116,7 +116,7 @@ PAGE_ACCESS_TOKEN = environ.get("PAGE_ACCESS_TOKEN")
 IG_USER_ID = environ.get("IG_USER_ID")
 IG_ACCESS_TOKEN = environ.get("IG_ACCESS_TOKEN")
 sanitized_blog = ""
-result_obj = ""
+result_obj = {}
 def sanitize_input(user_input):
     # Only allow alphanumeric characters and spaces
     safe_input = re.sub(r'[^a-zA-Z0-9 ]', '', user_input)
@@ -194,8 +194,11 @@ if status == 0 or status >= 400:
     print("Cloudflare Worker raw response:", file=sys.stderr)
     print(result_text, file=sys.stderr)
 
+print(result_text)
+
 try:
     result_obj = json.loads(result_text)
+    print(result_text)
 except Exception:
     print("Cloudflare Worker returned non-JSON response:", file=sys.stderr)
     print(result_text, file=sys.stderr)
