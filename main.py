@@ -20,7 +20,7 @@ from email.mime.text import MIMEText
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Dict
 from urllib.error import HTTPError, URLError
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from urllib.request import Request as UrlRequest, urlopen
@@ -44,23 +44,46 @@ def http_get_text(url: str, headers: Optional[dict] = None, timeout: int = 30) -
         return 0, str(e)
 
 
-def http_post_json(url: str, payload: dict, headers: Optional[dict] = None, timeout: int = 30) -> Tuple[int, str]:
+def http_post_json(
+    url: str,
+    payload: dict,
+    headers: Optional[dict] = None,
+    timeout: int = 30
+) -> Tuple[int, str, Dict[str, str]]:
     data = json.dumps(payload).encode("utf-8")
-    base_headers = {"Content-Type": "application/json"}
+
+    # Add browser-like defaults (helps with some Cloudflare setups)
+    base_headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+    }
     if headers:
         base_headers.update(headers)
 
     req = UrlRequest(url, data=data, headers=base_headers, method="POST")
+
     try:
         with urlopen(req, timeout=timeout) as resp:
             status = int(getattr(resp, "status", 200))
             text = resp.read().decode("utf-8", errors="replace")
-            return status, text
+            resp_headers = {k.lower(): v for k, v in resp.headers.items()}
+            return status, text, resp_headers
+
     except HTTPError as e:
         body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
-        return int(e.code), body
+        hdrs = {k.lower(): v for k, v in getattr(e, "headers", {}).items()} if getattr(e, "headers", None) else {}
+        return int(e.code), body, hdrs
+
     except URLError as e:
-        return 0, str(e)
+        return 0, str(e), {}
 
 
 def sanitize_text(s: str) -> str:
@@ -187,6 +210,12 @@ payload = {
 headers = {}
 if app_api_key:
     headers["X-APP-KEY"] = app_api_key
+
+
+var r = http_post_json(cf_worker_url, payload, headers=headers)
+
+print
+
 
 status, result_text = http_post_json(cf_worker_url, payload, headers=headers)
 
