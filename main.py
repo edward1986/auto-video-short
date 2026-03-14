@@ -21,7 +21,6 @@ from moviepy.editor import (
     CompositeVideoClip,
     ColorClip
 )
-
 from videoProcess.SoundCreate import make_audio
 from videoProcess.VideoDownload import download_video
 
@@ -41,7 +40,51 @@ load_dotenv(".env")
 
 WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
 CATFACT_URL = "https://catfact.ninja/fact"
+def build_word_by_word_captions(words, video_size):
+    clips = []
 
+    for item in words:
+        word = str(item.get("word", "")).strip()
+        start = float(item.get("start", 0))
+        end = float(item.get("end", start + 0.5))
+
+        if not word:
+            continue
+
+        duration = max(end - start, 0.4)
+
+        # Text clip
+        txt = (
+            TextClip(
+                word,
+                fontsize=80,
+                color="white",
+                font="Arial-Bold",
+                method="caption",
+                align="center"
+            )
+            .set_start(start)
+            .set_duration(duration)
+            .set_position(("center", "center"))
+        )
+
+        txt_w, txt_h = txt.size
+
+        # Background highlight
+        bg = (
+            ColorClip(
+                size=(txt_w + 40, txt_h + 20),
+                color=(0, 0, 0)
+            )
+            .set_opacity(0.6)
+            .set_start(start)
+            .set_duration(duration)
+            .set_position(("center", "center"))
+        )
+
+        clips.append(CompositeVideoClip([bg, txt], size=video_size))
+
+    return clips
 
 # =========================
 # HTTP HELPERS
@@ -524,7 +567,7 @@ try:
     video_clip = video_clip.subclip(0, total_duration)
 
     if whisper_words:
-        text_clips = build_phrase_level_text_clips(whisper_words, video_clip.size, group_size=4)
+        text_clips = build_word_by_word_captions(whisper_words, video_clip.size)
         final = CompositeVideoClip([video_clip] + text_clips, size=video_clip.size)
     else:
         text_chunks = split_text_chunks(text_quote, max_length=90)
