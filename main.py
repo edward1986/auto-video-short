@@ -607,7 +607,8 @@ try:
         final = CompositeVideoClip([video_clip] + text_clips, size=video_clip.size)
 
     final_video_path = f"{output_dir}/{FINAL_VIDEO}"
-    final.write_videofile(final_video_path, codec="libx264", threads=8)
+    threads = min(os.cpu_count() or  4)
+    final.write_videofile(final_video_path, codec="libx264", threads=threads)
     base64_video = video_to_base64(final_video_path)
 
     # ✅ Explicitly close clips to release system resources
