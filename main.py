@@ -82,7 +82,7 @@ def build_word_by_word_captions(words, video_size):
             .set_position(("center", "center"))
         )
 
-        clips.append(CompositeVideoClip([bg, txt], size=video_size))
+        clips.extend([bg, txt])
 
     return clips
 
@@ -166,7 +166,7 @@ def transcribe_audio_with_cloudflare(audio_file_path: str) -> dict:
     }
 
     with open(audio_file_path, "rb") as f:
-        response = requests.post(url, headers=headers, data=f.read(), timeout=120)
+        response = requests.post(url, headers=headers, data=f, timeout=120)
 
     response.raise_for_status()
     result = response.json()
@@ -233,7 +233,7 @@ def build_phrase_level_text_clips(words, video_size, group_size=4):
             .set_position(("center", "center"))
         )
 
-        clips.append(CompositeVideoClip([bg, txt], size=video_size))
+        clips.extend([bg, txt])
 
     return clips
 
@@ -602,17 +602,18 @@ try:
                 .set_duration(chunk_duration)
             )
 
-            text_clip_with_bg = CompositeVideoClip(
-                [semi_transparent_bg, fact_text],
-                size=video_clip.size
-            )
-            text_clips.append(text_clip_with_bg)
+            text_clips.extend([semi_transparent_bg, fact_text])
 
         final = CompositeVideoClip([video_clip] + text_clips, size=video_clip.size)
 
     final_video_path = f"{output_dir}/{FINAL_VIDEO}"
-    final.write_videofile(final_video_path, codec="libx264")
+    final.write_videofile(final_video_path, codec="libx264", threads=4)
     base64_video = video_to_base64(final_video_path)
+
+    # ✅ Explicitly close clips to release system resources
+    final.close()
+    video_clip.close()
+    audio_clip.close()
 
 except Exception as e:
     print(f"Error processing video: {e}")
