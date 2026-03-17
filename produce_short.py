@@ -67,9 +67,7 @@ def produce_short(
     )
 
     music = volumex(
-        editor.CompositeAudioClip(
-            [audio_clip.cutout(0, music_start_time).set_end(full_question_duration)]
-        ),
+        audio_clip.cutout(0, music_start_time).set_end(full_question_duration),
         0.6,
     )
 
@@ -114,7 +112,7 @@ def produce_short(
     ]
     clips += answer_texts
 
-    # ✅ Countdown timer (10 to 0)
+    # ✅ Countdown timer (10 to 0) - Use method='label' for faster rendering of short strings
     countdown_texts = [
         editor.TextClip(
             str(clip_durations["question"] - i),
@@ -122,8 +120,7 @@ def produce_short(
             color="white",
             stroke_color="black",
             stroke_width=2,
-            method="caption",
-            size=(1080, None),
+            method="label",
             font=font,
         )
         .set_start(i)
@@ -162,7 +159,8 @@ def produce_short(
         output,
         fps=24,
         audio_codec="aac",
-        threads=4,
+        threads=os.cpu_count(),
+        preset="fast",
         temp_audiofile="out/TEMP_trivia.mp4",
     )
     youtube_title = shorten(question["title"], width=90, placeholder="...")

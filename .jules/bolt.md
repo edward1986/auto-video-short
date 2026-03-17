@@ -7,3 +7,7 @@
 ## 2025-05-15 - MoviePy Hierarchy Flattening & I/O Streaming
 **Learning:** MoviePy rendering speed is heavily impacted by the depth of `CompositeVideoClip` nesting. Each nested composite adds recursive frame processing overhead. Flattening the clip hierarchy into a single list of clips for the final composite significantly improves performance. Additionally, streaming file data in `requests` (passing `f` instead of `f.read()`) reduces memory footprint during API calls.
 **Action:** Avoid intermediate `CompositeVideoClip` objects when building complex overlays; pass all individual clips directly to the top-level composite. Always stream large file uploads.
+
+## 2025-05-16 - MoviePy TextClip and Encoding Optimizations
+**Learning:** Using `method='label'` instead of `method='caption'` for short strings (like countdown timers) significantly speeds up frame generation by bypassing complex layout engines. Additionally, setting `preset='fast'` and `threads=os.cpu_count()` in `write_videofile` provides a substantial boost to the final encoding phase.
+**Action:** Prefer `method='label'` for simple text. Always utilize all available CPU cores and a fast encoding preset for rapid video iteration.
