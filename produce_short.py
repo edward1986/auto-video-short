@@ -122,8 +122,7 @@ def produce_short(
             color="white",
             stroke_color="black",
             stroke_width=2,
-            method="caption",
-            size=(1080, None),
+            method="label",
             font=font,
         )
         .set_start(i)
@@ -162,7 +161,8 @@ def produce_short(
         output,
         fps=24,
         audio_codec="aac",
-        threads=4,
+        threads=os.cpu_count() or 4,
+        preset="fast",
         temp_audiofile="out/TEMP_trivia.mp4",
     )
     youtube_title = shorten(question["title"], width=90, placeholder="...")
