@@ -158,11 +158,13 @@ def produce_short(
     ).set_audio(music)
 
     # ✅ Export the final video
+    threads = os.cpu_count() or 4
     result.write_videofile(
         output,
         fps=24,
         audio_codec="aac",
-        threads=4,
+        threads=threads,
+        preset="fast",
         temp_audiofile="out/TEMP_trivia.mp4",
     )
     youtube_title = shorten(question["title"], width=90, placeholder="...")

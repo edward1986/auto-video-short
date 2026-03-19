@@ -19,7 +19,7 @@ from moviepy.editor import (
     AudioFileClip,
     TextClip,
     CompositeVideoClip,
-    ColorClip
+    ColorClip,
 )
 from videoProcess.SoundCreate import make_audio
 from videoProcess.VideoDownload import download_video
@@ -40,6 +40,8 @@ load_dotenv(".env")
 
 WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
 CATFACT_URL = "https://catfact.ninja/fact"
+
+
 def build_word_by_word_captions(words, video_size):
     clips = []
 
@@ -61,7 +63,7 @@ def build_word_by_word_captions(words, video_size):
                 color="white",
                 font="Arial-Bold",
                 method="caption",
-                align="center"
+                align="center",
             )
             .set_start(start)
             .set_duration(duration)
@@ -72,10 +74,7 @@ def build_word_by_word_captions(words, video_size):
 
         # Background highlight
         bg = (
-            ColorClip(
-                size=(txt_w + 40, txt_h + 20),
-                color=(0, 0, 0)
-            )
+            ColorClip(size=(txt_w + 40, txt_h + 20), color=(0, 0, 0))
             .set_opacity(0.6)
             .set_start(start)
             .set_duration(duration)
@@ -86,10 +85,13 @@ def build_word_by_word_captions(words, video_size):
 
     return clips
 
+
 # =========================
 # HTTP HELPERS
 # =========================
-def http_get_text(url: str, headers: Optional[dict] = None, timeout: int = 30) -> Tuple[int, str]:
+def http_get_text(
+    url: str, headers: Optional[dict] = None, timeout: int = 30
+) -> Tuple[int, str]:
     req = UrlRequest(url, headers=headers or {}, method="GET")
     try:
         with urlopen(req, timeout=timeout) as resp:
@@ -104,10 +106,7 @@ def http_get_text(url: str, headers: Optional[dict] = None, timeout: int = 30) -
 
 
 def http_post_json(
-    url: str,
-    payload: dict,
-    headers: Optional[dict] = None,
-    timeout: int = 30
+    url: str, payload: dict, headers: Optional[dict] = None, timeout: int = 30
 ) -> Tuple[int, str, Dict[str, str]]:
     data = json.dumps(payload).encode("utf-8")
 
@@ -137,7 +136,11 @@ def http_post_json(
             return status, text, resp_headers
     except HTTPError as e:
         body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
-        hdrs = {k.lower(): v for k, v in getattr(e, "headers", {}).items()} if getattr(e, "headers", None) else {}
+        hdrs = (
+            {k.lower(): v for k, v in getattr(e, "headers", {}).items()}
+            if getattr(e, "headers", None)
+            else {}
+        )
         return int(e.code), body, hdrs
     except URLError as e:
         return 0, str(e), {}
@@ -162,7 +165,7 @@ def transcribe_audio_with_cloudflare(audio_file_path: str) -> dict:
 
     headers = {
         "Authorization": f"Bearer {api_token}",
-        "Content-Type": "application/octet-stream"
+        "Content-Type": "application/octet-stream",
     }
 
     with open(audio_file_path, "rb") as f:
@@ -213,7 +216,7 @@ def build_phrase_level_text_clips(words, video_size, group_size=4):
                 fontsize=55,
                 align="center",
                 method="caption",
-                size=(900, None)
+                size=(900, None),
             )
             .set_start(start)
             .set_duration(end - start)
@@ -223,10 +226,7 @@ def build_phrase_level_text_clips(words, video_size, group_size=4):
         txt_w, txt_h = txt.size
 
         bg = (
-            ColorClip(
-                size=(txt_w + 40, txt_h + 20),
-                color=(0, 0, 0)
-            )
+            ColorClip(size=(txt_w + 40, txt_h + 20), color=(0, 0, 0))
             .set_opacity(0.5)
             .set_start(start)
             .set_duration(end - start)
@@ -250,7 +250,9 @@ def sanitize_input(user_input: str) -> str:
 
 
 def extract_word_of_the_day(html: str) -> Optional[str]:
-    m = re.search(r'<h2\s+class="word-header-txt"\s*>\s*([^<]+)\s*</h2>', html, re.IGNORECASE)
+    m = re.search(
+        r'<h2\s+class="word-header-txt"\s*>\s*([^<]+)\s*</h2>', html, re.IGNORECASE
+    )
     if not m:
         return None
     return m.group(1).strip()
@@ -258,7 +260,11 @@ def extract_word_of_the_day(html: str) -> Optional[str]:
 
 def find_first_response_string(obj: Any) -> Optional[str]:
     if isinstance(obj, dict):
-        if "response" in obj and isinstance(obj["response"], str) and obj["response"].strip():
+        if (
+            "response" in obj
+            and isinstance(obj["response"], str)
+            and obj["response"].strip()
+        ):
             return obj["response"]
         for v in obj.values():
             found = find_first_response_string(v)
@@ -284,7 +290,7 @@ def write_github_env(key: str, value: str) -> None:
 
 def shorten_text(text, max_length=30):
     if len(text) > max_length:
-        return text[:max_length - 3] + "..."
+        return text[: max_length - 3] + "..."
     return text
 
 
@@ -339,7 +345,9 @@ IG_ACCESS_TOKEN = environ.get("IG_ACCESS_TOKEN")
 
 PUBLIC_VIDEO_URL = environ.get("PUBLIC_VIDEO_URL", "").strip()
 
-cf_worker_url = os.getenv("CF_WORKER_URL", "https://morning-dew-a596.ntcedge2.workers.dev").strip()
+cf_worker_url = os.getenv(
+    "CF_WORKER_URL", "https://morning-dew-a596.ntcedge2.workers.dev"
+).strip()
 app_api_key = os.getenv("APP_API_KEY", "").strip()
 model = os.getenv("MODEL", "@cf/meta/llama-4-scout-17b-16e-instruct").strip()
 
@@ -417,7 +425,9 @@ headers = {}
 if app_api_key:
     headers["X-APP-KEY"] = app_api_key
 
-status, result_text, resp_headers = http_post_json(cf_worker_url, payload, headers=headers)
+status, result_text, resp_headers = http_post_json(
+    cf_worker_url, payload, headers=headers
+)
 content_type = (resp_headers.get("content-type") or "").lower()
 
 if status == 0 or status >= 400:
@@ -450,10 +460,14 @@ except Exception:
 
 if not blog:
     blog = (
-        (result_obj.get("result") or {}).get("response")
-        if isinstance(result_obj.get("result"), dict)
-        else None
-    ) or result_obj.get("response") or find_first_response_string(result_obj)
+        (
+            (result_obj.get("result") or {}).get("response")
+            if isinstance(result_obj.get("result"), dict)
+            else None
+        )
+        or result_obj.get("response")
+        or find_first_response_string(result_obj)
+    )
 
 if not blog or str(blog).strip().lower() == "null":
     print("Cloudflare Worker raw response:", file=sys.stderr)
@@ -486,11 +500,15 @@ try:
         whisper_words = whisper_result.get("words", [])
         whisper_vtt = whisper_result.get("vtt", "")
 
-        with open(os.path.join(output_dir, "transcript.txt"), "w", encoding="utf-8") as f:
+        with open(
+            os.path.join(output_dir, "transcript.txt"), "w", encoding="utf-8"
+        ) as f:
             f.write(transcribed_text)
 
         if whisper_vtt:
-            with open(os.path.join(output_dir, "subtitles.vtt"), "w", encoding="utf-8") as f:
+            with open(
+                os.path.join(output_dir, "subtitles.vtt"), "w", encoding="utf-8"
+            ) as f:
                 f.write(whisper_vtt)
 
     except Exception as e:
@@ -582,7 +600,7 @@ try:
                     fontsize=50,
                     align="center",
                     method="caption",
-                    size=(900, None)
+                    size=(900, None),
                 )
                 .set_position(("center", "center"))
                 .set_start(idx * chunk_duration)
@@ -593,8 +611,7 @@ try:
 
             semi_transparent_bg = (
                 ColorClip(
-                    size=(fact_text_width + 40, fact_text_height + 20),
-                    color=(0, 0, 0)
+                    size=(fact_text_width + 40, fact_text_height + 20), color=(0, 0, 0)
                 )
                 .set_opacity(0.5)
                 .set_position(("center", "center"))
@@ -607,8 +624,10 @@ try:
         final = CompositeVideoClip([video_clip] + text_clips, size=video_clip.size)
 
     final_video_path = f"{output_dir}/{FINAL_VIDEO}"
-    threads = min(os.cpu_count() or  4)
-    final.write_videofile(final_video_path, codec="libx264", threads=threads)
+    threads = os.cpu_count() or 4
+    final.write_videofile(
+        final_video_path, codec="libx264", threads=threads, preset="fast"
+    )
     base64_video = video_to_base64(final_video_path)
 
     # ✅ Explicitly close clips to release system resources
@@ -660,7 +679,7 @@ send_email(
     subject=text_quote,
     body="Please find the embedded video below.",
     to=EMAIL_TO,
-    base64_video=base64_video
+    base64_video=base64_video,
 )
 
 
@@ -681,10 +700,7 @@ def like_video(video_id, page_access_token):
 def comment_on_video(video_id, page_access_token, comment_message):
     try:
         url = f"https://graph.facebook.com/v20.0/{video_id}/comments"
-        payload = {
-            "access_token": page_access_token,
-            "message": comment_message
-        }
+        payload = {"access_token": page_access_token, "message": comment_message}
         response = requests.post(url, data=payload)
         return response.json()
     except Exception as e:
@@ -696,10 +712,7 @@ def initialize_upload_session(page_id, page_access_token):
     try:
         url = f"https://graph.facebook.com/v20.0/{page_id}/video_reels"
         headers = {"Content-Type": "application/json"}
-        payload = {
-            "upload_phase": "start",
-            "access_token": page_access_token
-        }
+        payload = {"upload_phase": "start", "access_token": page_access_token}
         response = requests.post(url, headers=headers, json=payload)
         return response.json()
     except Exception as e:
@@ -713,7 +726,7 @@ def upload_video(video_file_path, upload_url, page_access_token):
         headers = {
             "Authorization": f"OAuth {page_access_token}",
             "offset": "0",
-            "file_size": str(file_size)
+            "file_size": str(file_size),
         }
 
         with open(video_file_path, "rb") as video_file:
@@ -736,7 +749,7 @@ def publish_reel(page_id, page_access_token, video_id, description):
             "video_id": video_id,
             "upload_phase": "finish",
             "video_state": "PUBLISHED",
-            "description": description
+            "description": description,
         }
         response = requests.post(url, data=payload)
         return response.json()
@@ -759,7 +772,9 @@ if session_data and "upload_url" in session_data:
 
     if upload_response is not None:
         video_id = session_data.get("video_id")
-        publish_response = publish_reel(PAGE_ID, PAGE_ACCESS_TOKEN, video_id, video_description)
+        publish_response = publish_reel(
+            PAGE_ID, PAGE_ACCESS_TOKEN, video_id, video_description
+        )
         print("Publish Response:", publish_response)
 
         if publish_response and publish_response.get("success"):
@@ -767,7 +782,9 @@ if session_data and "upload_url" in session_data:
                 "https://tinyurl.com/1zx00SheinGiftCardNow\n"
                 "https://paxorex.blogspot.com/ Check out this awesome video!"
             )
-            comment_response = comment_on_video(video_id, PAGE_ACCESS_TOKEN, comment_message)
+            comment_response = comment_on_video(
+                video_id, PAGE_ACCESS_TOKEN, comment_message
+            )
             print("Comment Response:", comment_response)
 
             if comment_response and comment_response.get("id"):
@@ -792,7 +809,7 @@ def upload_video_to_instagram(video_url, caption, access_token, ig_user_id):
             "access_token": access_token,
             "media_type": "VIDEO",
             "video_url": video_url,
-            "caption": caption
+            "caption": caption,
         }
 
         upload_response = requests.post(upload_url, data=video_params).json()
@@ -802,10 +819,7 @@ def upload_video_to_instagram(video_url, caption, access_token, ig_user_id):
         creation_id = upload_response["id"]
 
         publish_url = f"https://graph.facebook.com/v15.0/{ig_user_id}/media_publish"
-        publish_params = {
-            "access_token": access_token,
-            "creation_id": creation_id
-        }
+        publish_params = {"access_token": access_token, "creation_id": creation_id}
 
         publish_response = requests.post(publish_url, data=publish_params).json()
         return publish_response
@@ -816,7 +830,9 @@ def upload_video_to_instagram(video_url, caption, access_token, ig_user_id):
 
 if PUBLIC_VIDEO_URL:
     ig_caption = text_quote
-    ig_response = upload_video_to_instagram(PUBLIC_VIDEO_URL, ig_caption, IG_ACCESS_TOKEN, IG_USER_ID)
+    ig_response = upload_video_to_instagram(
+        PUBLIC_VIDEO_URL, ig_caption, IG_ACCESS_TOKEN, IG_USER_ID
+    )
 
     if ig_response.get("id"):
         print("Video uploaded and published to Instagram successfully!")
@@ -838,7 +854,7 @@ def get_authenticated_service():
             refresh_token=REFRESH_TOKEN,
             token_uri="https://oauth2.googleapis.com/token",
             client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET
+            client_secret=CLIENT_SECRET,
         )
         credentials.refresh(GoogleAuthRequest())
         return build("youtube", "v3", credentials=credentials)
@@ -847,7 +863,9 @@ def get_authenticated_service():
         return None
 
 
-def upload_video_to_youtube(video_file_path, title, description, tags, category_id, privacy_status):
+def upload_video_to_youtube(
+    video_file_path, title, description, tags, category_id, privacy_status
+):
     try:
         youtube = get_authenticated_service()
         if not youtube:
@@ -858,19 +876,15 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
                 "title": title,
                 "description": description,
                 "tags": tags,
-                "categoryId": category_id
+                "categoryId": category_id,
             },
-            "status": {
-                "privacyStatus": privacy_status
-            }
+            "status": {"privacyStatus": privacy_status},
         }
 
         media = MediaFileUpload(video_file_path, chunksize=-1, resumable=True)
 
         request = youtube.videos().insert(
-            part="snippet,status",
-            body=body,
-            media_body=media
+            part="snippet,status", body=body, media_body=media
         )
 
         response = request.execute()
@@ -886,7 +900,9 @@ def upload_video_to_youtube(video_file_path, title, description, tags, category_
 
             counter = 1
             while os.path.exists(new_file_path):
-                new_file_path = f"{timestampFile}_{os.path.basename(base)}_retry{counter}{ext}"
+                new_file_path = (
+                    f"{timestampFile}_{os.path.basename(base)}_retry{counter}{ext}"
+                )
                 counter += 1
 
             os.rename(video_file_path, new_file_path)
@@ -911,7 +927,7 @@ def insert_blog_post_to_db(title, summary, content, keywords, slug, thumbnail):
             host=mysql_host,
             user=mysql_user,
             password=mysql_password,
-            database=mysql_database
+            database=mysql_database,
         )
 
         cursor = db.cursor()
@@ -929,11 +945,19 @@ def insert_blog_post_to_db(title, summary, content, keywords, slug, thumbnail):
         )
         """
 
-        pgSlug = re.sub(
-            r"[^a-zA-Z0-9\s-]",
-            "",
-            slug.replace("The title is", "").replace("The title of this blog post is", "")
-        ).lower().strip().replace("\n", " ").replace(" ", "-")
+        pgSlug = (
+            re.sub(
+                r"[^a-zA-Z0-9\s-]",
+                "",
+                slug.replace("The title is", "").replace(
+                    "The title of this blog post is", ""
+                ),
+            )
+            .lower()
+            .strip()
+            .replace("\n", " ")
+            .replace(" ", "-")
+        )
 
         page_values = (
             pgSlug,
@@ -951,7 +975,7 @@ def insert_blog_post_to_db(title, summary, content, keywords, slug, thumbnail):
             1,
             None,
             created_at,
-            updated_at
+            updated_at,
         )
 
         cursor.execute(page_sql, page_values)
@@ -981,9 +1005,14 @@ def insert_blog_post_to_db(title, summary, content, keywords, slug, thumbnail):
         clean_title = (
             title.replace("The title is", "")
             .replace("I think your revised blog post looks great", "")
-            .replace("Here is a rewritten version of the blog post with a polished and professional tone, grammar, and readability", "")
+            .replace(
+                "Here is a rewritten version of the blog post with a polished and professional tone, grammar, and readability",
+                "",
+            )
             .replace("The title you provided is", "")
-            .replace("Here is the polished and professional version of the blog post", "")
+            .replace(
+                "Here is the polished and professional version of the blog post", ""
+            )
             .replace("Here's the revised blog post", "")
             .replace("The title of this blog post is", "")
             .strip('"')
@@ -1002,7 +1031,7 @@ def insert_blog_post_to_db(title, summary, content, keywords, slug, thumbnail):
             "<p>" + content.replace("\n", "<br>") + "</p>",
             page_id,
             created_at,
-            updated_at
+            updated_at,
         )
 
         cursor.execute(sql, values)
@@ -1039,8 +1068,20 @@ slg = re.sub(r"[^a-zA-Z0-9\s-]", "", slug.replace("The title is:", ""))
 slug_final = slg.lower().replace(" ", "-")
 
 youtube_title = shorten(text_quote, width=90, placeholder="...")
-youtube_description = "👉 Explore now at https://multiculturaltoolbox.com/blog/" + slug_final + " " + text_quote
-youtube_tags = ["cats", "facts", "https://edwardize.blogspot.com/", "http://multiculturaltoolbox.com/", "#cats", "#facts"]
+youtube_description = (
+    "👉 Explore now at https://multiculturaltoolbox.com/blog/"
+    + slug_final
+    + " "
+    + text_quote
+)
+youtube_tags = [
+    "cats",
+    "facts",
+    "https://edwardize.blogspot.com/",
+    "http://multiculturaltoolbox.com/",
+    "#cats",
+    "#facts",
+]
 youtube_category_id = "22"
 youtube_privacy_status = "public"
 
@@ -1050,7 +1091,7 @@ response = upload_video_to_youtube(
     youtube_description,
     youtube_tags,
     youtube_category_id,
-    youtube_privacy_status
+    youtube_privacy_status,
 )
 
 if response.get("id"):
@@ -1080,7 +1121,12 @@ if response.get("id"):
     )
 
     keywords = "SEO, website, marketing, search engines"
-    thumbnail = response.get("snippet", {}).get("thumbnails", {}).get("default", {}).get("url", "No Thumbnail Found")
+    thumbnail = (
+        response.get("snippet", {})
+        .get("thumbnails", {})
+        .get("default", {})
+        .get("url", "No Thumbnail Found")
+    )
 
     insert_blog_post_to_db(
         youtube_title,
@@ -1088,7 +1134,7 @@ if response.get("id"):
         embed + text_quote,
         keywords,
         slug,
-        thumbnail
+        thumbnail,
     )
 else:
     print("Failed to upload video to YouTube.")
