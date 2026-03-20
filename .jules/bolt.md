@@ -11,3 +11,7 @@
 ## 2025-05-16 - MoviePy TextClip and Encoding Optimizations
 **Learning:** Using `method='label'` instead of `method='caption'` for short strings (like countdown timers) significantly speeds up frame generation by bypassing complex layout engines. Additionally, setting `preset='fast'` and `threads=os.cpu_count()` in `write_videofile` provides a substantial boost to the final encoding phase.
 **Action:** Prefer `method='label'` for simple text. Always utilize all available CPU cores and a fast encoding preset for rapid video iteration.
+
+## 2025-05-17 - Redundant Processing and Regex Efficiency
+**Learning:** Pre-compiling regex patterns avoids repeated compilation in helper functions. Furthermore, performing expensive operations (like base64 encoding of large video files) when their output is not needed (e.g., conditional email disabled) is a significant bottleneck that can be avoided with lazy evaluation or conditional blocks.
+**Action:** Pre-compile regex at module level. Wrap expensive I/O and processing in conditional checks.
