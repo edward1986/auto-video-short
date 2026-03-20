@@ -154,12 +154,12 @@ def produce_short(
         [background, *clips], size=(1080, 1920)
     ).set_audio(music)
 
-    # ✅ Export the final video
+    # ✅ Export the final video - Use multi-threaded video encoding with a safe fallback
     result.write_videofile(
         output,
         fps=24,
         audio_codec="aac",
-        threads=os.cpu_count(),
+        threads=os.cpu_count() or 4,
         preset="fast",
         temp_audiofile="out/TEMP_trivia.mp4",
     )
