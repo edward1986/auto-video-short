@@ -20,6 +20,7 @@ from moviepy.editor import (
     TextClip,
     CompositeVideoClip,
     ColorClip,
+    ImageClip,
 )
 from videoProcess.SoundCreate import make_audio
 from videoProcess.VideoDownload import download_video
@@ -49,8 +50,9 @@ WORD_OF_DAY_RE = re.compile(
 )
 
 
-def build_word_by_word_captions(words, video_size):
+def build_word_by_word_captions(words, video_size, highlight_word=""):
     clips = []
+    highlight_word = highlight_word.lower()
 
     for item in words:
         word = str(item.get("word", "")).strip()
@@ -60,15 +62,22 @@ def build_word_by_word_captions(words, video_size):
         if not word:
             continue
 
-        duration = max(end - start, 0.4)
+        duration = max(end - start, 0.3)
+        clean_word = re.sub(r"[^a-zA-Z0-9]", "", word).lower()
 
-        # Text clip - Use method='label' for faster rendering of short strings
+        is_highlight = clean_word == highlight_word or len(clean_word) > 8
+        color = "#FFFF00" if is_highlight else "white"
+        font_size = 130 if is_highlight else 110
+
+        # Text clip - Bold, high-contrast, kinetic pop
         txt = (
             TextClip(
-                word,
-                fontsize=80,
-                color="white",
+                word.upper(),
+                fontsize=font_size,
+                color=color,
                 font="Arial-Bold",
+                stroke_color="black",
+                stroke_width=3,
                 method="label",
                 align="center",
             )
@@ -77,18 +86,32 @@ def build_word_by_word_captions(words, video_size):
             .set_position(("center", "center"))
         )
 
-        txt_w, txt_h = txt.size
+        # Kinetic "pop" animation: scale up slightly at start of each word
+        txt = txt.resize(
+            lambda t, d=duration: 1.2 if t < 0.1 else 1.0
+        )  # Simple pop for the first 0.1s
 
-        # Background highlight
-        bg = (
-            ColorClip(size=(txt_w + 40, txt_h + 20), color=(0, 0, 0))
-            .set_opacity(0.6)
+        # Minimal shadow/glow for readability instead of a solid box
+        shadow = (
+            TextClip(
+                word.upper(),
+                fontsize=font_size,
+                color="black",
+                font="Arial-Bold",
+                method="label",
+                align="center",
+            )
             .set_start(start)
             .set_duration(duration)
             .set_position(("center", "center"))
+            .set_opacity(0.5)
+        )
+        # Offset shadow slightly
+        shadow = shadow.set_position(lambda t: ("center", "center")).resize(
+            lambda t, d=duration: 1.25 if t < 0.1 else 1.05
         )
 
-        clips.extend([bg, txt])
+        clips.extend([shadow, txt])
 
     return clips
 
@@ -325,6 +348,46 @@ def video_to_base64(video_path):
     except Exception as e:
         print(f"Error converting video to base64: {e}")
         return None
+
+
+def create_noise_overlay(size, duration, opacity=0.05):
+    import numpy as np
+    from moviepy.editor import ImageClip
+
+    w, h = size
+    # Create a small noise texture and scale it up to save memory/cpu
+    noise = np.random.randint(0, 255, (h // 4, w // 4, 3), dtype="uint8")
+    img_clip = ImageClip(noise).set_duration(duration).set_opacity(opacity).resize(size)
+    return img_clip
+
+
+def create_gradient_glow(size, duration, color=(255, 255, 255), opacity=0.1):
+    from PIL import Image, ImageDraw, ImageFilter
+
+    w, h = size
+    inner_color = (*color, int(255 * opacity))
+
+    base = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(base)
+
+    # Draw a large soft radial gradient in the center
+    # This is a bit slow in PIL, so we'll do a simpler approach
+    # Draw a circle and blur it
+    circle_size = min(w, h) * 0.8
+    left = (w - circle_size) / 2
+    top = (h - circle_size) / 2
+    draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
+
+    glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 2))
+    import numpy as np
+
+    glow_array = np.array(glow)
+    return (
+        ImageClip(glow_array)
+        .set_duration(duration)
+        .set_position("center")
+        .set_opacity(opacity)
+    )
 
 
 # =========================
@@ -588,9 +651,43 @@ try:
         .resize(resolution)
     )
 
+    # Ken Burns effect (slow zoom)
+    video_clip = video_clip.resize(lambda t: 1.0 + 0.05 * (t / total_duration))
+
+    # 2-second hook title card
+    hook_text = word.upper()
+    hook_clip = (
+        TextClip(
+            hook_text,
+            fontsize=200,
+            color="white",
+            font="Arial-Bold",
+            stroke_color="black",
+            stroke_width=5,
+            method="label",
+        )
+        .set_start(0)
+        .set_duration(2)
+        .set_position(("center", "center"))
+    )
+
+    # Pop animation for the hook
+    hook_clip = hook_clip.resize(lambda t: 1.0 + 0.1 * (1 - (t / 2) ** 2) if t < 2 else 1.0)
+
+    # Grain and Gradient Glow Overlays
+    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.08)
+    glow_overlay = create_gradient_glow(
+        resolution, total_duration, color=(200, 200, 255), opacity=0.15
+    )
+
     if whisper_words:
-        text_clips = build_word_by_word_captions(whisper_words, video_clip.size)
-        final = CompositeVideoClip([video_clip] + text_clips, size=video_clip.size)
+        text_clips = build_word_by_word_captions(
+            whisper_words, video_clip.size, highlight_word=word
+        )
+        final = CompositeVideoClip(
+            [video_clip, glow_overlay, noise_overlay, hook_clip] + text_clips,
+            size=video_clip.size,
+        )
     else:
         text_chunks = split_text_chunks(text_quote, max_length=90)
         chunk_duration = total_duration / max(len(text_chunks), 1)
@@ -625,7 +722,30 @@ try:
 
             text_clips.extend([semi_transparent_bg, fact_text])
 
-        final = CompositeVideoClip([video_clip] + text_clips, size=video_clip.size)
+        final = CompositeVideoClip(
+            [video_clip, glow_overlay, noise_overlay, hook_clip] + text_clips,
+            size=video_clip.size,
+        )
+
+    # Branded end card (2 seconds)
+    cta_bg = ColorClip(size=resolution, color=(0, 0, 0)).set_duration(2)
+    cta_text = (
+        TextClip(
+            "FOLLOW FOR MORE",
+            fontsize=100,
+            color="white",
+            font="Arial-Bold",
+            method="label",
+        )
+        .set_duration(2)
+        .set_position("center")
+    )
+
+    from moviepy.editor import concatenate_videoclips
+
+    final = concatenate_videoclips(
+        [final, CompositeVideoClip([cta_bg, cta_text], size=resolution)]
+    )
 
     final_video_path = f"{output_dir}/{FINAL_VIDEO}"
     # Use multi-threaded video encoding for faster processing with a safe fallback
