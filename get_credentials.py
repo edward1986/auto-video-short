@@ -1,7 +1,5 @@
-import os
 import pickle
 import google_auth_oauthlib.flow
-from google.auth.transport.requests import Request
 
 CLIENT_SECRETS_FILE = "client_secrets.json"
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
