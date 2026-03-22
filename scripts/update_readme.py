@@ -1,6 +1,5 @@
 # scripts/update_readme.py
 import feedparser
-import os
 
 # RSS Feed URL
 RSS_FEED_URL = "http://multiculturaltoolbox.com/rss2.xml"

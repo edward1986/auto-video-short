@@ -141,7 +141,7 @@ def produce_short(
             brilliancy_board.piece_at(atk.from_square).piece_type
         ]
     )
-    if not lowest_value_capture.promotion is None:
+    if lowest_value_capture.promotion is not None:
         lowest_value_capture.promotion = QUEEN
 
     # Add the board clips for this capture and play on the board

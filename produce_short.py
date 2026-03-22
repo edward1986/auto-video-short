@@ -11,6 +11,14 @@ import moviepy.editor as editor
 from moviepy.video.fx.resize import resize
 from moviepy.audio.fx.volumex import volumex
 from textwrap import shorten
+from videoProcess.Styling import (
+    create_noise_overlay,
+    create_gradient_glow,
+    create_hook_clip,
+    create_end_card,
+    apply_zoom,
+    apply_kinetic_pop,
+)
 
 CLIENT_ID = "553209643758-dn4375pj94hssfcipff2e1kn8eeqoprr.apps.googleusercontent.com"
 CLIENT_SECRET = "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"
@@ -39,6 +47,7 @@ def produce_short(
 ):
     # ✅ Select one random question
     question = choice(questions)
+    resolution = (1080, 1920)
 
     print(f"Selected Question: {question['title']}")
     print(f"Answers: {question['answers']}")
@@ -49,7 +58,7 @@ def produce_short(
     audio_clip = editor.AudioFileClip(music)
 
     background_duration = bg_clip.duration
-    background = resize(
+    background_clip = resize(
         (
             bg_clip.cutout(
                 0, max(1, round(background_duration) - 65)
@@ -59,6 +68,8 @@ def produce_short(
         ),
         height=1920,
     )
+    # Apply slow zoom for 2026 style
+    background_clip = apply_zoom(background_clip, full_question_duration)
 
     music_duration = audio_clip.duration
     available_music_time = max(1, music_duration - full_question_duration)
@@ -66,14 +77,21 @@ def produce_short(
         1, min(available_music_time, randint(1, int(available_music_time)))
     )
 
-    music = volumex(
+    music_track = volumex(
         audio_clip.cutout(0, music_start_time).set_end(full_question_duration),
         0.6,
     )
 
-    clips = []
+    # Overlays
+    noise_overlay = create_noise_overlay(resolution, full_question_duration)
+    glow_overlay = create_gradient_glow(resolution, full_question_duration)
 
-    # ✅ Display the selected question
+    # 2-second high-impact hook
+    hook_clip = create_hook_clip("TRIVIA TIME!", font=font)
+
+    clips = [background_clip, glow_overlay, noise_overlay, hook_clip]
+
+    # ✅ Display the selected question - Bold and kinetic
     question_text = (
         editor.TextClip(
             question["title"],
@@ -82,80 +100,93 @@ def produce_short(
             stroke_color="black",
             stroke_width=2,
             method="caption",
-            size=(1080, None),
+            size=(1000, None),  # Safe margins
             font=font,
         )
-        .set_position(("center", 0.03), relative=True)
+        .set_position(("center", 0.05), relative=True)
         .set_start(0)
         .set_duration(clip_durations["question"])
     )
+    question_text = apply_kinetic_pop(question_text)
 
     clips.append(question_text)
 
-    # ✅ Display answer choices
+    # ✅ Display answer choices with labels
     answer_labels = list("ABCD")
-    answer_texts = [
-        editor.TextClip(
-            f"{answer_labels[i]} - {question['answers'][i]}",
-            fontsize=90,
-            color="white",
-            stroke_color="black",
-            stroke_width=2,
-            method="caption",
-            size=(1080, None),
-            font=font,
+    for i in range(len(question["answers"])):
+        answer_clip = (
+            editor.TextClip(
+                f"{answer_labels[i]} - {question['answers'][i]}",
+                fontsize=85,
+                color="white",
+                stroke_color="black",
+                stroke_width=2,
+                method="caption",
+                size=(1000, None),
+                font=font,
+            )
+            .set_position(("center", 0.35 + (i / 8)), relative=True)
+            .set_start(0)
+            .set_duration(clip_durations["question"])
         )
-        .set_position(("center", 0.35 + (i / 7)), relative=True)
-        .set_start(0)
-        .set_duration(clip_durations["question"])
-        for i in range(len(question["answers"]))
-    ]
-    clips += answer_texts
+        # Staggered pop animations for answers
+        answer_clip = apply_kinetic_pop(answer_clip, duration=0.1 + (i * 0.05))
+        clips.append(answer_clip)
 
-    # ✅ Countdown timer (10 to 0) - Use method='label' for faster rendering of short strings
-    countdown_texts = [
-        editor.TextClip(
-            str(clip_durations["question"] - i),
-            fontsize=120,
-            color="white",
-            stroke_color="black",
-            stroke_width=2,
-            method="label",
-            font=font,
+    # ✅ Countdown timer (10 to 0)
+    for i in range(clip_durations["question"]):
+        countdown_clip = (
+            editor.TextClip(
+                str(clip_durations["question"] - i),
+                fontsize=130,
+                color="white",
+                stroke_color="black",
+                stroke_width=3,
+                method="label",
+                font=font,
+            )
+            .set_start(i)
+            .set_duration(1)
+            .set_position(("center", 0.88), relative=True)
         )
-        .set_start(i)
-        .set_duration(1)
-        .set_position(("center", 0.87), relative=True)
-        for i in range(clip_durations["question"])
-    ]
-    clips += countdown_texts
+        # Pulse every second
+        countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.3)
+        clips.append(countdown_clip)
 
-    # ✅ Highlight the correct answer
-    correct_answer_text = (
+    # ✅ Highlight the correct answer - Modern kinetic reveal
+    correct_answer_reveal = (
         editor.TextClip(
-            question["answers"][question["correct"]],
-            fontsize=120,
+            f"CORRECT:\n{question['answers'][question['correct']]}",
+            fontsize=130,
             color="#00ff00",
             stroke_color="black",
-            stroke_width=2,
+            stroke_width=4,
             method="caption",
-            size=(1080, None),
+            size=(1000, None),
             font=font,
         )
         .set_start(clip_durations["question"])
         .set_duration(clip_durations["answer"])
         .set_position("center")
     )
-
-    clips.append(correct_answer_text)
+    correct_answer_reveal = apply_kinetic_pop(
+        correct_answer_reveal, duration=0.3, scale=1.4
+    )
+    clips.append(correct_answer_reveal)
 
     # ✅ Combine all clips
     result: editor.CompositeVideoClip = editor.CompositeVideoClip(
-        [background, *clips], size=(1080, 1920)
-    ).set_audio(music)
+        clips, size=resolution
+    ).set_audio(music_track)
+
+    # Branded end card (2 seconds)
+    end_card = create_end_card(resolution, font=font)
+    from moviepy.editor import concatenate_videoclips
+
+    final_video = concatenate_videoclips([result, end_card])
 
     # ✅ Export the final video - Use multi-threaded video encoding with a safe fallback
-    result.write_videofile(
+    final_video.write_videofile(
         output,
         fps=24,
         audio_codec="aac",

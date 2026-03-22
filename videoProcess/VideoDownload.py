@@ -2,15 +2,11 @@
 import os
 import requests
 import json
-import urllib.request
-import ast
+import textwrap
 from random import randint
-from os import environ
 from dotenv import load_dotenv
-from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
-from textwrap import fill
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip, ImageClip
 from PIL import Image, ImageDraw, ImageFont
-import math
 # Load environment constants
 load_dotenv(".env")
 
