@@ -97,16 +97,18 @@ def create_final_video(quote):
         return
 
     try:
-        # Load the video clip without audio
-        video_clip = VideoFileClip(video_path, audio=False)
+        # Load the video clip without audio.
+        # target_resolution offloads resizing to FFmpeg during decoding, saving CPU/RAM.
+        video_clip = VideoFileClip(video_path, audio=False, target_resolution=(1920, None))
 
         # Calculate how many times the video needs to loop to match the audio duration
         video_duration = video_clip.duration
         audio_duration = audio_clip.duration
         loop_count = int(audio_duration // video_duration) + 1
 
-        # Loop the video and set it to match the audio duration
-        looped_video_clip = video_clip.loop(n=loop_count).subclip(0, audio_duration).set_audio(audio_clip).resize(resolution)
+        # Loop the video and set it to match the audio duration.
+        # We apply resize before loop to minimize transformation overhead on looped frames.
+        looped_video_clip = video_clip.resize(resolution).loop(n=loop_count).subclip(0, audio_duration).set_audio(audio_clip.subclip(0, audio_duration))
 
         # Split the text into chunks for sequential display
         text_chunks = textwrap.wrap(quote, width=40)

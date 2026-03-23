@@ -13,7 +13,7 @@ import moviepy.editor as editor
 from moviepy.video.fx.resize import resize
 from moviepy.audio.fx.volumex import volumex
 
-from board import *
+from board import *  # noqa: F403
 
 clip_durations = {
     "puzzle": 10,
@@ -91,13 +91,13 @@ def produce_short(
         raise ValueError("brilliant move not found in provided PGN.")
     
     board_clips = [
-        draw_board(
+        draw_board(  # noqa: F405
             fen=game_moves[0].board().fen(),
             flipped=flipped,
             duration=clip_durations["puzzle"]
         ),
         
-        draw_board(
+        draw_board(  # noqa: F405
             fen=game_moves[0].board().fen(),
             flipped=flipped,
             highlighted_move=game_moves[1].uci(),
@@ -107,7 +107,7 @@ def produce_short(
             duration=clip_durations["move"]
         ).set_start(clip_durations["puzzle"]),
 
-        draw_board(
+        draw_board(  # noqa: F405
             fen=game_moves[1].board().fen(),
             flipped=flipped,
             highlighted_move=game_moves[1].uci(),
@@ -152,7 +152,7 @@ def produce_short(
     ])
 
     line_board_clips.append(
-        draw_move_with_preview(
+        draw_move_with_preview(  # noqa: F405
             fen=brilliancy_board.fen(),
             flipped=flipped,
             highlighted_move=lowest_value_capture.uci(),
@@ -176,7 +176,7 @@ def produce_short(
             break
 
         line_board_clips.append(
-            draw_move_with_preview(
+            draw_move_with_preview(  # noqa: F405
                 fen=sf_engine.get_fen_position(),
                 flipped=flipped,
                 highlighted_move=top_engine_move,

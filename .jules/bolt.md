@@ -13,5 +13,9 @@
 **Action:** Prefer `method='label'` for simple text. Always utilize all available CPU cores and a fast encoding preset for rapid video iteration.
 
 ## 2025-05-17 - Redundant Processing and Regex Efficiency
-**Learning:** Pre-compiling regex patterns avoids repeated compilation in helper functions. Furthermore, performing expensive operations (like base64 encoding of large video files) when their output is not needed (e.g., conditional email disabled) is a significant bottleneck that can be avoided with lazy evaluation or conditional blocks.
+**Learning:** Pre-compiled regex patterns avoids repeated compilation in helper functions. Furthermore, performing expensive operations (like base64 encoding of large video files) when their output is not needed (e.g., conditional email disabled) is a significant bottleneck that can be avoided with lazy evaluation or conditional blocks.
 **Action:** Pre-compile regex at module level. Wrap expensive I/O and processing in conditional checks.
+
+## 2025-05-18 - FFmpeg Offloading and Transformation Ordering
+**Learning:** Using `target_resolution` in `VideoFileClip` offloads resizing to FFmpeg during decoding, which is significantly faster and more memory-efficient than resizing NumPy arrays in Python. Additionally, applying `.resize()` before `.loop()` ensures the transformation is only part of the base clip's graph, avoiding redundant processing on every loop iteration. In unformatted codebases, avoid broad reformatting to keep performance PRs focused and maintain git-blame history.
+**Action:** Always use `target_resolution` for scaling during ingestion. Apply transformations as early as possible in the processing pipeline. Use surgical `# noqa` for pre-existing broken dependencies.
