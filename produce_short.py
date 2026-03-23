@@ -54,7 +54,8 @@ def produce_short(
     print(f"Correct Answer Index: {question['correct']}")
 
     # ✅ Load background and music once to avoid repeated file I/O
-    bg_clip = editor.VideoFileClip(background)
+    # target_resolution offloads resizing to FFmpeg during decoding for better performance.
+    bg_clip = editor.VideoFileClip(background, target_resolution=(1920, None))
     audio_clip = editor.AudioFileClip(music)
 
     background_duration = bg_clip.duration

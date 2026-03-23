@@ -547,11 +547,13 @@ MAX_DURATION = 59
 try:
     total_duration = min(audio_clip.duration, MAX_DURATION)
 
+    # target_resolution offloads resizing to FFmpeg during decoding, saving CPU/RAM.
+    # We apply resize before loop to minimize transformation overhead on looped frames.
     video_clip = (
-        VideoFileClip(video_path, audio=False)
-        .set_audio(audio_clip)
-        .loop(duration=total_duration)
+        VideoFileClip(video_path, audio=False, target_resolution=(1920, None))
         .resize(resolution)
+        .loop(duration=total_duration)
+        .set_audio(audio_clip.subclip(0, total_duration))
     )
 
     # Ken Burns effect (slow zoom)
