@@ -57,8 +57,6 @@ WORD_OF_DAY_RE = re.compile(
 )
 
 
-
-
 # =========================
 # HTTP HELPERS
 # =========================
@@ -567,7 +565,9 @@ try:
     glow_overlay = create_gradient_glow(resolution, total_duration)
 
     if whisper_words:
-        text_clips = build_modern_captions(whisper_words, video_clip.size, highlight_word=word)
+        text_clips = build_modern_captions(
+            whisper_words, video_clip.size, highlight_word=word
+        )
         final = CompositeVideoClip(
             [video_clip, glow_overlay, noise_overlay, hook_clip] + text_clips,
             size=video_clip.size,
@@ -611,12 +611,13 @@ try:
             size=video_clip.size,
         )
 
-    # Branded end card (2 seconds)
+    # Branded end card (2.5 seconds)
     end_card = create_end_card(resolution)
 
     from moviepy.editor import concatenate_videoclips
 
-    final = concatenate_videoclips([final, end_card])
+    # Clean transition between main content and end card (0.3s crossfade)
+    final = concatenate_videoclips([final, end_card], method="compose", padding=-0.3)
 
     final_video_path = f"{output_dir}/{FINAL_VIDEO}"
     # Use multi-threaded video encoding for faster processing with a safe fallback

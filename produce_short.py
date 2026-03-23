@@ -121,7 +121,7 @@ def produce_short(
                 fontsize=85,
                 color="white",
                 stroke_color="black",
-                stroke_width=2,
+                stroke_width=3,
                 method="caption",
                 size=(1000, None),
                 font=font,
@@ -131,7 +131,9 @@ def produce_short(
             .set_duration(clip_durations["question"])
         )
         # Staggered pop animations for answers
-        answer_clip = apply_kinetic_pop(answer_clip, duration=0.1 + (i * 0.05))
+        answer_clip = apply_kinetic_pop(
+            answer_clip, duration=0.1 + (i * 0.05), scale=1.2
+        )
         clips.append(answer_clip)
 
     # ✅ Countdown timer (10 to 0)
@@ -142,7 +144,7 @@ def produce_short(
                 fontsize=130,
                 color="white",
                 stroke_color="black",
-                stroke_width=3,
+                stroke_width=4,
                 method="label",
                 font=font,
             )
@@ -151,17 +153,17 @@ def produce_short(
             .set_position(("center", 0.88), relative=True)
         )
         # Pulse every second
-        countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.3)
+        countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.35)
         clips.append(countdown_clip)
 
     # ✅ Highlight the correct answer - Modern kinetic reveal
     correct_answer_reveal = (
         editor.TextClip(
             f"CORRECT:\n{question['answers'][question['correct']]}",
-            fontsize=130,
-            color="#00ff00",
+            fontsize=135,
+            color="#00FF00",  # Neon Green
             stroke_color="black",
-            stroke_width=4,
+            stroke_width=5,
             method="caption",
             size=(1000, None),
             font=font,
@@ -171,7 +173,7 @@ def produce_short(
         .set_position("center")
     )
     correct_answer_reveal = apply_kinetic_pop(
-        correct_answer_reveal, duration=0.3, scale=1.4
+        correct_answer_reveal, duration=0.4, scale=1.5
     )
     clips.append(correct_answer_reveal)
 
@@ -180,11 +182,14 @@ def produce_short(
         clips, size=resolution
     ).set_audio(music_track)
 
-    # Branded end card (2 seconds)
+    # Branded end card (2.5 seconds)
     end_card = create_end_card(resolution, font=font)
     from moviepy.editor import concatenate_videoclips
 
-    final_video = concatenate_videoclips([result, end_card])
+    # Clean transition between main content and end card (0.3s crossfade)
+    final_video = concatenate_videoclips(
+        [result, end_card], method="compose", padding=-0.3
+    )
 
     # ✅ Export the final video - Use multi-threaded video encoding with a safe fallback
     final_video.write_videofile(
