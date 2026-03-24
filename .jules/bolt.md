@@ -19,3 +19,7 @@
 ## 2025-05-18 - FFmpeg Offloading and Transformation Ordering
 **Learning:** Using `target_resolution` in `VideoFileClip` offloads resizing to FFmpeg during decoding, which is significantly faster and more memory-efficient than resizing NumPy arrays in Python. Additionally, applying `.resize()` before `.loop()` ensures the transformation is only part of the base clip's graph, avoiding redundant processing on every loop iteration. In unformatted codebases, avoid broad reformatting to keep performance PRs focused and maintain git-blame history.
 **Action:** Always use `target_resolution` for scaling during ingestion. Apply transformations as early as possible in the processing pipeline. Use surgical `# noqa` for pre-existing broken dependencies.
+
+## 2025-05-19 - Efficient Gaussian Blur via Downscaling
+**Learning:** Performing expensive image operations like Gaussian Blur on high-resolution assets (e.g., 1080x1920) is extremely CPU-intensive in Python. By downscaling the source image to 1/10th of its size before applying the blur and then upscaling the resulting clip back to the target resolution, we can achieve ~100x speedup with negligible visual impact for soft overlays like gradient glows.
+**Action:** Always perform heavy filter/blur operations on a downscaled proxy before upscaling the final clip.
