@@ -14,16 +14,21 @@ def create_noise_overlay(size, duration, opacity=0.08):
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.15):
-    """Creates a soft radial gradient glow in the center."""
+    """Creates a soft radial gradient glow in the center.
+    Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
+    """
     w, h = size
+    # Downscale for performance
+    scale = 10
+    small_size = (w // scale, h // scale)
     inner_color = (*color, int(255 * opacity))
 
-    base = Image.new("RGBA", size, (0, 0, 0, 0))
+    base = Image.new("RGBA", small_size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(base)
 
-    circle_size = min(w, h) * 0.9
-    left = (w - circle_size) / 2
-    top = (h - circle_size) / 2
+    circle_size = min(small_size) * 0.9
+    left = (small_size[0] - circle_size) / 2
+    top = (small_size[1] - circle_size) / 2
     draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
 
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
@@ -34,6 +39,7 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.15):
         .set_duration(duration)
         .set_position("center")
         .set_opacity(opacity)
+        .resize(size)
     )
 
 
