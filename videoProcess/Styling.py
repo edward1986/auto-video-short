@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
 
+
 def create_noise_overlay(size, duration, opacity=0.08):
     """Creates a textured grain overlay."""
     w, h = size
@@ -10,6 +11,7 @@ def create_noise_overlay(size, duration, opacity=0.08):
     noise = np.random.randint(0, 255, (h // 4, w // 4, 3), dtype="uint8")
     img_clip = ImageClip(noise).set_duration(duration).set_opacity(opacity).resize(size)
     return img_clip
+
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.15):
     """Creates a soft radial gradient glow in the center."""
@@ -34,16 +36,47 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.15):
         .set_opacity(opacity)
     )
 
+
 def apply_kinetic_pop(clip, duration=0.1, scale=1.2):
     """Applies a 'pop' scale animation at the beginning of the clip."""
     return clip.resize(lambda t: scale if t < duration else 1.0)
 
+
 def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.1):
     """Applies a slow zoom (Ken Burns) effect."""
-    return clip.resize(lambda t: start_scale + (end_scale - start_scale) * (t / total_duration))
+    return clip.resize(
+        lambda t: start_scale + (end_scale - start_scale) * (t / total_duration)
+    )
+
+
+def apply_slide_in(clip, duration=0.5, direction="bottom"):
+    """Applies a slide-in animation."""
+    w, h = clip.size
+
+    def pos(t):
+        if t >= duration:
+            return "center"
+        offset = (1 - (t / duration)) ** 2
+        if direction == "bottom":
+            return ("center", h * offset)
+        if direction == "top":
+            return ("center", -h * offset)
+        if direction == "left":
+            return (-w * offset, "center")
+        if direction == "right":
+            return (w * offset, "center")
+        return "center"
+
+    return clip.set_position(pos)
+
+
+def apply_fade_in(clip, duration=0.3):
+    """Applies a simple fade-in effect."""
+    return clip.set_opacity(lambda t: min(1.0, t / duration))
+
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
-    """Creates a high-impact 2-second hook title card with a pop animation."""
+    """Creates a high-impact 2-second hook title card with aggressive kinetic animations."""
     hook = (
         TextClip(
             text.upper(),
@@ -51,15 +84,23 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
             color="white",
             font=font,
             stroke_color="black",
-            stroke_width=5,
+            stroke_width=6,
             method="label",
         )
         .set_start(0)
         .set_duration(duration)
         .set_position(("center", "center"))
     )
-    # Strong kinetic pop for the hook
-    return hook.resize(lambda t: 1.1 + 0.2 * (1 - (t / duration) ** 2) if t < duration else 1.0)
+
+    # Aggressive kinetic scaling and a subtle punchy rotation
+    def hook_anim(t):
+        s = 1.0 + 0.3 * np.exp(-5 * t) * np.cos(10 * t)
+        return s
+
+    return hook.resize(hook_anim).set_rotation(
+        lambda t: 5 * np.exp(-5 * t) * np.sin(10 * t)
+    )
+
 
 def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold"):
     """Builds word-by-word captions with kinetic animations and keyword highlighting."""
@@ -77,10 +118,10 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
         duration = max(end - start, 0.3)
         clean_word = re.sub(r"[^a-zA-Z0-9]", "", word).lower()
 
-        # Modern highlighting: Yellow for keywords or long words
+        # Modern highlighting: Bright Neon Green or Yellow
         is_highlight = clean_word == highlight_word or len(clean_word) > 7
-        color = "#FFFF00" if is_highlight else "white"
-        font_size = 140 if is_highlight else 120
+        color = "#00FF00" if is_highlight else "white"
+        font_size = 150 if is_highlight else 120
 
         # Text clip - Bold, high-contrast
         txt = (
@@ -90,7 +131,7 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
                 color=color,
                 font=font,
                 stroke_color="black",
-                stroke_width=3,
+                stroke_width=4,
                 method="label",
                 align="center",
             )
@@ -100,9 +141,9 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
         )
 
         # Kinetic "pop" animation
-        txt = apply_kinetic_pop(txt, duration=0.1, scale=1.2)
+        txt = apply_kinetic_pop(txt, duration=0.1, scale=1.3)
 
-        # Minimal shadow for depth
+        # Drop shadow for readability
         shadow = (
             TextClip(
                 word.upper(),
@@ -115,27 +156,31 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
             .set_start(start)
             .set_duration(duration)
             .set_position(("center", "center"))
-            .set_opacity(0.4)
+            .set_opacity(0.6)
         )
-        # Apply pop animation to shadow
-        shadow = shadow.resize(lambda t: 1.25 if t < 0.1 else 1.05)
+        shadow = shadow.resize(lambda t: 1.35 if t < 0.1 else 1.05)
 
         clips.extend([shadow, txt])
 
     return clips
 
-def create_end_card(video_size, duration=2.0, text="FOLLOW FOR MORE", font="Arial-Bold"):
-    """Creates a polished branded end card."""
+
+def create_end_card(
+    video_size, duration=2.5, text="FOLLOW FOR MORE", font="Arial-Bold"
+):
+    """Creates a polished branded end card with punchy motion."""
     w, h = video_size
     cta_bg = ColorClip(size=video_size, color=(0, 0, 0)).set_duration(duration)
 
     # Adding a subtle glow to the end card
-    glow = create_gradient_glow(video_size, duration, color=(255, 255, 255), opacity=0.2)
+    glow = create_gradient_glow(
+        video_size, duration, color=(255, 255, 255), opacity=0.3
+    )
 
     cta_text = (
         TextClip(
             text,
-            fontsize=100,
+            fontsize=110,
             color="white",
             font=font,
             method="label",
@@ -143,7 +188,9 @@ def create_end_card(video_size, duration=2.0, text="FOLLOW FOR MORE", font="Aria
         .set_duration(duration)
         .set_position("center")
     )
-    # Gentle pulse for the CTA
-    cta_text = cta_text.resize(lambda t: 1.0 + 0.05 * np.sin(2 * np.pi * t))
+
+    # Kinetic pulse and slide-in from bottom
+    cta_text = apply_slide_in(cta_text, duration=0.6, direction="bottom")
+    cta_text = cta_text.resize(lambda t: 1.0 + 0.08 * np.sin(4 * np.pi * t))
 
     return CompositeVideoClip([cta_bg, glow, cta_text], size=video_size)
