@@ -568,48 +568,23 @@ try:
         text_clips = build_modern_captions(
             whisper_words, video_clip.size, highlight_word=word
         )
-        final = CompositeVideoClip(
-            [video_clip, glow_overlay, noise_overlay, hook_clip] + text_clips,
-            size=video_clip.size,
-        )
     else:
-        text_chunks = split_text_chunks(text_quote, max_length=90)
-        chunk_duration = total_duration / max(len(text_chunks), 1)
-
-        text_clips = []
-        for idx, chunk in enumerate(text_chunks):
-            fact_text = (
-                TextClip(
-                    chunk,
-                    color="white",
-                    fontsize=50,
-                    align="center",
-                    method="caption",
-                    size=(900, None),
-                )
-                .set_position(("center", "center"))
-                .set_start(idx * chunk_duration)
-                .set_duration(chunk_duration)
+        # Fallback to modern captions even if whisper fails (simulated word timestamps)
+        simulated_words = []
+        words_list = text_quote.split()
+        time_per_word = total_duration / max(len(words_list), 1)
+        for i, w in enumerate(words_list):
+            simulated_words.append(
+                {"word": w, "start": i * time_per_word, "end": (i + 1) * time_per_word}
             )
-
-            fact_text_width, fact_text_height = fact_text.size
-
-            semi_transparent_bg = (
-                ColorClip(
-                    size=(fact_text_width + 40, fact_text_height + 20), color=(0, 0, 0)
-                )
-                .set_opacity(0.5)
-                .set_position(("center", "center"))
-                .set_start(idx * chunk_duration)
-                .set_duration(chunk_duration)
-            )
-
-            text_clips.extend([semi_transparent_bg, fact_text])
-
-        final = CompositeVideoClip(
-            [video_clip, glow_overlay, noise_overlay, hook_clip] + text_clips,
-            size=video_clip.size,
+        text_clips = build_modern_captions(
+            simulated_words, video_clip.size, highlight_word=word
         )
+
+    final = CompositeVideoClip(
+        [video_clip, glow_overlay, noise_overlay, hook_clip] + text_clips,
+        size=video_clip.size,
+    )
 
     # Branded end card (2.5 seconds)
     end_card = create_end_card(resolution)
