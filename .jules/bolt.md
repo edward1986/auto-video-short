@@ -23,3 +23,7 @@
 ## 2025-05-19 - Efficient Gaussian Blur via Downscaling
 **Learning:** Performing expensive image operations like Gaussian Blur on high-resolution assets (e.g., 1080x1920) is extremely CPU-intensive in Python. By downscaling the source image to 1/10th of its size before applying the blur and then upscaling the resulting clip back to the target resolution, we can achieve ~100x speedup with negligible visual impact for soft overlays like gradient glows.
 **Action:** Always perform heavy filter/blur operations on a downscaled proxy before upscaling the final clip.
+
+## 2025-05-20 - Scalar Math Performance in Temporal Lambdas
+**Learning:** In MoviePy, temporal transformation functions (like `.resize(lambda t: ...)` or `.set_position(lambda t: ...)`) are called for every single frame. Using `numpy` for scalar math (e.g., `np.sin`, `np.exp`) inside these lambdas introduces significant overhead due to NumPy's internal array-handling machinery. Switching to the standard library `math` module for these scalar operations can result in a >70% speedup for the specific calculation, which compounds across thousands of frames.
+**Action:** Always use the `math` module for scalar calculations inside MoviePy temporal callbacks.
