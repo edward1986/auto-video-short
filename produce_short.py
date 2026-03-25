@@ -96,7 +96,7 @@ def produce_short(
     question_text = (
         editor.TextClip(
             question["title"],
-            fontsize=90,
+            fontsize=120,
             color="white",
             stroke_color="black",
             stroke_width=2,
@@ -118,7 +118,7 @@ def produce_short(
         answer_clip = (
             editor.TextClip(
                 f"{answer_labels[i]} - {question['answers'][i]}",
-                fontsize=85,
+                fontsize=100,
                 color="white",
                 stroke_color="black",
                 stroke_width=3,

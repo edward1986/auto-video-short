@@ -2,22 +2,30 @@ import re
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
+from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip, VideoClip
 
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 
 
 def create_noise_overlay(size, duration, opacity=0.08):
-    """Creates a textured grain overlay."""
+    """Creates a dynamic textured grain overlay (living grain)."""
     w, h = size
-    # Create a small noise texture and scale it up to save memory/cpu and create a 'gritty' look
-    noise = np.random.randint(0, 255, (h // 4, w // 4, 3), dtype="uint8")
-    img_clip = ImageClip(noise).set_duration(duration).set_opacity(opacity).resize(size)
-    return img_clip
+    # Low-res noise for performance and '2026' grit
+    sw, sh = w // 4, h // 4
+
+    def make_frame(t):
+        return np.random.randint(0, 255, (sh, sw, 3), dtype="uint8")
+
+    noise_clip = (
+        VideoClip(make_frame, duration=duration)
+        .set_opacity(opacity)
+        .resize(size)
+    )
+    return noise_clip
 
 
-def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.15):
+def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     """Creates a soft radial gradient glow in the center.
     Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
     """
@@ -48,8 +56,9 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.15):
 
 
 def apply_kinetic_pop(clip, duration=0.1, scale=1.2):
-    """Applies a 'pop' scale animation at the beginning of the clip."""
-    return clip.resize(lambda t: scale if t < duration else 1.0)
+    """Applies a smooth 'pop' scale animation with exponential decay."""
+    # Performance: Using math module for scalar operations in temporal lambda
+    return clip.resize(lambda t: 1.0 + (scale - 1.0) * math.exp(-15 * t))
 
 
 def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.1):
