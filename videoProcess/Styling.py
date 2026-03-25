@@ -1,7 +1,11 @@
 import re
+import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
+
+# Pre-compiled regex for better performance in build_modern_captions
+NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 
 
 def create_noise_overlay(size, duration, opacity=0.08):
@@ -99,12 +103,13 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
     )
 
     # Aggressive kinetic scaling and a subtle punchy rotation
+    # Performance: Using math module for scalar operations to avoid NumPy overhead in frame functions
     def hook_anim(t):
-        s = 1.0 + 0.3 * np.exp(-5 * t) * np.cos(10 * t)
+        s = 1.0 + 0.3 * math.exp(-5 * t) * math.cos(10 * t)
         return s
 
     return hook.resize(hook_anim).set_rotation(
-        lambda t: 5 * np.exp(-5 * t) * np.sin(10 * t)
+        lambda t: 5 * math.exp(-5 * t) * math.sin(10 * t)
     )
 
 
@@ -122,7 +127,7 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
             continue
 
         duration = max(end - start, 0.3)
-        clean_word = re.sub(r"[^a-zA-Z0-9]", "", word).lower()
+        clean_word = NON_ALPHANUMERIC_RE.sub("", word).lower()
 
         # Modern highlighting: Bright Neon Green or Yellow
         is_highlight = clean_word == highlight_word or len(clean_word) > 7
@@ -196,7 +201,8 @@ def create_end_card(
     )
 
     # Kinetic pulse and slide-in from bottom
+    # Performance: Using math module for scalar operations to avoid NumPy overhead in frame functions
     cta_text = apply_slide_in(cta_text, duration=0.6, direction="bottom")
-    cta_text = cta_text.resize(lambda t: 1.0 + 0.08 * np.sin(4 * np.pi * t))
+    cta_text = cta_text.resize(lambda t: 1.0 + 0.08 * math.sin(4 * math.pi * t))
 
     return CompositeVideoClip([cta_bg, glow, cta_text], size=video_size)
