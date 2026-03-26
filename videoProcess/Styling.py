@@ -125,7 +125,7 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
         s = 1.0 + 0.3 * math.exp(-5 * t) * math.cos(10 * t)
         return s
 
-    return hook.resize(hook_anim).set_rotation(
+    return hook.resize(hook_anim).rotate(
         lambda t: 5 * math.exp(-5 * t) * math.sin(10 * t)
     )
 
