@@ -18,6 +18,8 @@ from videoProcess.Styling import (
     create_end_card,
     apply_zoom,
     apply_kinetic_pop,
+    apply_slide_in,
+    build_modern_captions,
 )
 
 CLIENT_ID = "553209643758-dn4375pj94hssfcipff2e1kn8eeqoprr.apps.googleusercontent.com"
@@ -54,7 +56,6 @@ def produce_short(
     print(f"Correct Answer Index: {question['correct']}")
 
     # ✅ Load background and music once to avoid repeated file I/O
-    # target_resolution offloads resizing to FFmpeg during decoding for better performance.
     bg_clip = editor.VideoFileClip(background, target_resolution=(1920, None))
     audio_clip = editor.AudioFileClip(music)
 
@@ -63,7 +64,7 @@ def produce_short(
         (
             bg_clip.cutout(
                 0, max(1, round(background_duration) - 65)
-            )  # ✅ Ensure valid range
+            )
             .set_duration(full_question_duration)
             .set_position(("center", "center"))
         ),
@@ -83,7 +84,7 @@ def produce_short(
         0.6,
     )
 
-    # Overlays
+    # Overlays - 2026 style
     noise_overlay = create_noise_overlay(resolution, full_question_duration)
     glow_overlay = create_gradient_glow(resolution, full_question_duration)
 
@@ -92,48 +93,56 @@ def produce_short(
 
     clips = [background_clip, glow_overlay, noise_overlay, hook_clip]
 
-    # ✅ Display the selected question - Bold and kinetic
-    question_text = (
-        editor.TextClip(
-            question["title"],
-            fontsize=120,
-            color="white",
-            stroke_color="black",
-            stroke_width=2,
-            method="caption",
-            size=(1000, None),  # Safe margins
-            font=font,
-        )
-        .set_position(("center", 0.05), relative=True)
-        .set_start(0)
-        .set_duration(clip_durations["question"])
+    # ✅ Display the selected question - 2026 Modern Caption Style (Word-by-word)
+    question_words = []
+    raw_words = question["title"].split()
+    time_per_word = clip_durations["question"] / max(len(raw_words), 1)
+    for i, w in enumerate(raw_words):
+        question_words.append({
+            "word": w,
+            "start": i * time_per_word,
+            "end": (i + 1) * time_per_word
+        })
+
+    # Keyword highlight in the question (e.g., words like NOT, WHICH, etc.)
+    highlight_keywords = ["NOT", "WHICH", "WHAT", "WHO", "WHERE"]
+    found_highlight = ""
+    for w in raw_words:
+        if w.upper() in highlight_keywords:
+            found_highlight = w
+            break
+
+    question_clips_raw = build_modern_captions(
+        question_words, resolution, highlight_word=found_highlight, font=font
     )
-    question_text = apply_kinetic_pop(question_text)
+    # Reposition all question clips to the top third (must re-assign because .set_position is not in-place)
+    question_clips = [c.set_position(("center", 0.15), relative=True) for c in question_clips_raw]
 
-    clips.append(question_text)
+    clips.extend(question_clips)
 
-    # ✅ Display answer choices with labels
+    # ✅ Display answer choices with labels - Cascading Entrance
     answer_labels = list("ABCD")
     for i in range(len(question["answers"])):
+        target_y = 0.45 + (i / 9)
         answer_clip = (
             editor.TextClip(
-                f"{answer_labels[i]} - {question['answers'][i]}",
-                fontsize=100,
+                f"{answer_labels[i]} - {question['answers'][i]}".upper(),
+                fontsize=85,
                 color="white",
                 stroke_color="black",
-                stroke_width=3,
+                stroke_width=2,
                 method="caption",
-                size=(1000, None),
+                size=(900, None),
                 font=font,
             )
-            .set_position(("center", 0.35 + (i / 8)), relative=True)
-            .set_start(0)
-            .set_duration(clip_durations["question"])
+            .set_start(0.5 + (i * 0.15)) # Staggered start
+            .set_duration(clip_durations["question"] - (0.5 + (i * 0.15)))
         )
-        # Staggered pop animations for answers
-        answer_clip = apply_kinetic_pop(
-            answer_clip, duration=0.1 + (i * 0.05), scale=1.2
+        # 2026 style: Snappy slide-in and pop
+        answer_clip = apply_slide_in(
+            answer_clip, duration=0.4, direction="bottom", final_pos=("center", target_y)
         )
+        answer_clip = apply_kinetic_pop(answer_clip, duration=0.2, scale=1.1)
         clips.append(answer_clip)
 
     # ✅ Countdown timer (10 to 0)
@@ -141,7 +150,7 @@ def produce_short(
         countdown_clip = (
             editor.TextClip(
                 str(clip_durations["question"] - i),
-                fontsize=130,
+                fontsize=160,
                 color="white",
                 stroke_color="black",
                 stroke_width=4,
@@ -150,18 +159,18 @@ def produce_short(
             )
             .set_start(i)
             .set_duration(1)
-            .set_position(("center", 0.88), relative=True)
+            .set_position(("center", 0.9), relative=True)
         )
         # Pulse every second
-        countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.35)
+        countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.4)
         clips.append(countdown_clip)
 
-    # ✅ Highlight the correct answer - Modern kinetic reveal
+    # ✅ Highlight the correct answer - Modern neon reveal
     correct_answer_reveal = (
         editor.TextClip(
-            f"CORRECT:\n{question['answers'][question['correct']]}",
+            f"CORRECT:\n{question['answers'][question['correct']]}".upper(),
             fontsize=135,
-            color="#00FF00",  # Neon Green
+            color="#00FF00",  # Neon Green (2026 trend)
             stroke_color="black",
             stroke_width=5,
             method="caption",
@@ -191,7 +200,7 @@ def produce_short(
         [result, end_card], method="compose", padding=-0.3
     )
 
-    # ✅ Export the final video - Use multi-threaded video encoding with a safe fallback
+    # ✅ Export the final video
     final_video.write_videofile(
         output,
         fps=24,
@@ -207,14 +216,14 @@ def produce_short(
         + question["title"]
     )
     youtube_tags = [
-        "cats",
+        "trivia",
+        "quiz",
         "facts",
-        "https://edwardize.blogspot.com/",
-        "http://multiculturaltoolbox.com/",
-        "#cats",
-        "#facts",
+        "#shorts",
+        "#trivia",
+        "#quiz",
     ]
-    youtube_category_id = "22"  # YouTube category ID
+    youtube_category_id = "22"
     youtube_privacy_status = "public"
 
     response = upload_video_to_youtube(
@@ -228,10 +237,8 @@ def produce_short(
 
     if "id" in response:
         print("Video uploaded to YouTube successfully!")
-        print("Response:", response)
     else:
         print("Failed to upload video to YouTube.")
-        print("Response:", response)
 
     # ✅ Explicitly close clips to release system resources
     bg_clip.close()
@@ -286,15 +293,13 @@ def upload_video_to_youtube(
         base, ext = os.path.splitext(video_file_path)
         new_file_path = f"{timestampFile}_{base}_retry{ext}"
 
-        # Ensure we don't overwrite an existing file
         counter = 1
         while os.path.exists(new_file_path):
             new_file_path = f"{timestampFile}_{base}_retry{counter}{ext}"
             counter += 1
 
-        os.rename(video_file_path, new_file_path)
-        print(f"Renamed file to: {new_file_path}")
-
+        if os.path.exists(video_file_path):
+            os.rename(video_file_path, new_file_path)
         return {"error": str(e)}
 
 
@@ -303,19 +308,14 @@ if __name__ == "__main__":
     with open("questions.json", "r", encoding="utf-8") as file:
         args = json.load(file)
 
-        # Merge "animals" and "games" categories if present
         args["questions"] = (
             args.get("science", []) + args.get("animals", []) + args.get("games", [])
         )
         with open("tracks.json", "r", encoding="utf-8") as file:
             tracks = json.load(file)
 
-        # Select a random music track
-        selected_track = random.choice(tracks)  # Picks a random dictionary
-
-        # Extract filename and dropTime
+        selected_track = random.choice(tracks)
         random_music_track = selected_track["filename"]
-        drop_time = selected_track["dropTime"]
 
         produce_short(
             questions=args["questions"],

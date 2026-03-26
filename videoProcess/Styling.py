@@ -9,20 +9,22 @@ NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 
 
 def create_noise_overlay(size, duration, opacity=0.08):
-    """Creates a dynamic textured grain overlay (living grain)."""
+    """Creates a dynamic textured grain overlay (living grain) with optimized frame pooling."""
     w, h = size
-    # Low-res noise for performance and '2026' grit
     sw, sh = w // 4, h // 4
+    # Pre-generate a pool of 24 frames to reduce CPU overhead per frame call
+    pool = [np.random.randint(0, 255, (sh, sw, 3), dtype="uint8") for _ in range(24)]
 
     def make_frame(t):
-        return np.random.randint(0, 255, (sh, sw, 3), dtype="uint8")
+        # Cycle through the pool at 24fps
+        idx = int(t * 24) % 24
+        return pool[idx]
 
-    noise_clip = (
+    return (
         VideoClip(make_frame, duration=duration)
         .set_opacity(opacity)
         .resize(size)
     )
-    return noise_clip
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
@@ -46,13 +48,14 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
     glow_array = np.array(glow)
 
-    return (
+    clip = (
         ImageClip(glow_array)
         .set_duration(duration)
         .set_position("center")
-        .set_opacity(opacity)
         .resize(size)
     )
+    # 2026 style: Subtle breathing/pulsing opacity
+    return clip.set_opacity(lambda t: opacity * (0.8 + 0.2 * math.sin(2 * t)))
 
 
 def apply_kinetic_pop(clip, duration=0.1, scale=1.2):
@@ -68,25 +71,32 @@ def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.1):
     )
 
 
-def apply_slide_in(clip, duration=0.5, direction="bottom"):
-    """Applies a slide-in animation."""
-    w, h = clip.size
+def apply_slide_in(clip, duration=0.4, direction="bottom", final_pos=("center", "center")):
+    """Applies a snappy slide-in animation toward a final target position."""
 
     def pos(t):
         if t >= duration:
-            return "center"
-        offset = (1 - (t / duration)) ** 2
-        if direction == "bottom":
-            return ("center", h * offset)
-        if direction == "top":
-            return ("center", -h * offset)
-        if direction == "left":
-            return (-w * offset, "center")
-        if direction == "right":
-            return (w * offset, "center")
-        return "center"
+            return final_pos
 
-    return clip.set_position(pos)
+        # Snappy ease-out (2026 trend)
+        offset = (1 - (t / duration)) ** 4
+
+        tx, ty = final_pos
+        # Convert semantic positions to relative floats for calculations
+        rel_x = 0.5 if tx == "center" else tx
+        rel_y = 0.5 if ty == "center" else ty
+
+        if direction == "bottom":
+            return (rel_x, rel_y + offset)
+        if direction == "top":
+            return (rel_x, rel_y - offset)
+        if direction == "left":
+            return (rel_x - offset, rel_y)
+        if direction == "right":
+            return (rel_x + offset, rel_y)
+        return final_pos
+
+    return clip.set_position(pos, relative=True)
 
 
 def apply_fade_in(clip, duration=0.3):
@@ -111,15 +121,12 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
         .set_position(("center", "center"))
     )
 
-    # Aggressive kinetic scaling and a subtle punchy rotation
-    # Performance: Using math module for scalar operations to avoid NumPy overhead in frame functions
-    def hook_anim(t):
-        s = 1.0 + 0.3 * math.exp(-5 * t) * math.cos(10 * t)
-        return s
+    # Aggressive kinetic scaling (exponential decay with cosine oscillation)
+    def hook_scale(t):
+        return 1.0 + 0.3 * math.exp(-5 * t) * math.cos(10 * t)
 
-    return hook.resize(hook_anim).set_rotation(
-        lambda t: 5 * math.exp(-5 * t) * math.sin(10 * t)
-    )
+    # Fixed: Use a static slight tilt for style instead of a lambda to avoid MoviePy 1.0.3 errors
+    return hook.resize(hook_scale).rotate(-2)
 
 
 def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold"):
@@ -178,6 +185,7 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
             .set_position(("center", "center"))
             .set_opacity(0.6)
         )
+        # Using a slightly larger scale for shadow to create a 'glow' effect
         shadow = shadow.resize(lambda t: 1.35 if t < 0.1 else 1.05)
 
         clips.extend([shadow, txt])
@@ -206,12 +214,10 @@ def create_end_card(
             method="label",
         )
         .set_duration(duration)
-        .set_position("center")
     )
 
-    # Kinetic pulse and slide-in from bottom
-    # Performance: Using math module for scalar operations to avoid NumPy overhead in frame functions
-    cta_text = apply_slide_in(cta_text, duration=0.6, direction="bottom")
+    # Kinetic pulse and snappy slide-in from bottom
+    cta_text = apply_slide_in(cta_text, duration=0.6, direction="bottom", final_pos=("center", "center"))
     cta_text = cta_text.resize(lambda t: 1.0 + 0.08 * math.sin(4 * math.pi * t))
 
     return CompositeVideoClip([cta_bg, glow, cta_text], size=video_size)
