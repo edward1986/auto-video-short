@@ -9,18 +9,26 @@ NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 
 
 def create_noise_overlay(size, duration, opacity=0.08):
-    """Creates a dynamic textured grain overlay (living grain)."""
+    """Creates a dynamic textured grain overlay (living grain).
+    Performance: Pre-generates a frame pool to avoid repeated np.random calls.
+    """
     w, h = size
     # Low-res noise for performance and '2026' grit
     sw, sh = w // 4, h // 4
 
+    # Pre-generate 24 frames of noise to cycle through (approx 1s at 24fps)
+    # This significantly reduces CPU overhead during rendering.
+    frame_pool = [
+        np.random.randint(0, 255, (sh, sw, 3), dtype="uint8") for _ in range(24)
+    ]
+
     def make_frame(t):
-        return np.random.randint(0, 255, (sh, sw, 3), dtype="uint8")
+        # Cycle through the pre-generated frames based on time
+        frame_idx = int(t * 24) % len(frame_pool)
+        return frame_pool[frame_idx]
 
     noise_clip = (
-        VideoClip(make_frame, duration=duration)
-        .set_opacity(opacity)
-        .resize(size)
+        VideoClip(make_frame, duration=duration).set_opacity(opacity).resize(size)
     )
     return noise_clip
 

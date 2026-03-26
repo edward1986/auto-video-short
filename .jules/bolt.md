@@ -27,3 +27,7 @@
 ## 2025-05-20 - Scalar Math Performance in Temporal Lambdas
 **Learning:** In MoviePy, temporal transformation functions (like `.resize(lambda t: ...)` or `.set_position(lambda t: ...)`) are called for every single frame. Using `numpy` for scalar math (e.g., `np.sin`, `np.exp`) inside these lambdas introduces significant overhead due to NumPy's internal array-handling machinery. Switching to the standard library `math` module for these scalar operations can result in a >70% speedup for the specific calculation, which compounds across thousands of frames.
 **Action:** Always use the `math` module for scalar calculations inside MoviePy temporal callbacks.
+
+## 2025-05-21 - Noise Generation Optimization via Frame Caching
+**Learning:** Generating high-frequency random noise (using `np.random.randint`) for every frame of a video is a significant CPU bottleneck during the rendering phase. Since grain overlays are intended to be a subtle texture, a human viewer cannot distinguish between a continuous stream of unique random frames and a small pool of frames (e.g., 24) cycled at a high rate.
+**Action:** Pre-generate a small pool of noise frames and cycle through them in the `make_frame` closure of grain/noise overlays to eliminate redundant computation.
