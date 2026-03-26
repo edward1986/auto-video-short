@@ -48,14 +48,15 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
     glow_array = np.array(glow)
 
-    clip = (
+    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
+    # Reverting to static opacity for stability.
+    return (
         ImageClip(glow_array)
         .set_duration(duration)
         .set_position("center")
+        .set_opacity(opacity)
         .resize(size)
     )
-    # 2026 style: Subtle breathing/pulsing opacity
-    return clip.set_opacity(lambda t: opacity * (0.8 + 0.2 * math.sin(2 * t)))
 
 
 def apply_kinetic_pop(clip, duration=0.1, scale=1.2):
@@ -101,7 +102,8 @@ def apply_slide_in(clip, duration=0.4, direction="bottom", final_pos=("center", 
 
 def apply_fade_in(clip, duration=0.3):
     """Applies a simple fade-in effect."""
-    return clip.set_opacity(lambda t: min(1.0, t / duration))
+    # Fixed: use built-in fadein method as set_opacity doesn't support functions
+    return clip.fadein(duration)
 
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
