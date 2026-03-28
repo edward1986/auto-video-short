@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 import moviepy.editor as editor
+from moviepy.editor import concatenate_videoclips
 from moviepy.video.fx.resize import resize
 from moviepy.audio.fx.volumex import volumex
 from textwrap import shorten
@@ -60,18 +61,22 @@ def produce_short(
     audio_clip = editor.AudioFileClip(music)
 
     background_duration = bg_clip.duration
-    background_clip = resize(
-        (
-            bg_clip.cutout(
-                0, max(1, round(background_duration) - 65)
-            )
-            .set_duration(full_question_duration)
-            .set_position(("center", "center"))
-        ),
-        height=1920,
-    )
-    # Apply slow zoom for 2026 style
-    background_clip = apply_zoom(background_clip, full_question_duration)
+    # 2026 Style: Dynamic "Jump-Zoom" Background
+    # We split the background into two segments to create a clean 'cut' reset during the reveal
+    q_dur = clip_durations["question"]
+    a_dur = clip_durations["answer"]
+
+    bg_segment = bg_clip.cutout(0, max(1, round(background_duration) - 65)).set_position(("center", "center"))
+
+    # Segment 1: Question (Slow zoom in)
+    bg_q = resize(bg_segment.subclip(0, q_dur), height=1920)
+    bg_q = apply_zoom(bg_q, q_dur, start_scale=1.0, end_scale=1.15)
+
+    # Segment 2: Answer Reveal (Jump-zoom reset & faster zoom)
+    bg_a = resize(bg_segment.subclip(q_dur, q_dur + a_dur), height=1920)
+    bg_a = apply_zoom(bg_a, a_dur, start_scale=1.05, end_scale=1.2) # Resets slightly and zooms faster
+
+    background_clip = concatenate_videoclips([bg_q, bg_a], method="chain")
 
     music_duration = audio_clip.duration
     available_music_time = max(1, music_duration - full_question_duration)
@@ -120,17 +125,18 @@ def produce_short(
 
     clips.extend(question_clips)
 
-    # ✅ Display answer choices with labels - Cascading Entrance
+    # ✅ Display answer choices with labels - Cascading Entrance & Mobile Safe Margins
     answer_labels = list("ABCD")
     for i in range(len(question["answers"])):
-        target_y = 0.45 + (i / 9)
+        # 2026 style: Focused layout with better vertical safe margins (0.4 to 0.7)
+        target_y = 0.40 + (i / 10)
         answer_clip = (
             editor.TextClip(
                 f"{answer_labels[i]} - {question['answers'][i]}".upper(),
-                fontsize=85,
+                fontsize=95, # Boosted for readability
                 color="white",
                 stroke_color="black",
-                stroke_width=2,
+                stroke_width=3,
                 method="caption",
                 size=(900, None),
                 font=font,
@@ -145,34 +151,43 @@ def produce_short(
         answer_clip = apply_kinetic_pop(answer_clip, duration=0.2, scale=1.1)
         clips.append(answer_clip)
 
-    # ✅ Countdown timer (10 to 0)
+    # ✅ Countdown timer (10 to 0) - Repositioned for mobile safe margins (bottom 20%)
     for i in range(clip_durations["question"]):
         countdown_clip = (
             editor.TextClip(
                 str(clip_durations["question"] - i),
-                fontsize=160,
+                fontsize=180,
                 color="white",
                 stroke_color="black",
-                stroke_width=4,
+                stroke_width=5,
                 method="label",
                 font=font,
             )
             .set_start(i)
             .set_duration(1)
-            .set_position(("center", 0.9), relative=True)
+            .set_position(("center", 0.82), relative=True)
         )
         # Pulse every second
         countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.4)
         clips.append(countdown_clip)
 
+    # ✅ Transition Flash - 2026 Trend (0.1s white flash at reveal)
+    flash = (
+        editor.ColorClip(size=resolution, color=(255, 255, 255))
+        .set_start(clip_durations["question"])
+        .set_duration(0.1)
+        .set_opacity(0.8)
+    )
+    clips.append(flash)
+
     # ✅ Highlight the correct answer - Modern neon reveal
     correct_answer_reveal = (
         editor.TextClip(
             f"CORRECT:\n{question['answers'][question['correct']]}".upper(),
-            fontsize=135,
-            color="#00FF00",  # Neon Green (2026 trend)
+            fontsize=150, # Boosted for 2026 style
+            color="#00FF00",  # Neon Green
             stroke_color="black",
-            stroke_width=5,
+            stroke_width=6,
             method="caption",
             size=(1000, None),
             font=font,
@@ -182,7 +197,7 @@ def produce_short(
         .set_position("center")
     )
     correct_answer_reveal = apply_kinetic_pop(
-        correct_answer_reveal, duration=0.4, scale=1.5
+        correct_answer_reveal, duration=0.4, scale=1.6
     )
     clips.append(correct_answer_reveal)
 
@@ -193,7 +208,6 @@ def produce_short(
 
     # Branded end card (2.5 seconds)
     end_card = create_end_card(resolution, font=font)
-    from moviepy.editor import concatenate_videoclips
 
     # Clean transition between main content and end card (0.3s crossfade)
     final_video = concatenate_videoclips(
