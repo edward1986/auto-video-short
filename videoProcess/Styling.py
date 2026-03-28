@@ -2,7 +2,7 @@ import re
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip, VideoClip
+from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
 
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
@@ -24,11 +24,14 @@ def create_noise_overlay(size, duration, opacity=0.08):
         idx = int(t * 24) % 24
         return pool[idx]
 
-    # Fixed: Use size parameter in constructor to avoid "can't set attribute" errors in MoviePy
-    return (
-        VideoClip(make_frame, duration=duration, size=size)
-        .set_opacity(opacity)
-    )
+    # Fixed: In MoviePy 1.0.3, VideoClip doesn't take 'size' in __init__ and size/w/h are read-only.
+    # Robust fix: Start with a ColorClip (which has size) and transform it with the noise generator.
+    noise_clip = ColorClip(size=size, color=(0, 0, 0), duration=duration)
+
+    def apply_noise(get_frame, t):
+        return make_frame(t)
+
+    return noise_clip.fl(apply_noise).set_opacity(opacity)
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
