@@ -11,20 +11,24 @@ NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 def create_noise_overlay(size, duration, opacity=0.08):
     """Creates a dynamic textured grain overlay (living grain) with optimized frame pooling."""
     w, h = size
-    sw, sh = w // 4, h // 4
-    # Pre-generate a pool of 24 frames to reduce CPU overhead per frame call
-    pool = [np.random.randint(0, 255, (sh, sw, 3), dtype="uint8") for _ in range(24)]
+    # Optimization: Pre-resize noise to target resolution using NEAREST interpolation
+    # for a bold 2026 'chunky' grain look and zero per-frame CPU resizing.
+    sw, sh = w // 2, h // 2
+    pool = []
+    for _ in range(24):
+        noise = np.random.randint(0, 255, (sh, sw, 3), dtype="uint8")
+        resized = np.array(Image.fromarray(noise).resize(size, Image.NEAREST))
+        pool.append(resized)
 
     def make_frame(t):
-        # Cycle through the pool at 24fps
         idx = int(t * 24) % 24
         return pool[idx]
 
-    return (
-        VideoClip(make_frame, duration=duration)
-        .set_opacity(opacity)
-        .resize(size)
-    )
+    # Fixed: In MoviePy 1.0.3, VideoClip size must be manually set when using make_frame
+    clip = VideoClip(make_frame, duration=duration)
+    clip.size = size
+    clip.w, clip.h = size
+    return clip.set_opacity(opacity)
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
@@ -60,9 +64,9 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
 
 
 def apply_kinetic_pop(clip, duration=0.1, scale=1.2):
-    """Applies a smooth 'pop' scale animation with exponential decay."""
-    # Performance: Using math module for scalar operations in temporal lambda
-    return clip.resize(lambda t: 1.0 + (scale - 1.0) * math.exp(-15 * t))
+    """Applies a smooth 'pop' scale animation with aggressive exponential decay."""
+    # 2026 Trend: Aggressive decay (-25) for a snappier, high-energy pop
+    return clip.resize(lambda t: 1.0 + (scale - 1.0) * math.exp(-25 * t))
 
 
 def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.1):
@@ -106,8 +110,9 @@ def apply_fade_in(clip, duration=0.3):
     return clip.fadein(duration)
 
 
-def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
+def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
     """Creates a high-impact 2-second hook title card with aggressive kinetic animations."""
+    # 2026 Trend: Oversized bold typography for immediate scroll-stop.
     hook = (
         TextClip(
             text.upper(),
@@ -115,7 +120,7 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
             color="white",
             font=font,
             stroke_color="black",
-            stroke_width=6,
+            stroke_width=8,
             method="label",
         )
         .set_start(0)
@@ -125,10 +130,11 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=180):
 
     # Aggressive kinetic scaling (exponential decay with cosine oscillation)
     def hook_scale(t):
-        return 1.0 + 0.3 * math.exp(-5 * t) * math.cos(10 * t)
+        # Snappier oscillation for 2026 'vibrate' feel
+        return 1.0 + 0.4 * math.exp(-8 * t) * math.cos(15 * t)
 
     # Fixed: Use a static slight tilt for style instead of a lambda to avoid MoviePy 1.0.3 errors
-    return hook.resize(hook_scale).rotate(-2)
+    return hook.resize(hook_scale).rotate(-3)
 
 
 def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold"):
@@ -147,10 +153,10 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
         duration = max(end - start, 0.3)
         clean_word = NON_ALPHANUMERIC_RE.sub("", word).lower()
 
-        # Modern highlighting: Bright Neon Green or Yellow
+        # Modern highlighting: Bright Neon Green
         is_highlight = clean_word == highlight_word or len(clean_word) > 7
         color = "#00FF00" if is_highlight else "white"
-        font_size = 150 if is_highlight else 120
+        font_size = 160 if is_highlight else 125
 
         # Text clip - Bold, high-contrast
         txt = (
@@ -160,7 +166,7 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
                 color=color,
                 font=font,
                 stroke_color="black",
-                stroke_width=4,
+                stroke_width=5,
                 method="label",
                 align="center",
             )
@@ -168,6 +174,21 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
             .set_duration(duration)
             .set_position(("center", "center"))
         )
+
+        # 2026 Trend: Semi-transparent neon highlight background box for keywords
+        if is_highlight:
+            # Optimization: Use existing txt clip size to avoid double-rendering
+            tw, th = txt.size
+            highlight_bg = (
+                ColorClip(size=(int(tw * 1.2), int(th * 1.1)), color=(0, 255, 0))
+                .set_start(start)
+                .set_duration(duration)
+                .set_opacity(0.3)
+                .set_position(("center", "center"))
+            )
+            # Apply same pop to background for sync
+            highlight_bg = apply_kinetic_pop(highlight_bg, duration=0.1, scale=1.3)
+            clips.append(highlight_bg)
 
         # Kinetic "pop" animation
         txt = apply_kinetic_pop(txt, duration=0.1, scale=1.3)
@@ -185,9 +206,9 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
             .set_start(start)
             .set_duration(duration)
             .set_position(("center", "center"))
-            .set_opacity(0.6)
+            .set_opacity(0.7)
         )
-        # Using a slightly larger scale for shadow to create a 'glow' effect
+        # 2026 style: Soft glow shadow (slight scale offset)
         shadow = shadow.resize(lambda t: 1.35 if t < 0.1 else 1.05)
 
         clips.extend([shadow, txt])
@@ -198,28 +219,31 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
 def create_end_card(
     video_size, duration=2.5, text="FOLLOW FOR MORE", font="Arial-Bold"
 ):
-    """Creates a polished branded end card with punchy motion."""
+    """Creates a polished branded end card with punchy motion and minimal layout."""
     w, h = video_size
+    # 2026 Trend: Minimal pitch-black background with subtle glow
     cta_bg = ColorClip(size=video_size, color=(0, 0, 0)).set_duration(duration)
 
-    # Adding a subtle glow to the end card
     glow = create_gradient_glow(
-        video_size, duration, color=(255, 255, 255), opacity=0.3
+        video_size, duration, color=(0, 255, 0), opacity=0.2 # Neon green glow accent
     )
 
     cta_text = (
         TextClip(
-            text,
-            fontsize=110,
+            text.upper(),
+            fontsize=130,
             color="white",
             font=font,
+            stroke_color="black",
+            stroke_width=3,
             method="label",
         )
         .set_duration(duration)
     )
 
     # Kinetic pulse and snappy slide-in from bottom
-    cta_text = apply_slide_in(cta_text, duration=0.6, direction="bottom", final_pos=("center", "center"))
-    cta_text = cta_text.resize(lambda t: 1.0 + 0.08 * math.sin(4 * math.pi * t))
+    cta_text = apply_slide_in(cta_text, duration=0.5, direction="bottom", final_pos=("center", "center"))
+    # Snappier breathing pulse
+    cta_text = cta_text.resize(lambda t: 1.0 + 0.1 * math.exp(-3 * t) * math.sin(6 * math.pi * t))
 
     return CompositeVideoClip([cta_bg, glow, cta_text], size=video_size)
