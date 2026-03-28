@@ -24,11 +24,11 @@ def create_noise_overlay(size, duration, opacity=0.08):
         idx = int(t * 24) % 24
         return pool[idx]
 
-    # Fixed: In MoviePy 1.0.3, VideoClip size must be manually set when using make_frame
-    clip = VideoClip(make_frame, duration=duration)
-    clip.size = size
-    clip.w, clip.h = size
-    return clip.set_opacity(opacity)
+    # Fixed: Use size parameter in constructor to avoid "can't set attribute" errors in MoviePy
+    return (
+        VideoClip(make_frame, duration=duration, size=size)
+        .set_opacity(opacity)
+    )
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
