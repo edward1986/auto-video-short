@@ -27,3 +27,7 @@
 ## 2025-05-20 - Scalar Math Performance in Temporal Lambdas
 **Learning:** In MoviePy, temporal transformation functions (like `.resize(lambda t: ...)` or `.set_position(lambda t: ...)`) are called for every single frame. Using `numpy` for scalar math (e.g., `np.sin`, `np.exp`) inside these lambdas introduces significant overhead due to NumPy's internal array-handling machinery. Switching to the standard library `math` module for these scalar operations can result in a >70% speedup for the specific calculation, which compounds across thousands of frames.
 **Action:** Always use the `math` module for scalar calculations inside MoviePy temporal callbacks.
+
+## 2025-05-21 - MoviePy TextClip Caching and Lambda Closure Optimization
+**Learning:** Creating `TextClip` objects in MoviePy is extremely expensive as it often triggers external ImageMagick calls and disk I/O for temporary files. By implementing a module-level cache for these clips based on their styling parameters, we can avoid redundant renders for repeated text elements (like captions or countdowns). Additionally, moving constant math (e.g., duration reciprocals or scale differences) out of temporal lambda functions into the parent closure provides a safe, measurable speedup for hot-path rendering logic executed on every frame.
+**Action:** Always use a caching helper for repetitive `TextClip` creation. Pre-calculate all frame-independent constants before defining MoviePy temporal transformation functions.
