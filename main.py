@@ -17,7 +17,6 @@ from pyfiglet import Figlet
 from moviepy.editor import (
     VideoFileClip,
     AudioFileClip,
-    TextClip,
     CompositeVideoClip,
     ColorClip,
 )
@@ -30,6 +29,7 @@ from videoProcess.Styling import (
     create_hook_clip,
     create_end_card,
     apply_zoom,
+    get_text_clip,
 )
 
 from email.mime.multipart import MIMEMultipart
@@ -181,7 +181,7 @@ def build_phrase_level_text_clips(words, video_size, group_size=4):
             end = start + 0.8
 
         txt = (
-            TextClip(
+            get_text_clip(
                 text,
                 color="white",
                 fontsize=55,

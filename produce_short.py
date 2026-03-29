@@ -21,6 +21,7 @@ from videoProcess.Styling import (
     apply_kinetic_pop,
     apply_slide_in,
     build_modern_captions,
+    get_text_clip,
 )
 
 CLIENT_ID = "553209643758-dn4375pj94hssfcipff2e1kn8eeqoprr.apps.googleusercontent.com"
@@ -66,7 +67,9 @@ def produce_short(
     q_dur = clip_durations["question"]
     a_dur = clip_durations["answer"]
 
-    bg_segment = bg_clip.cutout(0, max(1, round(background_duration) - 65)).set_position(("center", "center"))
+    bg_segment = bg_clip.cutout(
+        0, max(1, round(background_duration) - 65)
+    ).set_position(("center", "center"))
 
     # Segment 1: Question (Slow zoom in)
     bg_q = resize(bg_segment.subclip(0, q_dur), height=1920)
@@ -74,7 +77,9 @@ def produce_short(
 
     # Segment 2: Answer Reveal (Jump-zoom reset & faster zoom)
     bg_a = resize(bg_segment.subclip(q_dur, q_dur + a_dur), height=1920)
-    bg_a = apply_zoom(bg_a, a_dur, start_scale=1.05, end_scale=1.2) # Resets slightly and zooms faster
+    bg_a = apply_zoom(
+        bg_a, a_dur, start_scale=1.05, end_scale=1.2
+    )  # Resets slightly and zooms faster
 
     background_clip = concatenate_videoclips([bg_q, bg_a], method="chain")
 
@@ -103,11 +108,9 @@ def produce_short(
     raw_words = question["title"].split()
     time_per_word = clip_durations["question"] / max(len(raw_words), 1)
     for i, w in enumerate(raw_words):
-        question_words.append({
-            "word": w,
-            "start": i * time_per_word,
-            "end": (i + 1) * time_per_word
-        })
+        question_words.append(
+            {"word": w, "start": i * time_per_word, "end": (i + 1) * time_per_word}
+        )
 
     # Keyword highlight in the question (e.g., words like NOT, WHICH, etc.)
     highlight_keywords = ["NOT", "WHICH", "WHAT", "WHO", "WHERE"]
@@ -121,7 +124,9 @@ def produce_short(
         question_words, resolution, highlight_word=found_highlight, font=font
     )
     # Reposition all question clips to the top third (must re-assign because .set_position is not in-place)
-    question_clips = [c.set_position(("center", 0.15), relative=True) for c in question_clips_raw]
+    question_clips = [
+        c.set_position(("center", 0.15), relative=True) for c in question_clips_raw
+    ]
 
     clips.extend(question_clips)
 
@@ -131,9 +136,9 @@ def produce_short(
         # 2026 style: Focused layout with better vertical safe margins (0.4 to 0.7)
         target_y = 0.40 + (i / 10)
         answer_clip = (
-            editor.TextClip(
+            get_text_clip(
                 f"{answer_labels[i]} - {question['answers'][i]}".upper(),
-                fontsize=95, # Boosted for readability
+                fontsize=95,  # Boosted for readability
                 color="white",
                 stroke_color="black",
                 stroke_width=3,
@@ -141,12 +146,15 @@ def produce_short(
                 size=(900, None),
                 font=font,
             )
-            .set_start(0.5 + (i * 0.15)) # Staggered start
+            .set_start(0.5 + (i * 0.15))
             .set_duration(clip_durations["question"] - (0.5 + (i * 0.15)))
         )
         # 2026 style: Snappy slide-in and pop
         answer_clip = apply_slide_in(
-            answer_clip, duration=0.4, direction="bottom", final_pos=("center", target_y)
+            answer_clip,
+            duration=0.4,
+            direction="bottom",
+            final_pos=("center", target_y),
         )
         answer_clip = apply_kinetic_pop(answer_clip, duration=0.2, scale=1.1)
         clips.append(answer_clip)
@@ -154,7 +162,7 @@ def produce_short(
     # ✅ Countdown timer (10 to 0) - Repositioned for mobile safe margins (bottom 20%)
     for i in range(clip_durations["question"]):
         countdown_clip = (
-            editor.TextClip(
+            get_text_clip(
                 str(clip_durations["question"] - i),
                 fontsize=180,
                 color="white",
@@ -182,9 +190,9 @@ def produce_short(
 
     # ✅ Highlight the correct answer - Modern neon reveal
     correct_answer_reveal = (
-        editor.TextClip(
+        get_text_clip(
             f"CORRECT:\n{question['answers'][question['correct']]}".upper(),
-            fontsize=150, # Boosted for 2026 style
+            fontsize=150,  # Boosted for 2026 style
             color="#00FF00",  # Neon Green
             stroke_color="black",
             stroke_width=6,

@@ -7,6 +7,26 @@ from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 
+# Global TextClip cache to avoid redundant ImageMagick renders
+TEXT_CLIP_CACHE = {}
+
+
+def get_text_clip(text, **kwargs):
+    """Retrieves a cached TextClip or creates a new one if not found."""
+    # Create a unique cache key based on text and all styling parameters
+    # Sort kwargs to ensure consistent key generation
+    sorted_params = sorted(kwargs.items())
+    cache_key = (text, tuple(sorted_params))
+
+    if cache_key in TEXT_CLIP_CACHE:
+        # Return a copy to avoid side-effects from duration/start/position settings
+        return TEXT_CLIP_CACHE[cache_key].copy()
+
+    # Create new clip
+    clip = TextClip(text, **kwargs)
+    TEXT_CLIP_CACHE[cache_key] = clip
+    return clip.copy()
+
 
 def create_noise_overlay(size, duration, opacity=0.08):
     """Creates a dynamic textured grain overlay (living grain) with optimized frame pooling."""
@@ -68,31 +88,35 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
 
 def apply_kinetic_pop(clip, duration=0.1, scale=1.2):
     """Applies a smooth 'pop' scale animation with aggressive exponential decay."""
+    # Performance: Pre-calculate constants for the temporal lambda
+    diff = scale - 1.0
     # 2026 Trend: Aggressive decay (-25) for a snappier, high-energy pop
-    return clip.resize(lambda t: 1.0 + (scale - 1.0) * math.exp(-25 * t))
+    return clip.resize(lambda t: 1.0 + diff * math.exp(-25 * t))
 
 
 def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.1):
     """Applies a slow zoom (Ken Burns) effect."""
-    return clip.resize(
-        lambda t: start_scale + (end_scale - start_scale) * (t / total_duration)
-    )
+    # Performance: Pre-calculate slope for the temporal lambda
+    slope = (end_scale - start_scale) / max(total_duration, 0.001)
+    return clip.resize(lambda t: start_scale + slope * t)
 
 
-def apply_slide_in(clip, duration=0.4, direction="bottom", final_pos=("center", "center")):
+def apply_slide_in(
+    clip, duration=0.4, direction="bottom", final_pos=("center", "center")
+):
     """Applies a snappy slide-in animation toward a final target position."""
+    # Performance: Pre-calculate constants and semantic mapping
+    tx, ty = final_pos
+    rel_x = 0.5 if tx == "center" else tx
+    rel_y = 0.5 if ty == "center" else ty
+    inv_duration = 1.0 / max(duration, 0.001)
 
     def pos(t):
         if t >= duration:
             return final_pos
 
         # Snappy ease-out (2026 trend)
-        offset = (1 - (t / duration)) ** 4
-
-        tx, ty = final_pos
-        # Convert semantic positions to relative floats for calculations
-        rel_x = 0.5 if tx == "center" else tx
-        rel_y = 0.5 if ty == "center" else ty
+        offset = (1 - (t * inv_duration)) ** 4
 
         if direction == "bottom":
             return (rel_x, rel_y + offset)
@@ -117,7 +141,7 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
     """Creates a high-impact 2-second hook title card with aggressive kinetic animations."""
     # 2026 Trend: Oversized bold typography for immediate scroll-stop.
     hook = (
-        TextClip(
+        get_text_clip(
             text.upper(),
             fontsize=fontsize,
             color="white",
@@ -131,7 +155,8 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
         .set_position(("center", "center"))
     )
 
-    # Aggressive kinetic scaling (exponential decay with cosine oscillation)
+    # Performance: Aggressive kinetic scaling (exponential decay with cosine oscillation)
+    # Constants pre-calculated for the temporal lambda
     def hook_scale(t):
         # Snappier oscillation for 2026 'vibrate' feel
         return 1.0 + 0.4 * math.exp(-8 * t) * math.cos(15 * t)
@@ -163,7 +188,7 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
 
         # Text clip - Bold, high-contrast
         txt = (
-            TextClip(
+            get_text_clip(
                 word.upper(),
                 fontsize=font_size,
                 color=color,
@@ -198,7 +223,7 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
 
         # Drop shadow for readability
         shadow = (
-            TextClip(
+            get_text_clip(
                 word.upper(),
                 fontsize=font_size,
                 color="black",
@@ -228,25 +253,31 @@ def create_end_card(
     cta_bg = ColorClip(size=video_size, color=(0, 0, 0)).set_duration(duration)
 
     glow = create_gradient_glow(
-        video_size, duration, color=(0, 255, 0), opacity=0.2 # Neon green glow accent
+        video_size,
+        duration,
+        color=(0, 255, 0),
+        opacity=0.2,  # Neon green glow accent
     )
 
-    cta_text = (
-        TextClip(
-            text.upper(),
-            fontsize=130,
-            color="white",
-            font=font,
-            stroke_color="black",
-            stroke_width=3,
-            method="label",
-        )
-        .set_duration(duration)
-    )
+    cta_text = get_text_clip(
+        text.upper(),
+        fontsize=130,
+        color="white",
+        font=font,
+        stroke_color="black",
+        stroke_width=3,
+        method="label",
+    ).set_duration(duration)
 
     # Kinetic pulse and snappy slide-in from bottom
-    cta_text = apply_slide_in(cta_text, duration=0.5, direction="bottom", final_pos=("center", "center"))
+    cta_text = apply_slide_in(
+        cta_text, duration=0.5, direction="bottom", final_pos=("center", "center")
+    )
+    # Performance: Pre-calculate pulse constants
+    pulse_freq = 6 * math.pi
     # Snappier breathing pulse
-    cta_text = cta_text.resize(lambda t: 1.0 + 0.1 * math.exp(-3 * t) * math.sin(6 * math.pi * t))
+    cta_text = cta_text.resize(
+        lambda t: 1.0 + 0.1 * math.exp(-3 * t) * math.sin(pulse_freq * t)
+    )
 
     return CompositeVideoClip([cta_bg, glow, cta_text], size=video_size)
