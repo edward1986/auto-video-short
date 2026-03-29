@@ -55,14 +55,15 @@ def create_noise_overlay(size, duration, opacity=0.08):
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
-    """Creates a soft radial gradient glow in the center.
+    """Creates a soft radial gradient glow in the center with a breathing pulse.
     Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
     """
     w, h = size
     # Downscale for performance
     scale = 10
     small_size = (w // scale, h // scale)
-    inner_color = (*color, int(255 * opacity))
+    # Generate at full opacity in the source array to allow dynamic modulation
+    inner_color = (*color, 255)
 
     base = Image.new("RGBA", small_size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(base)
@@ -75,23 +76,41 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
     glow_array = np.array(glow)
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
-    return (
-        ImageClip(glow_array)
-        .set_duration(duration)
-        .set_position("center")
-        .set_opacity(opacity)
-        .resize(size)
+    glow_clip = (
+        ImageClip(glow_array).set_duration(duration).set_position("center").resize(size)
     )
+
+    # 2026 Trend: Breathing pulse effect
+    # Modulate mask to bypass MoviePy 1.0.3 set_opacity limitations with lambdas
+    if glow_clip.mask:
+        base_mask = glow_clip.mask.get_frame(0)
+        # Pre-calculate constants for the pulse
+        # Modulate between ~0.7x and 1.3x of target opacity
+        glow_clip.mask = glow_clip.mask.fl(
+            lambda gf, t: (
+                base_mask * opacity * (1.0 + 0.3 * math.sin(2 * math.pi * t / 2.5))
+            )
+        )
+
+    return glow_clip
+
+
+def create_flash_transition(size, duration=0.1, color=(255, 255, 255), opacity=0.8):
+    """Creates a high-energy white flash transition."""
+    return ColorClip(size=size, color=color).set_duration(duration).set_opacity(opacity)
+
+
+def darken_clip(clip, factor=0.5):
+    """Subtly darkens a clip to improve text legibility and focus."""
+    return clip.fl_image(lambda image: (image * factor).astype("uint8"))
 
 
 def apply_kinetic_pop(clip, duration=0.1, scale=1.2):
     """Applies a smooth 'pop' scale animation with aggressive exponential decay."""
     # Performance: Pre-calculate constants for the temporal lambda
     diff = scale - 1.0
-    # 2026 Trend: Aggressive decay (-25) for a snappier, high-energy pop
-    return clip.resize(lambda t: 1.0 + diff * math.exp(-25 * t))
+    # 2026 Trend: Even more aggressive decay (-35) for a snappier, high-energy pop
+    return clip.resize(lambda t: 1.0 + diff * math.exp(-35 * t))
 
 
 def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.1):
@@ -219,7 +238,7 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
             clips.append(highlight_bg)
 
         # Kinetic "pop" animation
-        txt = apply_kinetic_pop(txt, duration=0.1, scale=1.3)
+        txt = apply_kinetic_pop(txt, duration=0.1, scale=1.35)
 
         # Drop shadow for readability
         shadow = (
@@ -234,10 +253,10 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
             .set_start(start)
             .set_duration(duration)
             .set_position(("center", "center"))
-            .set_opacity(0.7)
+            .set_opacity(0.8)
         )
         # 2026 style: Soft glow shadow (slight scale offset)
-        shadow = shadow.resize(lambda t: 1.35 if t < 0.1 else 1.05)
+        shadow = shadow.resize(lambda t: 1.4 if t < 0.08 else 1.08)
 
         clips.extend([shadow, txt])
 

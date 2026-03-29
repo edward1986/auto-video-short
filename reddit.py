@@ -105,7 +105,7 @@
 # for post in new:
 #     print("Post title:", post.title, flush=True)
 #     print("Post URL:", post.url, flush=True)
-    
+
 #     # Retrieve top comment from the post
 #     try:
 #         post.comments.replace_more(limit=0)
@@ -115,9 +115,9 @@
 #             top_comment = "No comments available."
 #     except Exception as e:
 #         top_comment = "Error retrieving comment."
-    
+
 #     print("Top comment:", top_comment, flush=True)
-    
+
 #     # Process only video posts using PRAW's built-in attributes
 #     if post.is_video and post.media and 'reddit_video' in post.media:
 #         video_url = post.media['reddit_video'].get('fallback_url')

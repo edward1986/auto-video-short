@@ -28,6 +28,8 @@ from videoProcess.Styling import (
     build_modern_captions,
     create_hook_clip,
     create_end_card,
+    create_flash_transition,
+    darken_clip,
     apply_zoom,
     get_text_clip,
 )
@@ -557,12 +559,18 @@ try:
     # Ken Burns effect (slow zoom)
     video_clip = apply_zoom(video_clip, total_duration)
 
+    # 2026 Style: Darken background for high-contrast bold minimal layout
+    video_clip = darken_clip(video_clip, factor=0.45)
+
     # 2-second hook title card
     hook_clip = create_hook_clip(word.upper())
 
     # Grain and Gradient Glow Overlays
     noise_overlay = create_noise_overlay(resolution, total_duration)
     glow_overlay = create_gradient_glow(resolution, total_duration)
+
+    # 2026 Style: Transition Flash at the start of the main content (after hook)
+    flash = create_flash_transition(resolution).set_start(2.0)
 
     if whisper_words:
         text_clips = build_modern_captions(
@@ -582,7 +590,7 @@ try:
         )
 
     final = CompositeVideoClip(
-        [video_clip, glow_overlay, noise_overlay, hook_clip] + text_clips,
+        [video_clip, glow_overlay, noise_overlay, hook_clip, flash] + text_clips,
         size=video_clip.size,
     )
 

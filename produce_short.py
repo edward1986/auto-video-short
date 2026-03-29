@@ -17,6 +17,8 @@ from videoProcess.Styling import (
     create_gradient_glow,
     create_hook_clip,
     create_end_card,
+    create_flash_transition,
+    darken_clip,
     apply_zoom,
     apply_kinetic_pop,
     apply_slide_in,
@@ -82,6 +84,8 @@ def produce_short(
     )  # Resets slightly and zooms faster
 
     background_clip = concatenate_videoclips([bg_q, bg_a], method="chain")
+    # 2026 Style: Darken background for high-contrast bold minimal layout
+    background_clip = darken_clip(background_clip, factor=0.45)
 
     music_duration = audio_clip.duration
     available_music_time = max(1, music_duration - full_question_duration)
@@ -180,12 +184,7 @@ def produce_short(
         clips.append(countdown_clip)
 
     # ✅ Transition Flash - 2026 Trend (0.1s white flash at reveal)
-    flash = (
-        editor.ColorClip(size=resolution, color=(255, 255, 255))
-        .set_start(clip_durations["question"])
-        .set_duration(0.1)
-        .set_opacity(0.8)
-    )
+    flash = create_flash_transition(resolution).set_start(clip_durations["question"])
     clips.append(flash)
 
     # ✅ Highlight the correct answer - Modern neon reveal

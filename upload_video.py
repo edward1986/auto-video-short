@@ -14,18 +14,33 @@ from googleapiclient.http import MediaFileUpload
 # Explicitly tell the underlying HTTP transport library not to retry, since
 # we are handling retry logic ourselves.
 import httplib2
-from http.client import NotConnected, IncompleteRead, ImproperConnectionState, CannotSendRequest, CannotSendHeader, ResponseNotReady, BadStatusLine
+from http.client import (
+    NotConnected,
+    IncompleteRead,
+    ImproperConnectionState,
+    CannotSendRequest,
+    CannotSendHeader,
+    ResponseNotReady,
+    BadStatusLine,
+)
+
 httplib2.RETRIES = 1
 
 # Maximum number of times to retry before giving up.
 MAX_RETRIES = 10
 
 # Always retry when these exceptions are raised.
-RETRIABLE_EXCEPTIONS = (httplib2.HttpLib2Error, IOError, 
-                        NotConnected, IncompleteRead, 
-                        ImproperConnectionState, CannotSendRequest, 
-                        CannotSendHeader, ResponseNotReady, 
-                        BadStatusLine)
+RETRIABLE_EXCEPTIONS = (
+    httplib2.HttpLib2Error,
+    IOError,
+    NotConnected,
+    IncompleteRead,
+    ImproperConnectionState,
+    CannotSendRequest,
+    CannotSendHeader,
+    ResponseNotReady,
+    BadStatusLine,
+)
 
 # Always retry when an apiclient.errors.HttpError with one of these status
 # codes is raised.
@@ -64,8 +79,7 @@ https://console.cloud.google.com/
 
 For more information about the client_secrets.json file format, please visit:
 https://developers.google.com/api-client-library/python/guide/aaa_client_secrets
-""" % os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                   CLIENT_SECRETS_FILE))
+""" % os.path.abspath(os.path.join(os.path.dirname(__file__), CLIENT_SECRETS_FILE))
 
 VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 
@@ -73,13 +87,16 @@ VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 def get_authenticated_service(args):
     creds = None
     if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", [YOUTUBE_UPLOAD_SCOPE])
+        creds = Credentials.from_authorized_user_file(
+            "token.json", [YOUTUBE_UPLOAD_SCOPE]
+        )
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                CLIENT_SECRETS_FILE, [YOUTUBE_UPLOAD_SCOPE])
+                CLIENT_SECRETS_FILE, [YOUTUBE_UPLOAD_SCOPE]
+            )
             creds = flow.run_local_server(port=0)
         with open("token.json", "w") as token:
             token.write(creds.to_json())
@@ -95,9 +112,7 @@ def initialize_upload(youtube, options):
     quote_file_path = os.path.join(output_dir, "quote.txt")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    
-  
-    
+
     # Load the quote from the text file
     with open(quote_file_path, "r") as file:
         text_quote = file.read()
@@ -107,11 +122,9 @@ def initialize_upload(youtube, options):
             title=text_quote,
             description=text_quote,
             tags=tags,
-            categoryId=options.category
+            categoryId=options.category,
         ),
-        status=dict(
-            privacyStatus=options.privacyStatus
-        )
+        status=dict(privacyStatus=options.privacyStatus),
     )
 
     # Call the API's videos.insert method to create and upload the video.
@@ -129,7 +142,7 @@ def initialize_upload(youtube, options):
         # practice, but if you're using Python older than 2.6 or if you're
         # running on App Engine, you should set the chunksize to something like
         # 1024 * 1024 (1 megabyte).
-        media_body=MediaFileUpload(options.file, chunksize=-1, resumable=True)
+        media_body=MediaFileUpload(options.file, chunksize=-1, resumable=True),
     )
 
     resumable_upload(insert_request)
@@ -146,14 +159,16 @@ def resumable_upload(insert_request):
             print("Uploading file...")
             status, response = insert_request.next_chunk()
             if response is not None:
-                if 'id' in response:
-                    print("Video id '%s' was successfully uploaded." % response['id'])
+                if "id" in response:
+                    print("Video id '%s' was successfully uploaded." % response["id"])
                 else:
                     exit("The upload failed with an unexpected response: %s" % response)
         except HttpError as e:
             if e.resp.status in RETRIABLE_STATUS_CODES:
-                error = "A retriable HTTP error %d occurred:\n%s" % (e.resp.status,
-                                                                     e.content)
+                error = "A retriable HTTP error %d occurred:\n%s" % (
+                    e.resp.status,
+                    e.content,
+                )
             else:
                 raise
         except RETRIABLE_EXCEPTIONS as e:
@@ -165,28 +180,37 @@ def resumable_upload(insert_request):
             if retry > MAX_RETRIES:
                 exit("No longer attempting to retry.")
 
-            max_sleep = 2 ** retry
+            max_sleep = 2**retry
             sleep_seconds = random.random() * max_sleep
             print("Sleeping %f seconds and then retrying..." % sleep_seconds)
             time.sleep(sleep_seconds)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from argparse import ArgumentParser
+
     argparser = ArgumentParser()
 
-    
     argparser.add_argument("--file", required=True, help="Video file to upload")
     argparser.add_argument("--title", help="Video title", default="Test Title")
-    argparser.add_argument("--description", help="Video description",
-                           default="Test Description")
-    argparser.add_argument("--category", default="22",
-                           help="Numeric video category. " +
-                                "See https://developers.google.com/youtube/v3/docs/videoCategories/list")
-    argparser.add_argument("--keywords", help="Video keywords, comma separated",
-                           default="")
-    argparser.add_argument("--privacyStatus", choices=VALID_PRIVACY_STATUSES,
-                           default=VALID_PRIVACY_STATUSES[0], help="Video privacy status.")
+    argparser.add_argument(
+        "--description", help="Video description", default="Test Description"
+    )
+    argparser.add_argument(
+        "--category",
+        default="22",
+        help="Numeric video category. "
+        + "See https://developers.google.com/youtube/v3/docs/videoCategories/list",
+    )
+    argparser.add_argument(
+        "--keywords", help="Video keywords, comma separated", default=""
+    )
+    argparser.add_argument(
+        "--privacyStatus",
+        choices=VALID_PRIVACY_STATUSES,
+        default=VALID_PRIVACY_STATUSES[0],
+        help="Video privacy status.",
+    )
     args = argparser.parse_args()
 
     if not os.path.exists(args.file):
