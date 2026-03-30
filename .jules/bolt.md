@@ -31,3 +31,7 @@
 ## 2025-05-21 - MoviePy TextClip Caching and Lambda Closure Optimization
 **Learning:** Creating `TextClip` objects in MoviePy is extremely expensive as it often triggers external ImageMagick calls and disk I/O for temporary files. By implementing a module-level cache for these clips based on their styling parameters, we can avoid redundant renders for repeated text elements (like captions or countdowns). Additionally, moving constant math (e.g., duration reciprocals or scale differences) out of temporal lambda functions into the parent closure provides a safe, measurable speedup for hot-path rendering logic executed on every frame.
 **Action:** Always use a caching helper for repetitive `TextClip` creation. Pre-calculate all frame-independent constants before defining MoviePy temporal transformation functions.
+
+## 2025-05-22 - Noise Pool Caching and Safe Object Retrieval
+**Learning:** Generating a pool of noise frames for grain overlays is computationally expensive due to repeated `np.random.randint` and `Image.resize` calls. Implementing a global `NOISE_POOL_CACHE` indexed by resolution eliminates this bottleneck for subsequent calls. However, when caching mutable objects like MoviePy clips, it is critical to return a `.copy()` to prevent side-effects from one part of the pipeline (e.g., `.set_start()`) leaking into other uses of the same cached resource.
+**Action:** Always cache high-overhead assets like noise pools. Ensure cached mutable objects (like clips) are copied before being returned from the cache helper.

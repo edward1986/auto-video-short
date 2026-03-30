@@ -7,8 +7,9 @@ from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 
-# Global TextClip cache to avoid redundant ImageMagick renders
+# Global caches to avoid redundant heavy processing
 TEXT_CLIP_CACHE = {}
+NOISE_POOL_CACHE = {}
 
 
 def get_text_clip(text, **kwargs):
@@ -30,15 +31,19 @@ def get_text_clip(text, **kwargs):
 
 def create_noise_overlay(size, duration, opacity=0.08):
     """Creates a dynamic textured grain overlay (living grain) with optimized frame pooling."""
-    w, h = size
-    # Optimization: Pre-resize noise to target resolution using NEAREST interpolation
-    # for a bold 2026 'chunky' grain look and zero per-frame CPU resizing.
-    sw, sh = w // 2, h // 2
-    pool = []
-    for _ in range(24):
-        noise = np.random.randint(0, 255, (sh, sw, 3), dtype="uint8")
-        resized = np.array(Image.fromarray(noise).resize(size, Image.NEAREST))
-        pool.append(resized)
+    if size in NOISE_POOL_CACHE:
+        pool = NOISE_POOL_CACHE[size]
+    else:
+        w, h = size
+        # Optimization: Pre-resize noise to target resolution using NEAREST interpolation
+        # for a bold 2026 'chunky' grain look and zero per-frame CPU resizing.
+        sw, sh = w // 2, h // 2
+        pool = []
+        for _ in range(24):
+            noise = np.random.randint(0, 255, (sh, sw, 3), dtype="uint8")
+            resized = np.array(Image.fromarray(noise).resize(size, Image.NEAREST))
+            pool.append(resized)
+        NOISE_POOL_CACHE[size] = pool
 
     def make_frame(t):
         idx = int(t * 24) % 24
