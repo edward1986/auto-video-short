@@ -28,6 +28,13 @@ def get_text_clip(text, **kwargs):
     return clip.copy()
 
 
+def darken_clip(clip, factor=0.45):
+    """Darkens a clip by multiplying all pixel values by a factor (0.0 to 1.0).
+    Higher factor = brighter, lower factor = darker. 0.45 is ideal for 2026 'bold minimal' contrast.
+    """
+    return clip.fl_image(lambda image: (image * factor).astype(image.dtype))
+
+
 def create_noise_overlay(size, duration, opacity=0.08):
     """Creates a dynamic textured grain overlay (living grain) with optimized frame pooling."""
     w, h = size
@@ -86,12 +93,29 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     )
 
 
-def apply_kinetic_pop(clip, duration=0.1, scale=1.2):
-    """Applies a smooth 'pop' scale animation with aggressive exponential decay."""
+def create_flash_transition(size, duration=0.1, opacity=0.8):
+    """Creates a 0.1s white flash overlay for high-energy transitions (2026 trend)."""
+    return (
+        ColorClip(size=size, color=(255, 255, 255))
+        .set_duration(duration)
+        .set_opacity(opacity)
+    )
+
+
+def apply_kinetic_pop(clip, duration=0.1, scale=1.3):
+    """Applies a snappy 'pop' scale animation with power-4 ease-out decay."""
     # Performance: Pre-calculate constants for the temporal lambda
     diff = scale - 1.0
-    # 2026 Trend: Aggressive decay (-25) for a snappier, high-energy pop
-    return clip.resize(lambda t: 1.0 + diff * math.exp(-25 * t))
+    inv_duration = 1.0 / max(duration, 0.001)
+
+    def pop_scale(t):
+        if t >= duration:
+            return 1.0
+        # Snappy power-4 ease-out (2026 trend)
+        offset = (1 - (t * inv_duration)) ** 4
+        return 1.0 + diff * offset
+
+    return clip.resize(pop_scale)
 
 
 def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.1):
@@ -181,7 +205,7 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
         duration = max(end - start, 0.3)
         clean_word = NON_ALPHANUMERIC_RE.sub("", word).lower()
 
-        # Modern highlighting: Bright Neon Green
+        # Modern highlighting: Bright Neon Green (#00FF00)
         is_highlight = clean_word == highlight_word or len(clean_word) > 7
         color = "#00FF00" if is_highlight else "white"
         font_size = 160 if is_highlight else 125
