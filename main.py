@@ -30,6 +30,7 @@ from videoProcess.Styling import (
     create_end_card,
     apply_zoom,
     get_text_clip,
+    darken_clip,
 )
 
 from email.mime.multipart import MIMEMultipart
@@ -554,15 +555,16 @@ try:
         .set_audio(audio_clip.subclip(0, total_duration))
     )
 
-    # Ken Burns effect (slow zoom)
+    # 2026 Style: Darken for contrast and Ken Burns zoom
+    video_clip = darken_clip(video_clip, factor=0.45)
     video_clip = apply_zoom(video_clip, total_duration)
 
     # 2-second hook title card
     hook_clip = create_hook_clip(word.upper())
 
     # Grain and Gradient Glow Overlays
-    noise_overlay = create_noise_overlay(resolution, total_duration)
-    glow_overlay = create_gradient_glow(resolution, total_duration)
+    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.08)
+    glow_overlay = create_gradient_glow(resolution, total_duration, color=(200, 200, 255), opacity=0.15)
 
     if whisper_words:
         text_clips = build_modern_captions(
