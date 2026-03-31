@@ -1,12 +1,7 @@
 from sys import argv
 from json import loads
 from io import StringIO
-from chess import (
-    Move,
-    pgn,
-    parse_square,
-    PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
-)
+from chess import Move, pgn, parse_square, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
 from stockfish import Stockfish
 
 import moviepy.editor as editor
@@ -15,21 +10,10 @@ from moviepy.audio.fx.volumex import volumex
 
 from board import *  # noqa: F403
 
-clip_durations = {
-    "puzzle": 10,
-    "move": 0.2,
-    "solution": 2.5,
-    "line_move": 1
-}
+clip_durations = {"puzzle": 10, "move": 0.2, "solution": 2.5, "line_move": 1}
 
-piece_values = {
-    PAWN: 1,
-    KNIGHT: 3,
-    BISHOP: 3,
-    ROOK: 5,
-    QUEEN: 9,
-    KING: 2 ** 32
-}
+piece_values = {PAWN: 1, KNIGHT: 3, BISHOP: 3, ROOK: 5, QUEEN: 9, KING: 2**32}
+
 
 def produce_short(
     output: str,
@@ -37,7 +21,7 @@ def produce_short(
     background: str,
     font: str,
     music: str,
-    music_drop_time: float
+    music_drop_time: float,
 ):
     # Puzzle question text
     question_text = (
@@ -49,7 +33,7 @@ def produce_short(
             stroke_color="black",
             stroke_width=2,
             method="caption",
-            size=(1080, None)
+            size=(1080, None),
         )
         .set_duration(clip_durations["puzzle"])
         .set_position((0, 0.6), relative=True)
@@ -66,37 +50,34 @@ def produce_short(
                 stroke_color="black",
                 stroke_width=2,
                 method="caption",
-                size=(1080, None)
+                size=(1080, None),
             )
             .set_start(i)
             .set_duration(1)
             .set_position((0, 0.8), relative=True)
-        ) for i in range(clip_durations["puzzle"])
+        )
+        for i in range(clip_durations["puzzle"])
     ]
 
     # Initial chess board elements
-    game_moves = list(
-        pgn.read_game(StringIO(game_pgn))
-        .mainline()
-    )
+    game_moves = list(pgn.read_game(StringIO(game_pgn)).mainline())
     flipped = False
 
     for move_index, move_node in enumerate(game_moves):
         if pgn.NAG_BRILLIANT_MOVE in move_node.nags:
-            game_moves = game_moves[move_index - 1:]
+            game_moves = game_moves[move_index - 1 :]
             flipped = move_node.turn()
-            
+
             break
     else:
         raise ValueError("brilliant move not found in provided PGN.")
-    
+
     board_clips = [
         draw_board(  # noqa: F405
             fen=game_moves[0].board().fen(),
             flipped=flipped,
-            duration=clip_durations["puzzle"]
+            duration=clip_durations["puzzle"],
         ),
-        
         draw_board(  # noqa: F405
             fen=game_moves[0].board().fen(),
             flipped=flipped,
@@ -104,16 +85,15 @@ def produce_short(
             animated=True,
             brilliancy=True,
             audio=True,
-            duration=clip_durations["move"]
+            duration=clip_durations["move"],
         ).set_start(clip_durations["puzzle"]),
-
         draw_board(  # noqa: F405
             fen=game_moves[1].board().fen(),
             flipped=flipped,
             highlighted_move=game_moves[1].uci(),
             brilliancy=True,
-            duration=clip_durations["solution"]
-        ).set_start(clip_durations["puzzle"] + clip_durations["move"])
+            duration=clip_durations["solution"],
+        ).set_start(clip_durations["puzzle"] + clip_durations["move"]),
     ]
 
     # Take the sacrificed piece with lowest value attacker
@@ -137,19 +117,17 @@ def produce_short(
     # Find the move with the lowest value capturer
     lowest_value_capture = min(
         capturing_moves,
-        key=lambda atk : piece_values[
+        key=lambda atk: piece_values[
             brilliancy_board.piece_at(atk.from_square).piece_type
-        ]
+        ],
     )
     if lowest_value_capture.promotion is not None:
         lowest_value_capture.promotion = QUEEN
 
     # Add the board clips for this capture and play on the board
-    line_clips_start_time = sum([
-        clip_durations["puzzle"],
-        clip_durations["move"],
-        clip_durations["solution"]
-    ])
+    line_clips_start_time = sum(
+        [clip_durations["puzzle"], clip_durations["move"], clip_durations["solution"]]
+    )
 
     line_board_clips.append(
         draw_move_with_preview(  # noqa: F405
@@ -158,9 +136,8 @@ def produce_short(
             highlighted_move=lowest_value_capture.uci(),
             audio=True,
             move_duration=clip_durations["move"],
-            preview_duration=clip_durations["line_move"]
-        )
-        .set_start(line_clips_start_time)
+            preview_duration=clip_durations["line_move"],
+        ).set_start(line_clips_start_time)
     )
 
     brilliancy_board.push(lowest_value_capture)
@@ -182,13 +159,11 @@ def produce_short(
                 highlighted_move=top_engine_move,
                 audio=True,
                 move_duration=clip_durations["move"],
-                preview_duration=clip_durations["line_move"]
-            )
-            .set_start(
+                preview_duration=clip_durations["line_move"],
+            ).set_start(
                 line_clips_start_time
-                + len(line_board_clips) * (
-                    clip_durations["move"] + clip_durations["line_move"]
-                )
+                + len(line_board_clips)
+                * (clip_durations["move"] + clip_durations["line_move"])
             )
         )
 
@@ -199,18 +174,15 @@ def produce_short(
         sum(clip_durations.values())
         + -clip_durations["line_move"]
         + (
-            len(line_board_clips) * (clip_durations["move"] + clip_durations["line_move"])
+            len(line_board_clips)
+            * (clip_durations["move"] + clip_durations["line_move"])
         )
     )
 
     # Background image
     background = resize(
-        (
-            editor.ImageClip(background)
-            .set_duration(full_duration)
-            .set_position((0, 0))
-        ),
-        height=1920
+        (editor.ImageClip(background).set_duration(full_duration).set_position((0, 0))),
+        height=1920,
     )
 
     # Correct move text
@@ -225,7 +197,7 @@ def produce_short(
             stroke_color="black",
             stroke_width=2,
             method="caption",
-            size=(1080, None)
+            size=(1080, None),
         )
         .set_start(clip_durations["puzzle"])
         .set_end(full_duration)
@@ -240,24 +212,28 @@ def produce_short(
             .cutout(0, music_start_time)
             .set_duration(full_duration)
         ),
-        0.5
+        0.5,
     )
 
     # Thunder sound effect on brilliant move
     thunder_sfx_clip = volumex(
-        editor.AudioFileClip("src/resources/chess/thunder.mp3")
-        .set_start(clip_durations["puzzle"] - 0.4),
-        0.5
+        editor.AudioFileClip("src/resources/chess/thunder.mp3").set_start(
+            clip_durations["puzzle"] - 0.4
+        ),
+        0.5,
     )
 
-    result = editor.CompositeVideoClip([
-        background,
-        question_text,
-        *countdown_texts,
-        solution_text,
-        *board_clips,
-        *line_board_clips
-    ], size=(1080, 1920))
+    result = editor.CompositeVideoClip(
+        [
+            background,
+            question_text,
+            *countdown_texts,
+            solution_text,
+            *board_clips,
+            *line_board_clips,
+        ],
+        size=(1080, 1920),
+    )
     result.audio.clips.append(music_clip)
     result.audio.clips.append(thunder_sfx_clip)
 
@@ -266,7 +242,7 @@ def produce_short(
         fps=24,
         audio_codec="aac",
         threads=4,
-        temp_audiofile="out/TEMP_chess_puzzle.mp4"
+        temp_audiofile="out/TEMP_chess_puzzle.mp4",
     )
 
 
@@ -279,6 +255,5 @@ if __name__ == "__main__":
         font=args["assets"]["font"],
         music=args["assets"]["music"],
         music_drop_time=args["musicDropTime"],
-
-        output=args["output"]
+        output=args["output"],
     )

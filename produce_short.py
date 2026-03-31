@@ -24,6 +24,7 @@ from videoProcess.Styling import (
     get_text_clip,
     darken_clip,
     create_flash_transition,
+    create_vignette,
 )
 
 CLIENT_ID = "553209643758-dn4375pj94hssfcipff2e1kn8eeqoprr.apps.googleusercontent.com"
@@ -98,15 +99,26 @@ def produce_short(
         0.6,
     )
 
-    # Overlays - 2026 style (Noise/Grain & Gradient Glow)
-    noise_overlay = create_noise_overlay(resolution, full_question_duration, opacity=0.08)
-    glow_overlay = create_gradient_glow(resolution, full_question_duration, color=(0, 255, 0), opacity=0.15)
+    # Overlays - 2026 style (Noise/Grain, Gradient Glow, and Vignette)
+    noise_overlay = create_noise_overlay(
+        resolution, full_question_duration, opacity=0.1
+    )
+    glow_overlay = create_gradient_glow(
+        resolution, full_question_duration, color=(0, 255, 0), opacity=0.15
+    )
+    vignette_overlay = create_vignette(resolution, full_question_duration, opacity=0.5)
 
     # 2-second high-impact hook
     hook_clip = create_hook_clip("TRIVIA TIME!", font=font)
 
     # Initial overlays
-    clips = [background_clip, glow_overlay, noise_overlay, hook_clip]
+    clips = [
+        background_clip,
+        glow_overlay,
+        noise_overlay,
+        vignette_overlay,
+        hook_clip,
+    ]
 
     # ✅ Display the selected question - 2026 Modern Caption Style (Word-by-word)
     question_words = []
@@ -126,11 +138,15 @@ def produce_short(
             break
 
     question_clips_raw = build_modern_captions(
-        question_words, resolution, highlight_word=found_highlight, font=font
+        question_words,
+        resolution,
+        highlight_word=found_highlight,
+        font=font,
+        phrase_mode=True,
     )
-    # Reposition all question clips to the top third (staying within mobile safe margin y=0.15)
+    # Reposition question (within mobile safe margin y=0.12)
     question_clips = [
-        c.set_position(("center", 0.15), relative=True) for c in question_clips_raw
+        c.set_position(("center", 0.12), relative=True) for c in question_clips_raw
     ]
 
     clips.extend(question_clips)
@@ -138,8 +154,8 @@ def produce_short(
     # ✅ Display answer choices with labels - Cascading Entrance & Mobile Safe Margins
     answer_labels = list("ABCD")
     for i in range(len(question["answers"])):
-        # 2026 style: Focused layout with vertical safe margins (0.4 to 0.7)
-        target_y = 0.40 + (i * 0.1)
+        # 2026 style: Focused layout with vertical safe margins (0.35 to 0.7)
+        target_y = 0.35 + (i * 0.08)
         answer_clip = (
             get_text_clip(
                 f"{answer_labels[i]} - {question['answers'][i]}".upper(),
@@ -164,31 +180,28 @@ def produce_short(
         answer_clip = apply_kinetic_pop(answer_clip, duration=0.2, scale=1.1)
         clips.append(answer_clip)
 
-    # ✅ Countdown timer (10 to 0) - Repositioned for mobile safe margins (y=0.82)
+    # ✅ Countdown timer (10 to 0) - Repositioned for mobile safe margins (y=0.75)
     for i in range(clip_durations["question"]):
         countdown_clip = (
             get_text_clip(
                 str(clip_durations["question"] - i),
-                fontsize=180,
+                fontsize=200,
                 color="white",
                 stroke_color="black",
-                stroke_width=5,
+                stroke_width=6,
                 method="label",
                 font=font,
             )
             .set_start(i)
             .set_duration(1)
-            .set_position(("center", 0.82), relative=True)
+            .set_position(("center", 0.75), relative=True)
         )
         # Pulse every second
         countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.4)
         clips.append(countdown_clip)
 
     # ✅ Transition Flash - 2026 Trend (Centralized 0.1s white flash)
-    flash = (
-        create_flash_transition(resolution)
-        .set_start(clip_durations["question"])
-    )
+    flash = create_flash_transition(resolution).set_start(clip_durations["question"])
     clips.append(flash)
 
     # ✅ Highlight the correct answer - Modern neon reveal
@@ -210,6 +223,9 @@ def produce_short(
     correct_answer_reveal = apply_kinetic_pop(
         correct_answer_reveal, duration=0.4, scale=1.6
     )
+    from videoProcess.Styling import apply_shake
+
+    correct_answer_reveal = apply_shake(correct_answer_reveal, duration=0.3)
     clips.append(correct_answer_reveal)
 
     # ✅ Combine all clips

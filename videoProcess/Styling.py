@@ -51,29 +51,34 @@ def darken_clip(clip, factor=0.45):
 
 
 def create_noise_overlay(size, duration, opacity=0.08):
-    """Creates a dynamic textured grain overlay (living grain) with optimized frame pooling."""
+    """Creates a dynamic textured grain overlay with layered noise scales (2026 trend)."""
     w, h = size
-    # Optimization: Pre-resize noise to target resolution using NEAREST interpolation
-    # for a bold 2026 'chunky' grain look and zero per-frame CPU resizing.
-    sw, sh = w // 2, h // 2
+    # Layer 1: Chunky grain for texture
+    sw1, sh1 = w // 4, h // 4
+    # Layer 2: Fine grain for depth
+    sw2, sh2 = w // 2, h // 2
+
     pool = []
     for _ in range(24):
-        noise = np.random.randint(0, 255, (sh, sw, 3), dtype="uint8")
-        resized = np.array(Image.fromarray(noise).resize(size, Image.NEAREST))
-        pool.append(resized)
+        noise1 = np.random.randint(0, 255, (sh1, sw1, 3), dtype="uint8")
+        noise2 = np.random.randint(0, 255, (sh2, sw2, 3), dtype="uint8")
+
+        # Upscale both to target resolution
+        layer1 = np.array(Image.fromarray(noise1).resize(size, Image.NEAREST))
+        layer2 = np.array(Image.fromarray(noise2).resize(size, Image.BILINEAR))
+
+        # Blend layers (50/50 mix) for a richer organic look
+        combined = (layer1.astype("uint16") + layer2.astype("uint16")) // 2
+        pool.append(combined.astype("uint8"))
 
     def make_frame(t):
         idx = int(t * 24) % 24
         return pool[idx]
 
-    # Fixed: In MoviePy 1.0.3, VideoClip doesn't take 'size' in __init__ and size/w/h are read-only.
-    # Robust fix: Start with a ColorClip (which has size) and transform it with the noise generator.
+    # Robust fix for MoviePy 1.0.3: Start with ColorClip and transform
     noise_clip = ColorClip(size=size, color=(0, 0, 0), duration=duration)
 
-    def apply_noise(get_frame, t):
-        return make_frame(t)
-
-    return noise_clip.fl(apply_noise).set_opacity(opacity)
+    return noise_clip.fl(lambda get_frame, t: make_frame(t)).set_opacity(opacity)
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
@@ -109,11 +114,12 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
 
 
 def create_flash_transition(size, duration=0.1, opacity=0.8):
-    """Creates a 0.1s white flash overlay for high-energy transitions (2026 trend)."""
+    """Creates a white flash overlay with a snappy fade-out for high-energy transitions."""
     return (
         ColorClip(size=size, color=(255, 255, 255))
         .set_duration(duration)
         .set_opacity(opacity)
+        .fadeout(duration)
     )
 
 
@@ -133,11 +139,14 @@ def apply_kinetic_pop(clip, duration=0.1, scale=1.3):
     return clip.resize(pop_scale)
 
 
-def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.1):
-    """Applies a slow zoom (Ken Burns) effect."""
-    # Performance: Pre-calculate slope for the temporal lambda
-    slope = (end_scale - start_scale) / max(total_duration, 0.001)
-    return clip.resize(lambda t: start_scale + slope * t)
+def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.15):
+    """Applies a smooth exponential zoom effect for a premium feel (2026 trend)."""
+    inv_duration = 1.0 / max(total_duration, 0.001)
+    # Using exponential curve: scale = start * (end/start)^(t/duration)
+    ratio = end_scale / start_scale
+    log_ratio = math.log(ratio)
+
+    return clip.resize(lambda t: start_scale * math.exp(log_ratio * t * inv_duration))
 
 
 def apply_slide_in(
@@ -176,6 +185,55 @@ def apply_fade_in(clip, duration=0.3):
     return clip.fadein(duration)
 
 
+def apply_shake(clip, duration=0.2, amplitude=5):
+    """Applies a high-frequency jitter/shake effect (2026 trend)."""
+
+    def shake(t):
+        if t > duration:
+            return "center", "center"
+        # High frequency noise-like oscillation
+        dx = amplitude * math.sin(t * 80) * math.exp(-t * 10)
+        dy = amplitude * math.cos(t * 70) * math.exp(-t * 10)
+        return dx, dy
+
+    # apply_shake usually works best on clips already positioned at center
+    # This assumes the clip has a 'center' relative position
+    return clip.set_position(shake, relative=True)
+
+
+def apply_float(clip, duration, amplitude=0.01):
+    """Applies a slow, organic floating motion."""
+
+    def float_pos(t):
+        # Slow Lissajous-like movement
+        dx = amplitude * math.sin(t * 1.5)
+        dy = amplitude * math.cos(t * 1.2)
+        return 0.5 + dx, 0.5 + dy
+
+    return clip.set_position(float_pos, relative=True)
+
+
+def create_vignette(size, duration, opacity=0.4):
+    """Creates a soft dark vignette to focus attention (2026 'bold minimal' look)."""
+    w, h = size
+    # Create at 1/4 scale to save memory/processing
+    vw, vh = w // 4, h // 4
+    vignette_img = Image.new("L", (vw, vh), 255)
+    draw = ImageDraw.Draw(vignette_img)
+
+    # Draw centered oval
+    draw.ellipse([0, 0, vw, vh], fill=0)
+    # Intense blur for soft falloff
+    vignette_img = vignette_img.filter(ImageFilter.GaussianBlur(radius=vw / 4))
+
+    vignette_array = np.array(vignette_img)
+    # Convert to black RGBA with varying alpha
+    rgba = np.zeros((vh, vw, 4), dtype="uint8")
+    rgba[..., 3] = (vignette_array.astype("float") * opacity).astype("uint8")
+
+    return ImageClip(rgba).set_duration(duration).set_position("center").resize(size)
+
+
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
     """Creates a high-impact 2-second hook title card with aggressive kinetic animations."""
     # 2026 Trend: Oversized bold typography for immediate scroll-stop.
@@ -204,12 +262,37 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
     return hook.resize(hook_scale).rotate(-3)
 
 
-def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold"):
-    """Builds word-by-word captions with kinetic animations and keyword highlighting."""
+def build_modern_captions(
+    words, video_size, highlight_word="", font="Arial-Bold", phrase_mode=False
+):
+    """Builds word-by-word or phrase-based captions with kinetic animations.
+    phrase_mode=True groups words into chunks for a 'minimal' look.
+    """
     clips = []
     highlight_word = highlight_word.lower() if highlight_word else ""
 
-    for item in words:
+    # Group words into phrases if requested
+    if phrase_mode:
+        chunks = []
+        current_chunk = []
+        for i, item in enumerate(words):
+            current_chunk.append(item)
+            if len(current_chunk) >= 3 or i == len(words) - 1:
+                chunks.append(current_chunk)
+                current_chunk = []
+        process_items = []
+        for chunk in chunks:
+            process_items.append(
+                {
+                    "word": " ".join(str(x.get("word", "")).strip() for x in chunk),
+                    "start": float(chunk[0].get("start", 0)),
+                    "end": float(chunk[-1].get("end", 0)),
+                }
+            )
+    else:
+        process_items = words
+
+    for item in process_items:
         word = str(item.get("word", "")).strip()
         start = float(item.get("start", 0))
         end = float(item.get("end", start + 0.5))
@@ -217,13 +300,16 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
         if not word:
             continue
 
-        duration = max(end - start, 0.3)
+        duration = max(end - start, 0.4)
         clean_word = NON_ALPHANUMERIC_RE.sub("", word).lower()
 
         # Modern highlighting: Bright Neon Green (#00FF00)
-        is_highlight = clean_word == highlight_word or len(clean_word) > 7
+        is_highlight = highlight_word in clean_word or len(clean_word) > 7
         color = "#00FF00" if is_highlight else "white"
-        font_size = 160 if is_highlight else 125
+        # 2026 Style: Aggressive sizing for phrases
+        font_size = 180 if is_highlight else 140
+        if phrase_mode:
+            font_size = int(font_size * 0.8)  # Slightly smaller for multi-word
 
         # Text clip - Bold, high-contrast
         txt = (
@@ -233,8 +319,9 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
                 color=color,
                 font=font,
                 stroke_color="black",
-                stroke_width=5,
-                method="label",
+                stroke_width=6,
+                method="caption" if " " in word else "label",
+                size=(video_size[0] * 0.8, None) if " " in word else None,
                 align="center",
             )
             .set_start(start)
@@ -242,41 +329,30 @@ def build_modern_captions(words, video_size, highlight_word="", font="Arial-Bold
             .set_position(("center", "center"))
         )
 
-        # 2026 Trend: Semi-transparent neon highlight background box for keywords
-        if is_highlight:
-            # Optimization: Use existing txt clip size to avoid double-rendering
-            tw, th = txt.size
-            highlight_bg = (
-                ColorClip(size=(int(tw * 1.2), int(th * 1.1)), color=(0, 255, 0))
-                .set_start(start)
-                .set_duration(duration)
-                .set_opacity(0.3)
-                .set_position(("center", "center"))
-            )
-            # Apply same pop to background for sync
-            highlight_bg = apply_kinetic_pop(highlight_bg, duration=0.1, scale=1.3)
-            clips.append(highlight_bg)
+        # Kinetic "pop" animation (Aggressive 1.4 scale for 2026)
+        txt = apply_kinetic_pop(txt, duration=0.12, scale=1.4)
 
-        # Kinetic "pop" animation
-        txt = apply_kinetic_pop(txt, duration=0.1, scale=1.3)
+        # 2026 Style: Subtle float
+        txt = apply_float(txt, duration, amplitude=0.005)
 
-        # Drop shadow for readability
+        # Drop shadow (Modern Offset)
         shadow = (
             get_text_clip(
                 word.upper(),
                 fontsize=font_size,
                 color="black",
                 font=font,
-                method="label",
+                method="caption" if " " in word else "label",
+                size=(video_size[0] * 0.8, None) if " " in word else None,
                 align="center",
             )
             .set_start(start)
             .set_duration(duration)
             .set_position(("center", "center"))
-            .set_opacity(0.7)
+            .set_opacity(0.8)
         )
-        # 2026 style: Soft glow shadow (slight scale offset)
-        shadow = shadow.resize(lambda t: 1.35 if t < 0.1 else 1.05)
+        # Offset shadow slightly
+        shadow = shadow.set_position(lambda t: (0.505, 0.505), relative=True)
 
         clips.extend([shadow, txt])
 
