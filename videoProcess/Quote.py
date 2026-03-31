@@ -2,10 +2,11 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
+
 # load environment constants
 load_dotenv(".env")
 
-# function to get the quote from the API 
+# function to get the quote from the API
 # Get the information form the API
 # Format the response
 # Parse json  and return the single fact
@@ -27,7 +28,6 @@ def fetch_poem(poet=""):
         url = "https://poetrydb.org/random/1/title,author,lines"
 
     return requests.get(url).json()[0]
-
 
 
 def get_quote():

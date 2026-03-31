@@ -25,6 +25,7 @@ from videoProcess.VideoDownload import download_video
 from videoProcess.Styling import (
     create_noise_overlay,
     create_gradient_glow,
+    create_vignette,
     build_modern_captions,
     create_hook_clip,
     create_end_card,
@@ -562,13 +563,19 @@ try:
     # 2-second hook title card
     hook_clip = create_hook_clip(word.upper())
 
-    # Grain and Gradient Glow Overlays
-    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.08)
-    glow_overlay = create_gradient_glow(resolution, total_duration, color=(200, 200, 255), opacity=0.15)
+    # Grain, Gradient Glow, and Vignette Overlays
+    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.1)
+    glow_overlay = create_gradient_glow(
+        resolution, total_duration, color=(200, 200, 255), opacity=0.15
+    )
+    vignette_overlay = create_vignette(resolution, total_duration, opacity=0.5)
 
     if whisper_words:
         text_clips = build_modern_captions(
-            whisper_words, video_clip.size, highlight_word=word
+            whisper_words,
+            video_clip.size,
+            highlight_word=word,
+            phrase_mode=True,
         )
     else:
         # Fallback to modern captions even if whisper fails (simulated word timestamps)
@@ -580,11 +587,24 @@ try:
                 {"word": w, "start": i * time_per_word, "end": (i + 1) * time_per_word}
             )
         text_clips = build_modern_captions(
-            simulated_words, video_clip.size, highlight_word=word
+            simulated_words,
+            video_clip.size,
+            highlight_word=word,
+            phrase_mode=True,
         )
 
+    # Position captions in mobile safe area (center)
+    text_clips = [c.set_position(("center", "center")) for c in text_clips]
+
     final = CompositeVideoClip(
-        [video_clip, glow_overlay, noise_overlay, hook_clip] + text_clips,
+        [
+            video_clip,
+            glow_overlay,
+            noise_overlay,
+            vignette_overlay,
+            hook_clip,
+        ]
+        + text_clips,
         size=video_clip.size,
     )
 
