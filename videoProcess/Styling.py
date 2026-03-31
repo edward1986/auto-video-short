@@ -10,6 +10,9 @@ NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 # Global TextClip cache to avoid redundant ImageMagick renders
 TEXT_CLIP_CACHE = {}
 
+# Global LUT cache for darken_clip to avoid redundant array creation
+DARKEN_LUT_CACHE = {}
+
 
 def get_text_clip(text, **kwargs):
     """Retrieves a cached TextClip or creates a new one if not found."""
@@ -31,8 +34,20 @@ def get_text_clip(text, **kwargs):
 def darken_clip(clip, factor=0.45):
     """Darkens a clip by multiplying all pixel values by a factor (0.0 to 1.0).
     Higher factor = brighter, lower factor = darker. 0.45 is ideal for 2026 'bold minimal' contrast.
+    Performance: Uses a Look-Up Table (LUT) for uint8 to avoid per-pixel floating point math.
     """
-    return clip.fl_image(lambda image: (image * factor).astype(image.dtype))
+
+    def apply_darken(image):
+        # Optimized path for standard uint8 images
+        if image.dtype == np.uint8:
+            if factor not in DARKEN_LUT_CACHE:
+                DARKEN_LUT_CACHE[factor] = (np.arange(256) * factor).astype("uint8")
+            return DARKEN_LUT_CACHE[factor][image]
+
+        # Fallback for other dtypes (float, uint16, etc.)
+        return (image * factor).astype(image.dtype)
+
+    return clip.fl_image(apply_darken)
 
 
 def create_noise_overlay(size, duration, opacity=0.08):
