@@ -51,11 +51,13 @@ def darken_clip(clip, factor=0.45):
 
 
 def create_noise_overlay(size, duration, opacity=0.08):
-    """Creates a dynamic textured grain overlay with layered noise scales (2026 trend)."""
+    """Creates a dynamic textured grain overlay with layered noise scales (2026 trend).
+    Performance: Uses numpy.repeat for fast upscaling when possible.
+    """
     w, h = size
-    # Layer 1: Chunky grain for texture
+    # Layer 1: Chunky grain for texture (1/4 resolution)
     sw1, sh1 = w // 4, h // 4
-    # Layer 2: Fine grain for depth
+    # Layer 2: Fine grain for depth (1/2 resolution)
     sw2, sh2 = w // 2, h // 2
 
     pool = []
@@ -63,8 +65,13 @@ def create_noise_overlay(size, duration, opacity=0.08):
         noise1 = np.random.randint(0, 255, (sh1, sw1, 3), dtype="uint8")
         noise2 = np.random.randint(0, 255, (sh2, sw2, 3), dtype="uint8")
 
-        # Upscale both to target resolution
-        layer1 = np.array(Image.fromarray(noise1).resize(size, Image.NEAREST))
+        # Layer 1: Optimized upscaling via numpy.repeat if divisible by 4
+        if w % 4 == 0 and h % 4 == 0:
+            layer1 = np.repeat(np.repeat(noise1, 4, axis=0), 4, axis=1)
+        else:
+            layer1 = np.array(Image.fromarray(noise1).resize(size, Image.NEAREST))
+
+        # Layer 2: Soft fine grain
         layer2 = np.array(Image.fromarray(noise2).resize(size, Image.BILINEAR))
 
         # Blend layers (50/50 mix) for a richer organic look
@@ -84,11 +91,12 @@ def create_noise_overlay(size, duration, opacity=0.08):
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     """Creates a soft radial gradient glow in the center.
     Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
+    Features: Breathing pulse effect via temporal size modulation (MoviePy 1.0.3 compatible).
     """
     w, h = size
     # Downscale for performance
-    scale = 10
-    small_size = (w // scale, h // scale)
+    scale_factor = 10
+    small_size = (w // scale_factor, h // scale_factor)
     inner_color = (*color, int(255 * opacity))
 
     base = Image.new("RGBA", small_size, (0, 0, 0, 0))
@@ -102,15 +110,21 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
     glow_array = np.array(glow)
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
-    return (
+    glow_clip = (
         ImageClip(glow_array)
         .set_duration(duration)
         .set_position("center")
         .set_opacity(opacity)
-        .resize(size)
     )
+
+    # 2026 Trend: Breathing pulse effect
+    # Modulating size over time instead of opacity for better stability in MoviePy 1.0.3
+    def pulse(t):
+        # Slow organic pulse (0.9x to 1.1x)
+        scale = 1.0 + 0.1 * math.sin(t * 1.5)
+        return scale * float(scale_factor)  # Scale back to full size
+
+    return glow_clip.resize(pulse)
 
 
 def create_flash_transition(size, duration=0.1, opacity=0.8):
@@ -258,6 +272,9 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
         # Snappier oscillation for 2026 'vibrate' feel
         return 1.0 + 0.4 * math.exp(-8 * t) * math.cos(15 * t)
 
+    # 2026 Style: High-energy jitter/shake
+    hook = apply_shake(hook, duration=duration, amplitude=12)
+
     # Fixed: Use a static slight tilt for style instead of a lambda to avoid MoviePy 1.0.3 errors
     return hook.resize(hook_scale).rotate(-3)
 
@@ -277,7 +294,8 @@ def build_modern_captions(
         current_chunk = []
         for i, item in enumerate(words):
             current_chunk.append(item)
-            if len(current_chunk) >= 3 or i == len(words) - 1:
+            # 2026 Style: Snappy 2-word chunks for higher energy
+            if len(current_chunk) >= 2 or i == len(words) - 1:
                 chunks.append(current_chunk)
                 current_chunk = []
         process_items = []
@@ -311,6 +329,22 @@ def build_modern_captions(
         if phrase_mode:
             font_size = int(font_size * 0.8)  # Slightly smaller for multi-word
 
+        # 2026 Style: Keyword background highlight box
+        if is_highlight:
+            # Render a temporary clip to get dimensions
+            temp_txt = get_text_clip(word.upper(), fontsize=font_size, font=font)
+            tw, th = temp_txt.size
+            bg_box = (
+                ColorClip(size=(int(tw * 1.1), int(th * 1.1)), color=(0, 255, 0))
+                .set_start(start)
+                .set_duration(duration)
+                .set_position(("center", "center"))
+                .set_opacity(0.9)
+            )
+            # Re-render text in black for high-contrast on neon green
+            color = "black"
+            clips.append(bg_box)
+
         # Text clip - Bold, high-contrast
         txt = (
             get_text_clip(
@@ -318,8 +352,8 @@ def build_modern_captions(
                 fontsize=font_size,
                 color=color,
                 font=font,
-                stroke_color="black",
-                stroke_width=6,
+                stroke_color="black" if not is_highlight else None,
+                stroke_width=6 if not is_highlight else 0,
                 method="caption" if " " in word else "label",
                 size=(video_size[0] * 0.8, None) if " " in word else None,
                 align="center",
@@ -331,6 +365,9 @@ def build_modern_captions(
 
         # Kinetic "pop" animation (Aggressive 1.4 scale for 2026)
         txt = apply_kinetic_pop(txt, duration=0.12, scale=1.4)
+        # Apply the same kinetic pop to the background box if it exists
+        if is_highlight:
+            clips[-1] = apply_kinetic_pop(clips[-1], duration=0.12, scale=1.4)
 
         # 2026 Style: Subtle float
         txt = apply_float(txt, duration, amplitude=0.005)
