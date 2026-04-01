@@ -13,6 +13,9 @@ TEXT_CLIP_CACHE = {}
 # Global LUT cache for darken_clip to avoid redundant array creation
 DARKEN_LUT_CACHE = {}
 
+# Global noise pool cache to avoid redundant generation for identical sizes
+NOISE_POOL_CACHE = {}
+
 
 def get_text_clip(text, **kwargs):
     """Retrieves a cached TextClip or creates a new one if not found."""
@@ -51,25 +54,45 @@ def darken_clip(clip, factor=0.45):
 
 
 def create_noise_overlay(size, duration, opacity=0.08):
-    """Creates a dynamic textured grain overlay with layered noise scales (2026 trend)."""
-    w, h = size
-    # Layer 1: Chunky grain for texture
-    sw1, sh1 = w // 4, h // 4
-    # Layer 2: Fine grain for depth
-    sw2, sh2 = w // 2, h // 2
+    """Creates a dynamic textured grain overlay with layered noise scales (2026 trend).
+    Performance: Caches the noise pool by size and uses NumPy for fast resizing of chunky grain.
+    """
+    # Defensive: Ensure size is a hashable tuple
+    size_tuple = tuple(size) if isinstance(size, (list, tuple)) else size
 
-    pool = []
-    for _ in range(24):
-        noise1 = np.random.randint(0, 255, (sh1, sw1, 3), dtype="uint8")
-        noise2 = np.random.randint(0, 255, (sh2, sw2, 3), dtype="uint8")
+    if size_tuple in NOISE_POOL_CACHE:
+        pool = NOISE_POOL_CACHE[size_tuple]
+    else:
+        w, h = size_tuple
+        # Layer 1: Chunky grain for texture (1/4 resolution)
+        sw1, sh1 = w // 4, h // 4
+        # Layer 2: Fine grain for depth (1/2 resolution)
+        sw2, sh2 = w // 2, h // 2
 
-        # Upscale both to target resolution
-        layer1 = np.array(Image.fromarray(noise1).resize(size, Image.NEAREST))
-        layer2 = np.array(Image.fromarray(noise2).resize(size, Image.BILINEAR))
+        pool = []
+        for _ in range(24):
+            noise1 = np.random.randint(0, 255, (sh1, sw1, 3), dtype="uint8")
+            noise2 = np.random.randint(0, 255, (sh2, sw2, 3), dtype="uint8")
 
-        # Blend layers (50/50 mix) for a richer organic look
-        combined = (layer1.astype("uint16") + layer2.astype("uint16")) // 2
-        pool.append(combined.astype("uint8"))
+            # Optimized path for integer scaling factors (1/4 scale)
+            if w % 4 == 0 and h % 4 == 0:
+                layer1 = noise1.repeat(4, axis=0).repeat(4, axis=1)
+            else:
+                # Fallback to PIL for non-integer scales or remainder pixels
+                layer1 = np.array(
+                    Image.fromarray(noise1).resize(size_tuple, Image.NEAREST)
+                )
+
+            # Layer 2: Still requires BILINEAR for a soft organic feel
+            layer2 = np.array(
+                Image.fromarray(noise2).resize(size_tuple, Image.BILINEAR)
+            )
+
+            # Blend layers (50/50 mix) for a richer organic look
+            combined = (layer1.astype("uint16") + layer2.astype("uint16")) // 2
+            pool.append(combined.astype("uint8"))
+
+        NOISE_POOL_CACHE[size_tuple] = pool
 
     def make_frame(t):
         idx = int(t * 24) % 24

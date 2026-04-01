@@ -35,3 +35,7 @@
 ## 2025-05-22 - LUT Optimization for Point-wise Image Operations
 **Learning:** Point-wise operations (like darkening or brightness adjustment) on standard 8-bit images (`uint8`) are significantly faster when implemented via a Look-Up Table (LUT) rather than floating-point multiplication. A LUT replaces  \times W \times C$ multiplications with simple array indexing. However, this optimization is `dtype`-specific; it will fail on floating-point or 16-bit images. Always include a type check to ensure the optimization only applies to compatible data types, falling back to standard math for others to maintain robustness.
 **Action:** Use cached LUTs for per-pixel intensity transformations on `uint8` image arrays. Always provide a safe fallback for non-`uint8` dtypes.
+
+## 2025-05-23 - Safe Integer Upscaling and Hashable Cache Keys
+**Learning:** When optimizing nearest-neighbor upscaling with `numpy.repeat`, dimensions must be exactly divisible by the scale factor to avoid shape mismatches (e.g., (1080, 1920) vs (1082, 1920) for 4x upscaling). Additionally, when using a dictionary as a cache for functions that accept a `size` argument (often passed as a list by libraries like MoviePy), always convert the input to a `tuple` to ensure it is hashable and avoid `TypeError`.
+**Action:** Always check for divisibility before using `repeat` for upscaling, falling back to PIL for non-integer scales. Convert list-like inputs to tuples before using them as cache keys.
