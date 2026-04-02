@@ -1,8 +1,8 @@
 import re
 import math
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
-from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from moviepy.editor import ColorClip, ImageClip, CompositeVideoClip
 
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
@@ -17,19 +17,142 @@ DARKEN_LUT_CACHE = {}
 NOISE_POOL_CACHE = {}
 
 
+def get_pil_text_clip(
+    text,
+    fontsize=70,
+    color="white",
+    font="Arial-Bold",
+    stroke_color=None,
+    stroke_width=0,
+    method="label",
+    size=None,
+    align="center",
+    **kwargs,
+):
+    """Renders text using PIL and returns an ImageClip.
+    Provides a reliable fallback for environments without ImageMagick.
+    """
+    # 2026 Style: High contrast, bold, mobile-first
+    # Default to standard font if specific one fails
+    try:
+        pil_font = ImageFont.truetype(font, fontsize)
+    except Exception:
+        try:
+            pil_font = ImageFont.truetype("default.ttf", fontsize)
+        except Exception:
+            # Fallback to a default font (requires Pillow 10.1.0+ for size)
+            try:
+                pil_font = ImageFont.load_default(size=fontsize)
+            except Exception:
+                pil_font = ImageFont.load_default()
+
+    # Handle text scaling for 2026 style (ensure text fits within screen/margins)
+    if size and size[0]:
+        target_w = size[0]
+        test_bbox = ImageDraw.Draw(Image.new("L", (1, 1))).textbbox(
+            (0, 0), text, font=pil_font
+        )
+        current_w = test_bbox[2] - test_bbox[0]
+        if current_w > target_w:
+            scale_f = target_w / current_w
+            new_size = max(20, int(fontsize * scale_f))
+            try:
+                pil_font = ImageFont.truetype(font, new_size)
+            except Exception:
+                try:
+                    pil_font = ImageFont.load_default(size=new_size)
+                except Exception:
+                    pil_font = ImageFont.load_default()
+
+    # Handle text wrapping for 'caption' method
+    lines = [text]
+    if method == "caption" and size and size[0]:
+        max_width = size[0]
+        words = text.split()
+        lines = []
+        current_line = []
+        for word in words:
+            test_line = " ".join(current_line + [word])
+            # Use textbbox instead of deprecated textsize
+            bbox = ImageDraw.Draw(Image.new("L", (1, 1))).textbbox(
+                (0, 0), test_line, font=pil_font
+            )
+            if bbox[2] - bbox[0] <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(" ".join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)  # Word itself is too long
+        if current_line:
+            lines.append(" ".join(current_line))
+
+    # Calculate total dimensions
+    draw_test = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    line_heights = []
+    max_line_width = 0
+    for line in lines:
+        bbox = draw_test.textbbox((0, 0), line, font=pil_font)
+        max_line_width = max(max_line_width, bbox[2] - bbox[0])
+        line_heights.append(bbox[3] - bbox[1])
+
+    total_height = sum(line_heights) + (len(lines) - 1) * (fontsize // 4)
+    if size and size[0]:
+        canvas_w = size[0]
+    else:
+        canvas_w = max_line_width + stroke_width * 2 + 20
+
+    if size and size[1]:
+        canvas_h = size[1]
+    else:
+        canvas_h = total_height + stroke_width * 2 + 20
+
+    # Create canvas
+    img = Image.new("RGBA", (int(canvas_w), int(canvas_h)), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    # Draw lines
+    current_y = (canvas_h - total_height) // 2
+    for i, line in enumerate(lines):
+        line_bbox = draw.textbbox((0, 0), line, font=pil_font)
+        line_w = line_bbox[2] - line_bbox[0]
+
+        if align == "center":
+            x = (canvas_w - line_w) // 2
+        elif align == "right":
+            x = canvas_w - line_w - 10
+        else:
+            x = 10
+
+        # Optional Stroke/Outline
+        if stroke_color and stroke_width > 0:
+            for offset_x in range(-stroke_width, stroke_width + 1):
+                for offset_y in range(-stroke_width, stroke_width + 1):
+                    draw.text(
+                        (x + offset_x, current_y + offset_y),
+                        line,
+                        font=pil_font,
+                        fill=stroke_color,
+                    )
+
+        draw.text((x, current_y), line, font=pil_font, fill=color)
+        current_y += line_heights[i] + (fontsize // 4)
+
+    return ImageClip(np.array(img))
+
+
 def get_text_clip(text, **kwargs):
-    """Retrieves a cached TextClip or creates a new one if not found."""
+    """Retrieves a cached ImageClip (rendered via PIL) or creates a new one."""
     # Create a unique cache key based on text and all styling parameters
-    # Sort kwargs to ensure consistent key generation
-    sorted_params = sorted(kwargs.items())
+    sorted_params = sorted(kwargs.items(), key=lambda x: str(x[0]))
     cache_key = (text, tuple(sorted_params))
 
     if cache_key in TEXT_CLIP_CACHE:
-        # Return a copy to avoid side-effects from duration/start/position settings
         return TEXT_CLIP_CACHE[cache_key].copy()
 
-    # Create new clip
-    clip = TextClip(text, **kwargs)
+    # Use PIL-based renderer instead of MoviePy TextClip
+    clip = get_pil_text_clip(text, **kwargs)
     TEXT_CLIP_CACHE[cache_key] = clip
     return clip.copy()
 
@@ -107,12 +230,13 @@ def create_noise_overlay(size, duration, opacity=0.08):
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     """Creates a soft radial gradient glow in the center.
     Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
+    2026 Style: High-impact breathing pulse effect.
     """
     w, h = size
     # Downscale for performance
     scale = 10
-    small_size = (w // scale, h // scale)
-    inner_color = (*color, int(255 * opacity))
+    small_size = (max(1, w // scale), max(1, h // scale))
+    inner_color = (*color, 255)  # Use full alpha for the base, control via MoviePy
 
     base = Image.new("RGBA", small_size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(base)
@@ -125,15 +249,22 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
     glow_array = np.array(glow)
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
-    return (
+    # 2026 Style: Breathing pulse effect by modulating opacity
+    # We use .fl() for temporal opacity because .set_opacity() is static in v1.0.3
+    glow_clip = (
         ImageClip(glow_array)
         .set_duration(duration)
         .set_position("center")
-        .set_opacity(opacity)
         .resize(size)
     )
+
+    def pulse_opacity(get_frame, t):
+        # Organic pulse: sine wave with slight exponential decay for 'entry' feel
+        # Base opacity + pulse amplitude
+        current_op = opacity * (0.8 + 0.2 * math.sin(t * 3))
+        return (get_frame(t).astype("float") * current_op).astype("uint8")
+
+    return glow_clip.fl(pulse_opacity)
 
 
 def create_flash_transition(size, duration=0.1, opacity=0.8):
@@ -258,8 +389,17 @@ def create_vignette(size, duration, opacity=0.4):
 
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
-    """Creates a high-impact 2-second hook title card with aggressive kinetic animations."""
-    # 2026 Trend: Oversized bold typography for immediate scroll-stop.
+    """Creates a high-impact 2-second hook title card with aggressive kinetic animations.
+    2026 Trend: Oversized bold typography for immediate scroll-stop.
+    """
+    # Performance: Pre-calculate constants for the temporal lambda
+    decay = -8.0
+    freq = 15.0
+
+    def hook_scale(t):
+        # Snappier oscillation for 2026 'vibrate' feel
+        return 1.0 + 0.4 * math.exp(decay * t) * math.cos(freq * t)
+
     hook = (
         get_text_clip(
             text.upper(),
@@ -273,16 +413,11 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
         .set_start(0)
         .set_duration(duration)
         .set_position(("center", "center"))
+        .resize(hook_scale)
+        .rotate(-2)  # High-impact tilt
     )
 
-    # Performance: Aggressive kinetic scaling (exponential decay with cosine oscillation)
-    # Constants pre-calculated for the temporal lambda
-    def hook_scale(t):
-        # Snappier oscillation for 2026 'vibrate' feel
-        return 1.0 + 0.4 * math.exp(-8 * t) * math.cos(15 * t)
-
-    # Fixed: Use a static slight tilt for style instead of a lambda to avoid MoviePy 1.0.3 errors
-    return hook.resize(hook_scale).rotate(-3)
+    return hook
 
 
 def build_modern_captions(
@@ -315,6 +450,9 @@ def build_modern_captions(
     else:
         process_items = words
 
+    # Pre-compiled high-impact keywords for 2026 design style
+    impact_keywords = {"NOT", "WHAT", "WHY", "HOW", "BEST", "FAST", "EASY", "NEW", "TOP"}
+
     for item in process_items:
         word = str(item.get("word", "")).strip()
         start = float(item.get("start", 0))
@@ -327,14 +465,21 @@ def build_modern_captions(
         clean_word = NON_ALPHANUMERIC_RE.sub("", word).lower()
 
         # Modern highlighting: Bright Neon Green (#00FF00)
-        is_highlight = highlight_word in clean_word or len(clean_word) > 7
+        # Highlight based on target word, length, or impact keywords
+        is_highlight = (
+            (highlight_word and highlight_word in clean_word)
+            or len(clean_word) > 8
+            or word.upper() in impact_keywords
+        )
         color = "#00FF00" if is_highlight else "white"
-        # 2026 Style: Aggressive sizing for phrases
-        font_size = 180 if is_highlight else 140
-        if phrase_mode:
-            font_size = int(font_size * 0.8)  # Slightly smaller for multi-word
 
-        # Text clip - Bold, high-contrast
+        # 2026 Style: Aggressive sizing for focus
+        font_size = 190 if is_highlight else 145
+        if phrase_mode:
+            font_size = int(font_size * 0.85)
+
+        # Text clip - Bold, high-contrast (ensure it fits in safe margins)
+        safe_width = int(video_size[0] * 0.85)
         txt = (
             get_text_clip(
                 word.upper(),
@@ -342,9 +487,9 @@ def build_modern_captions(
                 color=color,
                 font=font,
                 stroke_color="black",
-                stroke_width=6,
+                stroke_width=7,
                 method="caption" if " " in word else "label",
-                size=(video_size[0] * 0.8, None) if " " in word else None,
+                size=(safe_width, None),
                 align="center",
             )
             .set_start(start)
@@ -352,8 +497,8 @@ def build_modern_captions(
             .set_position(("center", "center"))
         )
 
-        # Kinetic "pop" animation (Aggressive 1.4 scale for 2026)
-        txt = apply_kinetic_pop(txt, duration=0.12, scale=1.4)
+        # Kinetic "pop" animation (Aggressive 1.5 scale for 2026)
+        txt = apply_kinetic_pop(txt, duration=0.15, scale=1.5)
 
         # 2026 Style: Subtle float
         txt = apply_float(txt, duration, amplitude=0.005)
@@ -366,7 +511,7 @@ def build_modern_captions(
                 color="black",
                 font=font,
                 method="caption" if " " in word else "label",
-                size=(video_size[0] * 0.8, None) if " " in word else None,
+                size=(safe_width, None),
                 align="center",
             )
             .set_start(start)
