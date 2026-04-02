@@ -2,6 +2,10 @@ import re
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+# Monkey-patch PIL.Image.ANTIALIAS for MoviePy compatibility with Pillow 10+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
 from moviepy.editor import ColorClip, ImageClip, CompositeVideoClip
 
 # Pre-compiled regex for better performance in build_modern_captions

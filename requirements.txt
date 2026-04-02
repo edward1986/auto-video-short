@@ -2,7 +2,6 @@ moviepy
 boto3
 python-dotenv
 pyfiglet
-transformers
 gtts
 Pillow>=10.0.0
 google-api-python-client
