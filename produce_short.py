@@ -3,6 +3,11 @@ from datetime import datetime
 import json
 import random
 import os
+
+# Monkey-patch PIL.Image.ANTIALIAS for MoviePy compatibility with Pillow 10+
+from PIL import Image
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload

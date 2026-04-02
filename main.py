@@ -3,6 +3,11 @@ import re
 import json
 import sys
 import base64
+
+# Monkey-patch PIL.Image.ANTIALIAS for MoviePy compatibility with Pillow 10+
+from PIL import Image
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
 import requests
 import smtplib
 import mysql.connector
