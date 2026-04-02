@@ -39,3 +39,7 @@
 ## 2025-05-23 - Safe Integer Upscaling and Hashable Cache Keys
 **Learning:** When optimizing nearest-neighbor upscaling with `numpy.repeat`, dimensions must be exactly divisible by the scale factor to avoid shape mismatches (e.g., (1080, 1920) vs (1082, 1920) for 4x upscaling). Additionally, when using a dictionary as a cache for functions that accept a `size` argument (often passed as a list by libraries like MoviePy), always convert the input to a `tuple` to ensure it is hashable and avoid `TypeError`.
 **Action:** Always check for divisibility before using `repeat` for upscaling, falling back to PIL for non-integer scales. Convert list-like inputs to tuples before using them as cache keys.
+
+## 2025-05-24 - Avoid Lambda for Static Properties in MoviePy
+**Learning:** In MoviePy 1.x, passing a lambda function (e.g., `lambda t: (0.5, 0.5)`) to methods like `set_position` or `resize` triggers a function call for every single frame during rendering. If the value is constant, passing the raw value (e.g., a tuple or float) allows MoviePy to skip these redundant calls.
+**Action:** Always prefer static values over constant-returning lambdas for MoviePy clip properties to reduce per-frame overhead.

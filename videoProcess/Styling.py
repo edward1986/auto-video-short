@@ -375,7 +375,8 @@ def build_modern_captions(
             .set_opacity(0.8)
         )
         # Offset shadow slightly
-        shadow = shadow.set_position(lambda t: (0.505, 0.505), relative=True)
+        # Performance: Use a static tuple instead of a lambda to avoid thousands of function calls
+        shadow = shadow.set_position((0.505, 0.505), relative=True)
 
         clips.extend([shadow, txt])
 
