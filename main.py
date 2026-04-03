@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from textwrap import fill, shorten
 from typing import Any, Optional, Tuple, Dict
 
+from PIL import Image
 from pyfiglet import Figlet
 from moviepy.editor import (
     VideoFileClip,
@@ -20,6 +21,10 @@ from moviepy.editor import (
     CompositeVideoClip,
     ColorClip,
 )
+
+# Monkeypatch for MoviePy 1.0.3 compatibility with Pillow 10+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
 from videoProcess.SoundCreate import make_audio
 from videoProcess.VideoDownload import download_video
 from videoProcess.Styling import (

@@ -7,8 +7,13 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
+from PIL import Image
 import moviepy.editor as editor
 from moviepy.editor import concatenate_videoclips
+
+# Monkeypatch for MoviePy 1.0.3 compatibility with Pillow 10+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
 from moviepy.video.fx.resize import resize
 from moviepy.audio.fx.volumex import volumex
 from textwrap import shorten
@@ -70,9 +75,12 @@ def produce_short(
     q_dur = clip_durations["question"]
     a_dur = clip_durations["answer"]
 
-    bg_segment = bg_clip.cutout(
-        0, max(1, round(background_duration) - 65)
-    ).set_position(("center", "center"))
+    # 2026 Style: Use a portion of the background that fits our needs
+    # Ensure we don't cutout more than available duration
+    cut_start = 0
+    cut_end = max(1.0, background_duration - 5.0) if background_duration > 65 else background_duration
+
+    bg_segment = bg_clip.subclip(cut_start, cut_end).set_position(("center", "center"))
 
     # Segment 1: Question (Slow zoom in + Darken for contrast)
     bg_q = resize(bg_segment.subclip(0, q_dur), height=1920)

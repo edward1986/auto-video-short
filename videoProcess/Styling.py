@@ -1,8 +1,12 @@
 import re
 import math
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
-from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from moviepy.editor import ColorClip, ImageClip, CompositeVideoClip
+
+# Monkeypatch for MoviePy 1.0.3 compatibility with Pillow 10+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
 
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
@@ -17,8 +21,107 @@ DARKEN_LUT_CACHE = {}
 NOISE_POOL_CACHE = {}
 
 
+def get_pil_text_clip(
+    text,
+    fontsize=70,
+    color="white",
+    font="Arial",
+    stroke_color=None,
+    stroke_width=0,
+    method="label",
+    size=None,
+    align="center",
+    **kwargs,
+):
+    """PIL-based alternative to MoviePy TextClip for environments without ImageMagick."""
+
+    # Font handling
+    try:
+        # Try to load the requested font (handle cases where it might be a path or a name)
+        pil_font = ImageFont.truetype(font, int(fontsize))
+    except Exception:
+        try:
+            # Fallback to default.ttf in root if present
+            pil_font = ImageFont.truetype("default.ttf", int(fontsize))
+        except Exception:
+            try:
+                # Common system font fallback
+                pil_font = ImageFont.truetype("DejaVuSans-Bold.ttf", int(fontsize))
+            except Exception:
+                # Last resort: load_default (won't support size)
+                pil_font = ImageFont.load_default()
+
+    # Text wrapping for 'caption' mode
+    if method == "caption" and size and size[0]:
+        max_width = size[0]
+        lines = []
+        words = text.split()
+        current_line = []
+        for word in words:
+            test_line = " ".join(current_line + [word])
+            # Use textbbox to get width
+            dummy_draw = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+            bbox = dummy_draw.textbbox((0, 0), test_line, font=pil_font)
+            w = bbox[2] - bbox[0]
+            if w <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(" ".join(current_line))
+                current_line = [word]
+        if current_line:
+            lines.append(" ".join(current_line))
+        text = "\n".join(lines)
+
+    # Measure final text size
+    dummy_img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    dummy_draw = ImageDraw.Draw(dummy_img)
+    bbox = dummy_draw.textbbox((0, 0), text, font=pil_font, align=align)
+
+    # Add padding for stroke and better framing
+    padding = int(stroke_width) + 10
+    text_w = bbox[2] - bbox[0] + padding * 2
+    text_h = bbox[3] - bbox[1] + padding * 2
+
+    # Create the image
+    img_w = int(size[0]) if size and size[0] else int(text_w)
+    img_h = int(size[1]) if size and size[1] else int(text_h)
+
+    # Ensure minimum size to fit the text
+    img_w = max(img_w, int(text_w))
+    img_h = max(img_h, int(text_h))
+
+    img = Image.new("RGBA", (img_w, img_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    # Calculate position for alignment
+    if align == "center":
+        pos_x = (img_w - (bbox[2] - bbox[0])) / 2
+    elif align == "right":
+        pos_x = img_w - (bbox[2] - bbox[0]) - padding
+    else:  # left
+        pos_x = padding
+
+    pos_y = (img_h - (bbox[3] - bbox[1])) / 2
+
+    # 2026 Style: Custom line spacing (1.2x) handled via manual multi-line draw if needed
+    # For now, default draw.text supports spacing
+    draw.text(
+        (pos_x, pos_y),
+        text,
+        font=pil_font,
+        fill=color,
+        stroke_width=int(stroke_width),
+        stroke_fill=stroke_color if stroke_width > 0 else None,
+        align=align,
+        spacing=int(fontsize * 0.2),
+    )
+
+    return ImageClip(np.array(img))
+
+
 def get_text_clip(text, **kwargs):
-    """Retrieves a cached TextClip or creates a new one if not found."""
+    """Retrieves a cached TextClip (PIL-rendered) or creates a new one if not found."""
     # Create a unique cache key based on text and all styling parameters
     # Sort kwargs to ensure consistent key generation
     sorted_params = sorted(kwargs.items())
@@ -28,8 +131,8 @@ def get_text_clip(text, **kwargs):
         # Return a copy to avoid side-effects from duration/start/position settings
         return TEXT_CLIP_CACHE[cache_key].copy()
 
-    # Create new clip
-    clip = TextClip(text, **kwargs)
+    # Create new clip using PIL-based renderer
+    clip = get_pil_text_clip(text, **kwargs)
     TEXT_CLIP_CACHE[cache_key] = clip
     return clip.copy()
 
@@ -125,14 +228,25 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
     glow_array = np.array(glow)
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
+    # 2026 Style: Subtle breathing pulse (modulates opacity)
+    # Since set_opacity doesn't support functions, we'll use fl_image
+    def pulse(get_frame, t):
+        frame = get_frame(t)
+        # If the frame is RGBA, we can modulate alpha
+        if frame.shape[2] == 4:
+            # Pulse between 0.7x and 1.3x of base opacity
+            mod = 1.0 + 0.3 * math.sin(t * 2 * math.pi)
+            frame = frame.copy()  # Avoid mutating original
+            frame[..., 3] = np.clip(frame[..., 3] * mod, 0, 255).astype("uint8")
+        return frame
+
     return (
         ImageClip(glow_array)
         .set_duration(duration)
         .set_position("center")
         .set_opacity(opacity)
         .resize(size)
+        .fl(pulse)
     )
 
 

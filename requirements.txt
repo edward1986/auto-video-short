@@ -1,10 +1,11 @@
-moviepy
+moviepy==1.0.3
 boto3
 python-dotenv
 pyfiglet
-transformers
-gtts
-Pillow==9.0.0
+Pillow>=10.0.0
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+requests
+gtts
+transformers
