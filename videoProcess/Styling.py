@@ -123,7 +123,12 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
 
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
-    glow_array = np.array(glow)
+
+    # Optimization: Resize the PIL image to the final size before converting to NumPy.
+    # This ensures the expensive resizing operation happens only once during initialization
+    # and utilizes PIL's optimized interpolation before entering the MoviePy clip pipeline.
+    glow_resized = glow.resize(size, Image.BILINEAR)
+    glow_array = np.array(glow_resized)
 
     # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
     # Reverting to static opacity for stability.
@@ -132,7 +137,6 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
         .set_duration(duration)
         .set_position("center")
         .set_opacity(opacity)
-        .resize(size)
     )
 
 
