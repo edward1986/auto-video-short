@@ -1,5 +1,11 @@
 from random import randint, choice
 from datetime import datetime
+from PIL import Image
+
+# 2026 Trend: Ensure compatibility with Pillow 10+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+
 import json
 import random
 import os
@@ -144,9 +150,9 @@ def produce_short(
         font=font,
         phrase_mode=True,
     )
-    # Reposition question (within mobile safe margin y=0.12)
+    # Reposition question (within mobile safe margin y=0.15)
     question_clips = [
-        c.set_position(("center", 0.12), relative=True) for c in question_clips_raw
+        c.set_position(("center", 0.15), relative=True) for c in question_clips_raw
     ]
 
     clips.extend(question_clips)
@@ -154,8 +160,8 @@ def produce_short(
     # ✅ Display answer choices with labels - Cascading Entrance & Mobile Safe Margins
     answer_labels = list("ABCD")
     for i in range(len(question["answers"])):
-        # 2026 style: Focused layout with vertical safe margins (0.35 to 0.7)
-        target_y = 0.35 + (i * 0.08)
+        # 2026 style: Focused layout with vertical safe margins (0.38 to 0.7)
+        target_y = 0.38 + (i * 0.08)
         answer_clip = (
             get_text_clip(
                 f"{answer_labels[i]} - {question['answers'][i]}".upper(),
@@ -180,12 +186,12 @@ def produce_short(
         answer_clip = apply_kinetic_pop(answer_clip, duration=0.2, scale=1.1)
         clips.append(answer_clip)
 
-    # ✅ Countdown timer (10 to 0) - Repositioned for mobile safe margins (y=0.75)
+    # ✅ Countdown timer (10 to 0) - Repositioned for mobile safe margins (y=0.72)
     for i in range(clip_durations["question"]):
         countdown_clip = (
             get_text_clip(
                 str(clip_durations["question"] - i),
-                fontsize=200,
+                fontsize=180,
                 color="white",
                 stroke_color="black",
                 stroke_width=6,
@@ -194,7 +200,7 @@ def produce_short(
             )
             .set_start(i)
             .set_duration(1)
-            .set_position(("center", 0.75), relative=True)
+            .set_position(("center", 0.72), relative=True)
         )
         # Pulse every second
         countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.4)

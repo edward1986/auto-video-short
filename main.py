@@ -9,6 +9,12 @@ import mysql.connector
 
 from os import environ
 from datetime import datetime
+from PIL import Image
+
+# 2026 Trend: Ensure compatibility with Pillow 10+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+
 from dotenv import load_dotenv
 from textwrap import fill, shorten
 from typing import Any, Optional, Tuple, Dict
@@ -548,7 +554,7 @@ try:
     total_duration = min(audio_clip.duration, MAX_DURATION)
 
     # target_resolution offloads resizing to FFmpeg during decoding, saving CPU/RAM.
-    # We apply resize before loop to minimize transformation overhead on looped frames.
+    # 2026 Style: Dynamic "Ken Burns" zoom and darken for maximum text contrast.
     video_clip = (
         VideoFileClip(video_path, audio=False, target_resolution=(1920, None))
         .resize(resolution)
@@ -556,19 +562,19 @@ try:
         .set_audio(audio_clip.subclip(0, total_duration))
     )
 
-    # 2026 Style: Darken for contrast and Ken Burns zoom
-    video_clip = darken_clip(video_clip, factor=0.45)
-    video_clip = apply_zoom(video_clip, total_duration)
+    # Apply 2026 textured darkening and exponential zoom
+    video_clip = darken_clip(video_clip, factor=0.4)
+    video_clip = apply_zoom(video_clip, total_duration, start_scale=1.0, end_scale=1.2)
 
     # 2-second hook title card
     hook_clip = create_hook_clip(word.upper())
 
-    # Grain, Gradient Glow, and Vignette Overlays
-    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.1)
+    # 2026 Style Overlays: Layered Grain, Gradient Glow, and Focal Vignette
+    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.12)
     glow_overlay = create_gradient_glow(
-        resolution, total_duration, color=(200, 200, 255), opacity=0.15
+        resolution, total_duration, color=(0, 255, 0), opacity=0.2
     )
-    vignette_overlay = create_vignette(resolution, total_duration, opacity=0.5)
+    vignette_overlay = create_vignette(resolution, total_duration, opacity=0.55)
 
     if whisper_words:
         text_clips = build_modern_captions(
@@ -593,8 +599,8 @@ try:
             phrase_mode=True,
         )
 
-    # Position captions in mobile safe area (center)
-    text_clips = [c.set_position(("center", "center")) for c in text_clips]
+    # 2026 Style: Position captions in mobile safe area (centered vertically between 0.3 and 0.7)
+    text_clips = [c.set_position(("center", 0.45), relative=True) for c in text_clips]
 
     final = CompositeVideoClip(
         [
