@@ -4,6 +4,10 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
 
+# Compatibility monkeypatch for MoviePy 1.0.3 and Pillow 10+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 
@@ -106,7 +110,8 @@ def create_noise_overlay(size, duration, opacity=0.08):
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     """Creates a soft radial gradient glow in the center.
-    Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
+    Performance: Generates at 1/10th scale to minimize Gaussian Blur cost,
+    then upscales once using PIL to avoid per-frame resizing in MoviePy.
     """
     w, h = size
     # Downscale for performance
@@ -123,16 +128,16 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
 
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
-    glow_array = np.array(glow)
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
+    # Optimization: Upscale once using PIL instead of per-frame in MoviePy
+    glow_full = glow.resize(size, Image.BILINEAR)
+    glow_array = np.array(glow_full)
+
     return (
         ImageClip(glow_array)
         .set_duration(duration)
         .set_position("center")
         .set_opacity(opacity)
-        .resize(size)
     )
 
 
@@ -237,7 +242,9 @@ def apply_float(clip, duration, amplitude=0.01):
 
 
 def create_vignette(size, duration, opacity=0.4):
-    """Creates a soft dark vignette to focus attention (2026 'bold minimal' look)."""
+    """Creates a soft dark vignette to focus attention (2026 'bold minimal' look).
+    Performance: Generates at 1/4 scale, upscales once via PIL, and uses a LUT for alpha.
+    """
     w, h = size
     # Create at 1/4 scale to save memory/processing
     vw, vh = w // 4, h // 4
@@ -249,12 +256,18 @@ def create_vignette(size, duration, opacity=0.4):
     # Intense blur for soft falloff
     vignette_img = vignette_img.filter(ImageFilter.GaussianBlur(radius=vw / 4))
 
-    vignette_array = np.array(vignette_img)
-    # Convert to black RGBA with varying alpha
-    rgba = np.zeros((vh, vw, 4), dtype="uint8")
-    rgba[..., 3] = (vignette_array.astype("float") * opacity).astype("uint8")
+    # Optimization: Upscale once using PIL to avoid per-frame resizing in MoviePy
+    vignette_full = vignette_img.resize(size, Image.BILINEAR)
+    vignette_array = np.array(vignette_full)
 
-    return ImageClip(rgba).set_duration(duration).set_position("center").resize(size)
+    # Optimization: Use a Look-Up Table (LUT) for alpha calculation
+    alpha_lut = (np.arange(256) * opacity).astype("uint8")
+
+    # Convert to black RGBA with varying alpha
+    rgba = np.zeros((h, w, 4), dtype="uint8")
+    rgba[..., 3] = alpha_lut[vignette_array]
+
+    return ImageClip(rgba).set_duration(duration).set_position("center")
 
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
