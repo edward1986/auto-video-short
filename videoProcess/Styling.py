@@ -123,7 +123,10 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
 
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
-    glow_array = np.array(glow)
+
+    # Optimization: Resize PIL image before array conversion to eliminate MoviePy resize overhead
+    glow_resized = glow.resize(size, Image.BILINEAR)
+    glow_array = np.array(glow_resized)
 
     # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
     # Reverting to static opacity for stability.
@@ -132,7 +135,6 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
         .set_duration(duration)
         .set_position("center")
         .set_opacity(opacity)
-        .resize(size)
     )
 
 
@@ -249,12 +251,15 @@ def create_vignette(size, duration, opacity=0.4):
     # Intense blur for soft falloff
     vignette_img = vignette_img.filter(ImageFilter.GaussianBlur(radius=vw / 4))
 
-    vignette_array = np.array(vignette_img)
+    # Optimization: Resize mask before creating RGBA array at full resolution
+    vignette_img_resized = vignette_img.resize(size, Image.BILINEAR)
+    vignette_array = np.array(vignette_img_resized)
+
     # Convert to black RGBA with varying alpha
-    rgba = np.zeros((vh, vw, 4), dtype="uint8")
+    rgba = np.zeros((size[1], size[0], 4), dtype="uint8")
     rgba[..., 3] = (vignette_array.astype("float") * opacity).astype("uint8")
 
-    return ImageClip(rgba).set_duration(duration).set_position("center").resize(size)
+    return ImageClip(rgba).set_duration(duration).set_position("center")
 
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
