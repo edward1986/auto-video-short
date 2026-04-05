@@ -1,7 +1,12 @@
 import re
 import math
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+# 2026 Styling: Monkeypatch for PIL 10+ compatibility in MoviePy
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+
 from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
 
 # Pre-compiled regex for better performance in build_modern_captions
@@ -17,19 +22,117 @@ DARKEN_LUT_CACHE = {}
 NOISE_POOL_CACHE = {}
 
 
+def get_pil_text_clip(
+    text,
+    fontsize=70,
+    color="white",
+    font="Arial-Bold",
+    stroke_width=0,
+    stroke_color="black",
+    size=None,
+    align="center",
+):
+    """High-quality PIL-based text rendering for 2026 design style.
+    Bypasses ImageMagick and supports precise wrapping and 1.2x line spacing.
+    """
+    # 2026 Style: 1.2x line spacing for readability
+    line_spacing = 1.2
+
+    try:
+        # Try specific font path if provided or standard name
+        pil_font = ImageFont.truetype(font, fontsize)
+    except Exception:
+        try:
+            # Fallback to project root default.ttf or system fonts
+            # 2026 Style: Prefer bold sans-serif
+            root_font = os.path.join(os.getcwd(), "default.ttf")
+            pil_font = ImageFont.truetype(root_font, fontsize)
+        except Exception:
+            try:
+                # Common system paths for fallback
+                pil_font = ImageFont.truetype("Arial.ttf", fontsize)
+            except Exception:
+                pil_font = ImageFont.load_default()
+
+    # Word wrapping using font.getlength for 2026 precision
+    max_w = size[0] if size and size[0] else 1080 * 0.85
+    lines = []
+    for paragraph in text.split("\n"):
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        curr_line = words[0]
+        for word in words[1:]:
+            test_line = curr_line + " " + word
+            if pil_font.getlength(test_line) <= max_w:
+                curr_line = test_line
+            else:
+                lines.append(curr_line)
+                curr_line = word
+        lines.append(curr_line)
+
+    # Calculate total canvas height
+    line_heights = []
+    max_line_width = 0
+    for line in lines:
+        # Use textbbox for modern PIL versions
+        bbox = pil_font.getmask(line).getbbox() if line else (0, 0, 0, 0)
+        w = pil_font.getlength(line)
+        h = (bbox[3] - bbox[1]) if bbox else fontsize
+        line_heights.append(h)
+        max_line_width = max(max_line_width, w)
+
+    total_h = sum(line_heights) + int((len(lines) - 1) * fontsize * (line_spacing - 1))
+
+    # Create transparent canvas with safe margin for stroke
+    canvas_w = int(max_line_width + stroke_width * 2)
+    canvas_h = int(total_h + stroke_width * 2)
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    # Draw lines with 2026 alignment
+    curr_y = stroke_width
+    for i, line in enumerate(lines):
+        line_w = pil_font.getlength(line)
+        if align == "center":
+            x = (canvas_w - line_w) / 2
+        else:
+            x = stroke_width
+
+        draw.text(
+            (x, curr_y),
+            line,
+            font=pil_font,
+            fill=color,
+            stroke_width=int(stroke_width),
+            stroke_fill=stroke_color,
+        )
+        curr_y += line_heights[i] + int(fontsize * (line_spacing - 1))
+
+    return ImageClip(np.array(img))
+
+
 def get_text_clip(text, **kwargs):
-    """Retrieves a cached TextClip or creates a new one if not found."""
-    # Create a unique cache key based on text and all styling parameters
-    # Sort kwargs to ensure consistent key generation
+    """Retrieves a cached PIL-based text clip or creates a new one."""
     sorted_params = sorted(kwargs.items())
     cache_key = (text, tuple(sorted_params))
 
     if cache_key in TEXT_CLIP_CACHE:
-        # Return a copy to avoid side-effects from duration/start/position settings
         return TEXT_CLIP_CACHE[cache_key].copy()
 
-    # Create new clip
-    clip = TextClip(text, **kwargs)
+    # Map MoviePy TextClip arguments to our PIL renderer
+    pil_args = {
+        "fontsize": kwargs.get("fontsize", 70),
+        "color": kwargs.get("color", "white"),
+        "font": kwargs.get("font", "Arial-Bold"),
+        "stroke_width": kwargs.get("stroke_width", 0),
+        "stroke_color": kwargs.get("stroke_color", "black"),
+        "size": kwargs.get("size", None),
+        "align": kwargs.get("align", "center"),
+    }
+
+    clip = get_pil_text_clip(text, **pil_args)
     TEXT_CLIP_CACHE[cache_key] = clip
     return clip.copy()
 
@@ -53,9 +156,10 @@ def darken_clip(clip, factor=0.45):
     return clip.fl_image(apply_darken)
 
 
-def create_noise_overlay(size, duration, opacity=0.08):
+def create_noise_overlay(size, duration, opacity=0.12):
     """Creates a dynamic textured grain overlay with layered noise scales (2026 trend).
     Performance: Caches the noise pool by size and uses NumPy for fast resizing of chunky grain.
+    Higher default opacity (0.12) for visible 'textured grain' style.
     """
     # Defensive: Ensure size is a hashable tuple
     size_tuple = tuple(size) if isinstance(size, (list, tuple)) else size
@@ -125,15 +229,46 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
     glow_array = np.array(glow)
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
-    return (
-        ImageClip(glow_array)
+    # Performance: 2026 'breathing' pulse using temporal alpha modulation
+    # We use .fl_image() because .set_opacity() doesn't support functions in MoviePy 1.0.3
+    def pulse_alpha(get_frame, t):
+        frame = get_frame(t).copy()
+        # Breathing effect: oscillate opacity between 0.7x and 1.3x of base
+        pulse = 1.0 + 0.3 * math.sin(2 * math.pi * t / 3.0)
+
+        # Modify alpha channel (4th channel)
+        if frame.shape[2] == 4:
+            # Scale existing alpha by pulse
+            alpha = (frame[:, :, 3].astype("float") * pulse).clip(0, 255).astype("uint8")
+            frame[:, :, 3] = alpha
+        return frame
+
+    # MoviePy 1.0.3 handles ImageClips with alpha by splitting them into an RGB clip and a mask.
+    # To modulate alpha, we need to create the mask separately.
+    glow_rgb = glow_array[:, :, :3]
+    glow_mask_array = (glow_array[:, :, 3].astype(float) * opacity / 255.0).clip(0, 1)
+
+    rgb_clip = (
+        ImageClip(glow_rgb, ismask=False)
         .set_duration(duration)
         .set_position("center")
-        .set_opacity(opacity)
         .resize(size)
     )
+
+    mask_clip = (
+        ImageClip(glow_mask_array, ismask=True)
+        .set_duration(duration)
+        .set_position("center")
+        .resize(size)
+    )
+
+    def pulse_mask(get_frame, t):
+        mask_frame = get_frame(t).copy()
+        # Breathing effect: oscillate opacity between 0.7x and 1.3x
+        pulse = 1.0 + 0.3 * math.sin(2 * math.pi * t / 3.0)
+        return (mask_frame * pulse).clip(0, 1)
+
+    return rgb_clip.set_mask(mask_clip.fl(pulse_mask))
 
 
 def create_flash_transition(size, duration=0.1, opacity=0.8):
@@ -278,11 +413,14 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
     # Performance: Aggressive kinetic scaling (exponential decay with cosine oscillation)
     # Constants pre-calculated for the temporal lambda
     def hook_scale(t):
-        # Snappier oscillation for 2026 'vibrate' feel
-        return 1.0 + 0.4 * math.exp(-8 * t) * math.cos(15 * t)
+        # 2026 Trend: Aggressive 'vibrate' oscillation + secondary 'pop'
+        # Combines exponential decay oscillation with a subtle breathing pulse
+        vibrate = 0.45 * math.exp(-10 * t) * math.cos(20 * t)
+        pulse = 0.05 * math.sin(5 * t)
+        return 1.1 + vibrate + pulse
 
-    # Fixed: Use a static slight tilt for style instead of a lambda to avoid MoviePy 1.0.3 errors
-    return hook.resize(hook_scale).rotate(-3)
+    # High-impact tilt for scroll-stopping visuals
+    return hook.resize(hook_scale).rotate(-4)
 
 
 def build_modern_captions(
