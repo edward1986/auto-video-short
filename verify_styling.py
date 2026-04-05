@@ -14,7 +14,8 @@ from videoProcess.Styling import (
     get_pil_text_clip,
     get_text_clip,
     create_gradient_glow,
-    build_modern_captions
+    build_modern_captions,
+    create_noise_overlay
 )
 
 def verify_pil_text_rendering():
@@ -69,12 +70,23 @@ def verify_modern_captions():
     assert len(clips) == 4
     print("Modern captions build verified.")
 
+def verify_noise_overlay():
+    print("Verifying Noise Overlay creation...")
+    # This will catch missing 'random' or 'os' imports if they occur during generation
+    noise = create_noise_overlay((1080, 1920), duration=1.0, opacity=0.1)
+    assert noise.duration == 1.0
+    # Exercise frame generation to ensure no runtime errors
+    frame = noise.get_frame(0)
+    assert frame.shape == (1920, 1080, 3)
+    print("Noise Overlay verified.")
+
 if __name__ == "__main__":
     try:
         verify_pil_text_rendering()
         verify_caching()
         verify_gradient_glow_pulse()
         verify_modern_captions()
+        verify_noise_overlay()
         print("\nAll 2026 design style components verified successfully!")
     except Exception as e:
         print(f"\nVerification failed: {e}")

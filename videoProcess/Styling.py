@@ -1,5 +1,7 @@
 import re
 import math
+import os
+import random
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -20,6 +22,32 @@ DARKEN_LUT_CACHE = {}
 
 # Global noise pool cache to avoid redundant generation for identical sizes
 NOISE_POOL_CACHE = {}
+
+
+def _get_text_length(font, text):
+    """Robust helper for text length (Pillow compatibility)."""
+    if hasattr(font, "getlength"):
+        return font.getlength(text)
+    if hasattr(font, "getsize"):
+        return font.getsize(text)[0]
+    # Extreme fallback for very old PIL or basic fonts
+    return len(text) * 10
+
+
+def _get_text_height(font, text, fontsize):
+    """Robust helper for text height (Pillow compatibility)."""
+    try:
+        # Prefer getmask().getbbox() for precise height
+        bbox = font.getmask(text).getbbox()
+        if bbox:
+            return bbox[3] - bbox[1]
+    except Exception:
+        pass
+
+    if hasattr(font, "getsize"):
+        return font.getsize(text)[1]
+
+    return fontsize
 
 
 def get_pil_text_clip(
@@ -54,7 +82,7 @@ def get_pil_text_clip(
             except Exception:
                 pil_font = ImageFont.load_default()
 
-    # Word wrapping using font.getlength for 2026 precision
+    # Word wrapping using robust length check for 2026 precision
     max_w = size[0] if size and size[0] else 1080 * 0.85
     lines = []
     for paragraph in text.split("\n"):
@@ -65,7 +93,7 @@ def get_pil_text_clip(
         curr_line = words[0]
         for word in words[1:]:
             test_line = curr_line + " " + word
-            if pil_font.getlength(test_line) <= max_w:
+            if _get_text_length(pil_font, test_line) <= max_w:
                 curr_line = test_line
             else:
                 lines.append(curr_line)
@@ -76,10 +104,8 @@ def get_pil_text_clip(
     line_heights = []
     max_line_width = 0
     for line in lines:
-        # Use textbbox for modern PIL versions
-        bbox = pil_font.getmask(line).getbbox() if line else (0, 0, 0, 0)
-        w = pil_font.getlength(line)
-        h = (bbox[3] - bbox[1]) if bbox else fontsize
+        w = _get_text_length(pil_font, line)
+        h = _get_text_height(pil_font, line, fontsize)
         line_heights.append(h)
         max_line_width = max(max_line_width, w)
 
@@ -94,7 +120,7 @@ def get_pil_text_clip(
     # Draw lines with 2026 alignment
     curr_y = stroke_width
     for i, line in enumerate(lines):
-        line_w = pil_font.getlength(line)
+        line_w = _get_text_length(pil_font, line)
         if align == "center":
             x = (canvas_w - line_w) / 2
         else:
