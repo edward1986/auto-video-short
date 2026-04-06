@@ -1,8 +1,13 @@
 import re
 import math
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
-from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
+import os
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip, VideoClip
+
+# Monkeypatch for Pillow 10+ compatibility in MoviePy 1.0.3
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
 
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
@@ -16,20 +21,119 @@ DARKEN_LUT_CACHE = {}
 # Global noise pool cache to avoid redundant generation for identical sizes
 NOISE_POOL_CACHE = {}
 
+# Global caches for optimized styling
+VIGNETTE_CACHE = {}
+GLOW_CACHE = {}
+
+
+def _get_text_length(font, text):
+    """Robust text length measurement across Pillow versions."""
+    if hasattr(font, "getlength"):
+        return font.getlength(text)
+    if hasattr(font, "getsize"):
+        return font.getsize(text)[0]
+    return font.getmask(text).getbbox()[2]
+
+
+def _get_text_height(font, text):
+    """Robust text height measurement across Pillow versions."""
+    if hasattr(font, "getsize"):
+        return font.getsize(text)[1]
+    bbox = font.getmask(text).getbbox()
+    return bbox[3] - bbox[1] if bbox else 0
+
+
+def get_pil_text_clip(
+    text,
+    fontsize=100,
+    color="white",
+    font="Arial-Bold",
+    stroke_color=None,
+    stroke_width=0,
+    method="label",
+    size=None,
+    align="center",
+):
+    """Replacement for MoviePy's TextClip using Pillow for robust rendering without ImageMagick.
+    Supports 1.2x line spacing and precise word wrapping.
+    """
+    # 2026 Trend: Bold high-contrast typography
+    # Use fallback font path for environments without system fonts
+    try:
+        pil_font = ImageFont.truetype(font, fontsize)
+    except:
+        # Fallback to current directory default.ttf if specified font fails
+        fallback = os.path.join(os.getcwd(), "default.ttf")
+        if os.path.exists(fallback):
+            pil_font = ImageFont.truetype(fallback, fontsize)
+        else:
+            # Final fallback to built-in font (warning: does not scale well)
+            print(f"⚠️ Warning: Font '{font}' not found. Falling back to default.")
+            pil_font = ImageFont.load_default()
+
+    lines = [text]
+    if method == "caption" and size and size[0]:
+        max_w = size[0]
+        words = text.split()
+        lines = []
+        curr_line = []
+        for word in words:
+            test_line = " ".join(curr_line + [word])
+            if _get_text_length(pil_font, test_line) <= max_w:
+                curr_line.append(word)
+            else:
+                if curr_line:
+                    lines.append(" ".join(curr_line))
+                curr_line = [word]
+        if curr_line:
+            lines.append(" ".join(curr_line))
+
+    # Calculate final dimensions with 1.2x line spacing for 2026 style
+    line_heights = [_get_text_height(pil_font, line) for line in lines]
+    max_line_h = max(line_heights) if line_heights else fontsize
+    total_h = int(sum(line_heights) + (len(lines) - 1) * max_line_h * 0.2)
+    max_w = int(max([_get_text_length(pil_font, line) for line in lines]))
+
+    # Add padding for strokes to prevent clipping
+    pad = stroke_width + 10
+    img_w, img_h = max_w + 2 * pad, total_h + 2 * pad
+    img = Image.new("RGBA", (img_w, img_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    curr_y = pad
+    for line in lines:
+        line_w = _get_text_length(pil_font, line)
+        if align == "center":
+            curr_x = pad + (max_w - line_w) // 2
+        else:
+            curr_x = pad
+
+        if stroke_width > 0:
+            draw.text(
+                (curr_x, curr_y),
+                line,
+                font=pil_font,
+                fill=color,
+                stroke_width=stroke_width,
+                stroke_fill=stroke_color or "black",
+            )
+        else:
+            draw.text((curr_x, curr_y), line, font=pil_font, fill=color)
+        curr_y += int(max_line_h * 1.2)
+
+    return ImageClip(np.array(img))
+
 
 def get_text_clip(text, **kwargs):
-    """Retrieves a cached TextClip or creates a new one if not found."""
-    # Create a unique cache key based on text and all styling parameters
-    # Sort kwargs to ensure consistent key generation
+    """Retrieves a cached text clip or creates a new one via get_pil_text_clip."""
     sorted_params = sorted(kwargs.items())
     cache_key = (text, tuple(sorted_params))
 
     if cache_key in TEXT_CLIP_CACHE:
-        # Return a copy to avoid side-effects from duration/start/position settings
         return TEXT_CLIP_CACHE[cache_key].copy()
 
-    # Create new clip
-    clip = TextClip(text, **kwargs)
+    # Create new clip using PIL renderer
+    clip = get_pil_text_clip(text, **kwargs)
     TEXT_CLIP_CACHE[cache_key] = clip
     return clip.copy()
 
@@ -105,35 +209,52 @@ def create_noise_overlay(size, duration, opacity=0.08):
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
-    """Creates a soft radial gradient glow in the center.
-    Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
+    """Creates a soft radial gradient glow with a breathing pulse (2026 trend).
+    Performance: Generates at 1/10th scale and uses GLOW_CACHE.
     """
     w, h = size
-    # Downscale for performance
-    scale = 10
-    small_size = (w // scale, h // scale)
-    inner_color = (*color, int(255 * opacity))
+    cache_key = (tuple(size), color, opacity)
 
-    base = Image.new("RGBA", small_size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(base)
+    if cache_key in GLOW_CACHE:
+        glow_array = GLOW_CACHE[cache_key]
+    else:
+        # Downscale for performance
+        scale = 10
+        small_size = (w // scale, h // scale)
+        # Use full opacity for the base; we'll modulate it with a mask
+        inner_color = (*color, 255)
 
-    circle_size = min(small_size) * 0.9
-    left = (small_size[0] - circle_size) / 2
-    top = (small_size[1] - circle_size) / 2
-    draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
+        base = Image.new("RGBA", small_size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(base)
 
-    glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
-    glow_array = np.array(glow)
+        circle_size = min(small_size) * 0.9
+        left = (small_size[0] - circle_size) / 2
+        top = (small_size[1] - circle_size) / 2
+        draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
-    return (
+        glow_img = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
+        # Resize to full size before converting to array to avoid per-frame resizing
+        glow_array = np.array(glow_img.resize(size, Image.BILINEAR))
+        GLOW_CACHE[cache_key] = glow_array
+
+    glow_clip = (
         ImageClip(glow_array)
         .set_duration(duration)
         .set_position("center")
         .set_opacity(opacity)
-        .resize(size)
     )
+
+    # 2026 Trend: Breathing pulse effect via temporal mask modulation
+    def pulse_mask(t):
+        # Slow breathing oscillation (0.7 to 1.0)
+        return 0.85 + 0.15 * math.sin(t * 2.5)
+
+    # In MoviePy 1.0.3, we can modulate the alpha channel using fl_image
+    # or apply a mask clip. Mask modulation is generally cleaner.
+    mask = ColorClip(size=size, color=1.0, ismask=True).set_duration(duration)
+    mask = mask.fl(lambda get_frame, t: get_frame(t) * pulse_mask(t))
+
+    return glow_clip.set_mask(mask)
 
 
 def create_flash_transition(size, duration=0.1, opacity=0.8):
@@ -237,24 +358,38 @@ def apply_float(clip, duration, amplitude=0.01):
 
 
 def create_vignette(size, duration, opacity=0.4):
-    """Creates a soft dark vignette to focus attention (2026 'bold minimal' look)."""
+    """Creates a soft dark vignette to focus attention (2026 'bold minimal' look).
+    Performance: Caches the base vignette array to eliminate per-call generation.
+    """
     w, h = size
-    # Create at 1/4 scale to save memory/processing
-    vw, vh = w // 4, h // 4
-    vignette_img = Image.new("L", (vw, vh), 255)
-    draw = ImageDraw.Draw(vignette_img)
+    cache_key = (tuple(size), opacity)
 
-    # Draw centered oval
-    draw.ellipse([0, 0, vw, vh], fill=0)
-    # Intense blur for soft falloff
-    vignette_img = vignette_img.filter(ImageFilter.GaussianBlur(radius=vw / 4))
+    if cache_key in VIGNETTE_CACHE:
+        rgba = VIGNETTE_CACHE[cache_key]
+    else:
+        # Create at 1/10 scale to save memory/processing
+        vw, vh = w // 10, h // 10
+        vignette_img = Image.new("L", (vw, vh), 255)
+        draw = ImageDraw.Draw(vignette_img)
 
-    vignette_array = np.array(vignette_img)
-    # Convert to black RGBA with varying alpha
-    rgba = np.zeros((vh, vw, 4), dtype="uint8")
-    rgba[..., 3] = (vignette_array.astype("float") * opacity).astype("uint8")
+        # Draw centered oval (black on white)
+        draw.ellipse([0, 0, vw, vh], fill=0)
+        # Intense blur for soft falloff (black on white)
+        vignette_img = vignette_img.filter(ImageFilter.GaussianBlur(radius=vw / 3))
 
-    return ImageClip(rgba).set_duration(duration).set_position("center").resize(size)
+        # Resize to full resolution
+        vignette_img = vignette_img.resize(size, Image.BILINEAR)
+        vignette_array = np.array(vignette_img)
+
+        # Convert to black RGBA with varying alpha
+        # A standard vignette darkens the EDGES.
+        # vignette_array is 0 (black) in the center and 255 (white) at the edges.
+        # We want alpha to be 0 in the center and 'opacity' at the edges.
+        rgba = np.zeros((h, w, 4), dtype="uint8")
+        rgba[..., 3] = (vignette_array.astype("float") * opacity).astype("uint8")
+        VIGNETTE_CACHE[cache_key] = rgba
+
+    return ImageClip(rgba).set_duration(duration).set_position("center")
 
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):

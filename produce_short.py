@@ -144,9 +144,9 @@ def produce_short(
         font=font,
         phrase_mode=True,
     )
-    # Reposition question (within mobile safe margin y=0.12)
+    # 2026 style: Reposition question (within mobile safe margin y=0.15)
     question_clips = [
-        c.set_position(("center", 0.12), relative=True) for c in question_clips_raw
+        c.set_position(("center", 0.15), relative=True) for c in question_clips_raw
     ]
 
     clips.extend(question_clips)
@@ -154,8 +154,8 @@ def produce_short(
     # ✅ Display answer choices with labels - Cascading Entrance & Mobile Safe Margins
     answer_labels = list("ABCD")
     for i in range(len(question["answers"])):
-        # 2026 style: Focused layout with vertical safe margins (0.35 to 0.7)
-        target_y = 0.35 + (i * 0.08)
+        # 2026 style: Focused layout with vertical safe margins (0.42 to 0.7)
+        target_y = 0.42 + (i * 0.08)
         answer_clip = (
             get_text_clip(
                 f"{answer_labels[i]} - {question['answers'][i]}".upper(),

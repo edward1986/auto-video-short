@@ -593,8 +593,8 @@ try:
             phrase_mode=True,
         )
 
-    # Position captions in mobile safe area (center)
-    text_clips = [c.set_position(("center", "center")) for c in text_clips]
+    # 2026 style: Position captions in mobile safe area (y=0.55)
+    text_clips = [c.set_position(("center", 0.55), relative=True) for c in text_clips]
 
     final = CompositeVideoClip(
         [
