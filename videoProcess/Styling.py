@@ -16,6 +16,12 @@ DARKEN_LUT_CACHE = {}
 # Global noise pool cache to avoid redundant generation for identical sizes
 NOISE_POOL_CACHE = {}
 
+# Global glow cache to avoid redundant generation for identical sizes
+GLOW_CACHE = {}
+
+# Global vignette cache to avoid redundant generation for identical sizes
+VIGNETTE_CACHE = {}
+
 
 def get_text_clip(text, **kwargs):
     """Retrieves a cached TextClip or creates a new one if not found."""
@@ -106,10 +112,17 @@ def create_noise_overlay(size, duration, opacity=0.08):
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     """Creates a soft radial gradient glow in the center.
-    Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
+    Performance: Caches by size/color/opacity and uses PIL resizing to avoid per-frame overhead.
     """
-    w, h = size
-    # Downscale for performance
+    # Ensure size is a hashable tuple
+    size_tuple = tuple(size) if isinstance(size, (list, tuple)) else size
+    cache_key = (size_tuple, color, opacity)
+
+    if cache_key in GLOW_CACHE:
+        return GLOW_CACHE[cache_key].copy().set_duration(duration)
+
+    w, h = size_tuple
+    # Downscale for performance during generation
     scale = 10
     small_size = (w // scale, h // scale)
     inner_color = (*color, int(255 * opacity))
@@ -123,17 +136,16 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
 
     glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
-    glow_array = np.array(glow)
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
-    return (
-        ImageClip(glow_array)
-        .set_duration(duration)
-        .set_position("center")
-        .set_opacity(opacity)
-        .resize(size)
-    )
+    # Performance: Resize to target dimensions using PIL before creating ImageClip
+    # This avoids MoviePy's per-frame resizing overhead.
+    glow_final = glow.resize(size_tuple, Image.BILINEAR)
+    glow_array = np.array(glow_final)
+
+    clip = ImageClip(glow_array).set_position("center").set_opacity(opacity)
+
+    GLOW_CACHE[cache_key] = clip
+    return clip.copy().set_duration(duration)
 
 
 def create_flash_transition(size, duration=0.1, opacity=0.8):
@@ -237,9 +249,18 @@ def apply_float(clip, duration, amplitude=0.01):
 
 
 def create_vignette(size, duration, opacity=0.4):
-    """Creates a soft dark vignette to focus attention (2026 'bold minimal' look)."""
-    w, h = size
-    # Create at 1/4 scale to save memory/processing
+    """Creates a soft dark vignette to focus attention (2026 'bold minimal' look).
+    Performance: Caches by size/opacity and uses PIL resizing to avoid per-frame overhead.
+    """
+    # Ensure size is a hashable tuple
+    size_tuple = tuple(size) if isinstance(size, (list, tuple)) else size
+    cache_key = (size_tuple, opacity)
+
+    if cache_key in VIGNETTE_CACHE:
+        return VIGNETTE_CACHE[cache_key].copy().set_duration(duration)
+
+    w, h = size_tuple
+    # Create at 1/4 scale to save memory/processing during generation
     vw, vh = w // 4, h // 4
     vignette_img = Image.new("L", (vw, vh), 255)
     draw = ImageDraw.Draw(vignette_img)
@@ -254,7 +275,15 @@ def create_vignette(size, duration, opacity=0.4):
     rgba = np.zeros((vh, vw, 4), dtype="uint8")
     rgba[..., 3] = (vignette_array.astype("float") * opacity).astype("uint8")
 
-    return ImageClip(rgba).set_duration(duration).set_position("center").resize(size)
+    # Performance: Resize to target dimensions using PIL before creating ImageClip
+    # This avoids MoviePy's per-frame resizing overhead.
+    rgba_final = Image.fromarray(rgba).resize(size_tuple, Image.BILINEAR)
+    rgba_array = np.array(rgba_final)
+
+    clip = ImageClip(rgba_array).set_position("center")
+
+    VIGNETTE_CACHE[cache_key] = clip
+    return clip.copy().set_duration(duration)
 
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
