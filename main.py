@@ -45,7 +45,6 @@ from google.auth.transport.requests import Request as GoogleAuthRequest
 from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest, urlopen
 
-
 load_dotenv(".env")
 
 WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
@@ -563,12 +562,12 @@ try:
     # 2-second hook title card
     hook_clip = create_hook_clip(word.upper())
 
-    # Grain, Gradient Glow, and Vignette Overlays
-    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.1)
+    # Grain, Gradient Glow, and Vignette Overlays - 2026 Style
+    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.15)
     glow_overlay = create_gradient_glow(
-        resolution, total_duration, color=(200, 200, 255), opacity=0.15
+        resolution, total_duration, color=(200, 200, 255), opacity=0.3
     )
-    vignette_overlay = create_vignette(resolution, total_duration, opacity=0.5)
+    vignette_overlay = create_vignette(resolution, total_duration, opacity=0.55)
 
     if whisper_words:
         text_clips = build_modern_captions(
@@ -593,8 +592,8 @@ try:
             phrase_mode=True,
         )
 
-    # Position captions in mobile safe area (center)
-    text_clips = [c.set_position(("center", "center")) for c in text_clips]
+    # Position captions in 2026 mobile safe area (y=0.55)
+    text_clips = [c.set_position(("center", 0.55), relative=True) for c in text_clips]
 
     final = CompositeVideoClip(
         [
@@ -609,12 +608,10 @@ try:
     )
 
     # Branded end card (2.5 seconds)
-    end_card = create_end_card(resolution)
-
-    from moviepy.editor import concatenate_videoclips
+    end_card = create_end_card(resolution).set_start(total_duration - 0.3)
 
     # Clean transition between main content and end card (0.3s crossfade)
-    final = concatenate_videoclips([final, end_card], method="compose", padding=-0.3)
+    final = CompositeVideoClip([final, end_card], size=resolution)
 
     final_video_path = f"{output_dir}/{FINAL_VIDEO}"
     # Use multi-threaded video encoding for faster processing with a safe fallback

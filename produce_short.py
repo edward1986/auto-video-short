@@ -101,17 +101,17 @@ def produce_short(
 
     # Overlays - 2026 style (Noise/Grain, Gradient Glow, and Vignette)
     noise_overlay = create_noise_overlay(
-        resolution, full_question_duration, opacity=0.1
+        resolution, full_question_duration, opacity=0.12
     )
     glow_overlay = create_gradient_glow(
-        resolution, full_question_duration, color=(0, 255, 0), opacity=0.15
+        resolution, full_question_duration, color=(0, 255, 0), opacity=0.3
     )
-    vignette_overlay = create_vignette(resolution, full_question_duration, opacity=0.5)
+    vignette_overlay = create_vignette(resolution, full_question_duration, opacity=0.55)
 
     # 2-second high-impact hook
     hook_clip = create_hook_clip("TRIVIA TIME!", font=font)
 
-    # Initial overlays
+    # Initial overlays - Layering is critical for 2026 'bold minimal' look
     clips = [
         background_clip,
         glow_overlay,
@@ -144,9 +144,9 @@ def produce_short(
         font=font,
         phrase_mode=True,
     )
-    # Reposition question (within mobile safe margin y=0.12)
+    # Reposition question (within mobile safe margin y=0.15 for 2026)
     question_clips = [
-        c.set_position(("center", 0.12), relative=True) for c in question_clips_raw
+        c.set_position(("center", 0.15), relative=True) for c in question_clips_raw
     ]
 
     clips.extend(question_clips)
@@ -154,8 +154,8 @@ def produce_short(
     # ✅ Display answer choices with labels - Cascading Entrance & Mobile Safe Margins
     answer_labels = list("ABCD")
     for i in range(len(question["answers"])):
-        # 2026 style: Focused layout with vertical safe margins (0.35 to 0.7)
-        target_y = 0.35 + (i * 0.08)
+        # 2026 style: Focused layout with vertical safe margins (0.42 to 0.7)
+        target_y = 0.42 + (i * 0.07)
         answer_clip = (
             get_text_clip(
                 f"{answer_labels[i]} - {question['answers'][i]}".upper(),
@@ -234,12 +234,12 @@ def produce_short(
     ).set_audio(music_track)
 
     # Branded end card (2.5 seconds)
-    end_card = create_end_card(resolution, font=font)
+    end_card = create_end_card(resolution, font=font).set_start(
+        full_question_duration - 0.3
+    )
 
     # Clean transition between main content and end card (0.3s crossfade)
-    final_video = concatenate_videoclips(
-        [result, end_card], method="compose", padding=-0.3
-    )
+    final_video = editor.CompositeVideoClip([result, end_card], size=resolution)
 
     # ✅ Export the final video
     final_video.write_videofile(

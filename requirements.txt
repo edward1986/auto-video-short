@@ -4,7 +4,7 @@ python-dotenv
 pyfiglet
 transformers
 gtts
-Pillow==9.0.0
+Pillow>=10.1.0
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
