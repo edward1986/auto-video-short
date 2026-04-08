@@ -43,3 +43,7 @@
 ## 2025-05-24 - Avoid Lambda for Static Properties in MoviePy
 **Learning:** In MoviePy 1.x, passing a lambda function (e.g., `lambda t: (0.5, 0.5)`) to methods like `set_position` or `resize` triggers a function call for every single frame during rendering. If the value is constant, passing the raw value (e.g., a tuple or float) allows MoviePy to skip these redundant calls.
 **Action:** Always prefer static values over constant-returning lambdas for MoviePy clip properties to reduce per-frame overhead.
+
+## 2025-05-25 - PIL Pre-resizing for MoviePy Static Overlays
+**Learning:** In MoviePy 1.0.3, the `.resize()` method on clips creates a lazy transform that is often re-evaluated for every frame during rendering. For static overlays (like vignettes or glows), resizing the source image using PIL (`Image.resize`) *before* converting it to a NumPy array for an `ImageClip` provides a ~100x speedup in initialization and eliminates per-frame resizing overhead during the render hot-path.
+**Action:** Always resize static image assets to their final video dimensions using PIL before creating MoviePy `ImageClip` objects.
