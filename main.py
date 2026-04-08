@@ -2,6 +2,11 @@ import os
 import re
 import json
 import sys
+from PIL import Image
+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+
 import base64
 import requests
 import smtplib
@@ -44,7 +49,6 @@ from google.auth.transport.requests import Request as GoogleAuthRequest
 
 from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest, urlopen
-
 
 load_dotenv(".env")
 
@@ -593,8 +597,10 @@ try:
             phrase_mode=True,
         )
 
-    # Position captions in mobile safe area (center)
-    text_clips = [c.set_position(("center", "center")) for c in text_clips]
+        # 2026 style: Position captions in mobile safe area (y=0.55)
+        text_clips = [
+            c.set_position(("center", 0.55), relative=True) for c in text_clips
+        ]
 
     final = CompositeVideoClip(
         [

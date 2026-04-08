@@ -1,14 +1,23 @@
 import re
 import math
+import os
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
-from moviepy.editor import TextClip, ColorClip, ImageClip, CompositeVideoClip
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from moviepy.editor import ColorClip, ImageClip, CompositeVideoClip
+
+# 2026 Style Monkeypatch: Ensure Pillow 10+ compatibility with MoviePy 1.0.3
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
 
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
 
 # Global TextClip cache to avoid redundant ImageMagick renders
 TEXT_CLIP_CACHE = {}
+
+# Global caches for optimized 2026 visuals
+GLOW_CACHE = {}
+VIGNETTE_CACHE = {}
 
 # Global LUT cache for darken_clip to avoid redundant array creation
 DARKEN_LUT_CACHE = {}
@@ -17,19 +26,144 @@ DARKEN_LUT_CACHE = {}
 NOISE_POOL_CACHE = {}
 
 
+def _get_text_length(draw, text, font):
+    """Robust text length helper for various Pillow versions."""
+    if hasattr(font, "getlength"):
+        return font.getlength(text)
+    if hasattr(draw, "textlength"):
+        return draw.textlength(text, font=font)
+    # Fallback to bbox
+    return draw.textbbox((0, 0), text, font=font)[2]
+
+
+def _get_text_height(draw, text, font):
+    """Robust text height helper for various Pillow versions."""
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[3] - bbox[1]
+
+
+def get_pil_text_clip(
+    text,
+    fontsize=70,
+    color="white",
+    font="Arial-Bold",
+    stroke_color=None,
+    stroke_width=0,
+    method="label",
+    size=None,
+    align="center",
+):
+    """PIL-based text renderer for environments without ImageMagick (2026 style)."""
+    # Fallback font handling
+    try:
+        # Check if font is a path or a name
+        if os.path.exists(font):
+            pil_font = ImageFont.truetype(font, fontsize)
+        else:
+            # Common system paths or local fallback
+            font_paths = [
+                font,
+                os.path.join(os.getcwd(), "default.ttf"),
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                "Arial-Bold",
+            ]
+            pil_font = None
+            for p in font_paths:
+                try:
+                    pil_font = ImageFont.truetype(p, fontsize)
+                    break
+                except Exception:
+                    continue
+            if not pil_font:
+                pil_font = ImageFont.load_default()
+    except Exception:
+        pil_font = ImageFont.load_default()
+
+    # Determine canvas size
+    if method == "label" or not size:
+        # Measure text
+        dummy = Image.new("RGBA", (1, 1))
+        draw = ImageDraw.Draw(dummy)
+        tw = _get_text_length(draw, text, pil_font)
+        th = _get_text_height(draw, text, pil_font)
+        # Add padding for stroke
+        canvas_w = int(tw + stroke_width * 4)
+        canvas_h = int(th * 1.2 + stroke_width * 4)  # 1.2x line spacing for 2026
+    else:
+        canvas_w, canvas_h = size
+        if canvas_h is None:
+            # Auto-height for captions
+            dummy = Image.new("RGBA", (1, 1))
+            draw = ImageDraw.Draw(dummy)
+            words = text.split()
+            lines = []
+            current_line = []
+            for w in words:
+                test_line = " ".join(current_line + [w])
+                if _get_text_length(draw, test_line, pil_font) <= canvas_w:
+                    current_line.append(w)
+                else:
+                    lines.append(" ".join(current_line))
+                    current_line = [w]
+            lines.append(" ".join(current_line))
+            th = _get_text_height(draw, "Ay", pil_font)
+            canvas_h = int(len(lines) * th * 1.2 + stroke_width * 4)
+
+    # Draw text
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    # Handle multi-line if needed
+    lines = [text]
+    if method == "caption" and size:
+        lines = []
+        current_line = []
+        for w in text.split():
+            test_line = " ".join(current_line + [w])
+            if _get_text_length(draw, test_line, pil_font) <= canvas_w:
+                current_line.append(w)
+            else:
+                lines.append(" ".join(current_line))
+                current_line = [w]
+        lines.append(" ".join(current_line))
+
+    y_off = stroke_width * 2
+    for line in lines:
+        tw = _get_text_length(draw, line, pil_font)
+        th = _get_text_height(draw, line, pil_font)
+        if align == "center":
+            x_off = (canvas_w - tw) // 2
+        else:
+            x_off = stroke_width * 2
+
+        draw.text(
+            (x_off, y_off),
+            line,
+            font=pil_font,
+            fill=color,
+            stroke_width=stroke_width,
+            stroke_fill=stroke_color or "black",
+        )
+        y_off += th * 1.2
+
+    return ImageClip(np.array(img))
+
+
 def get_text_clip(text, **kwargs):
-    """Retrieves a cached TextClip or creates a new one if not found."""
-    # Create a unique cache key based on text and all styling parameters
-    # Sort kwargs to ensure consistent key generation
+    """Retrieves a cached TextClip or creates a new one via PIL if ImageMagick is missing."""
     sorted_params = sorted(kwargs.items())
     cache_key = (text, tuple(sorted_params))
 
     if cache_key in TEXT_CLIP_CACHE:
-        # Return a copy to avoid side-effects from duration/start/position settings
         return TEXT_CLIP_CACHE[cache_key].copy()
 
-    # Create new clip
-    clip = TextClip(text, **kwargs)
+    # Use PIL renderer instead of MoviePy TextClip to avoid ImageMagick dependency
+    try:
+        clip = get_pil_text_clip(text, **kwargs)
+    except Exception as e:
+        print(f"PIL Text Render failed: {e}, falling back to empty clip")
+        clip = ColorClip(size=(100, 100), color=(0, 0, 0, 0), ismask=False)
+
     TEXT_CLIP_CACHE[cache_key] = clip
     return clip.copy()
 
@@ -53,20 +187,18 @@ def darken_clip(clip, factor=0.45):
     return clip.fl_image(apply_darken)
 
 
-def create_noise_overlay(size, duration, opacity=0.08):
+def create_noise_overlay(size, duration, opacity=0.12):
     """Creates a dynamic textured grain overlay with layered noise scales (2026 trend).
-    Performance: Caches the noise pool by size and uses NumPy for fast resizing of chunky grain.
+    Performance: Caches the noise pool and uses fast numpy.repeat for upscaling Layer 1.
     """
-    # Defensive: Ensure size is a hashable tuple
     size_tuple = tuple(size) if isinstance(size, (list, tuple)) else size
 
     if size_tuple in NOISE_POOL_CACHE:
         pool = NOISE_POOL_CACHE[size_tuple]
     else:
         w, h = size_tuple
-        # Layer 1: Chunky grain for texture (1/4 resolution)
+        # 2026 'textured grain': chunky (1/4) and fine (1/2) layers
         sw1, sh1 = w // 4, h // 4
-        # Layer 2: Fine grain for depth (1/2 resolution)
         sw2, sh2 = w // 2, h // 2
 
         pool = []
@@ -74,21 +206,18 @@ def create_noise_overlay(size, duration, opacity=0.08):
             noise1 = np.random.randint(0, 255, (sh1, sw1, 3), dtype="uint8")
             noise2 = np.random.randint(0, 255, (sh2, sw2, 3), dtype="uint8")
 
-            # Optimized path for integer scaling factors (1/4 scale)
+            # Fast upscaling for Layer 1 if exactly divisible
             if w % 4 == 0 and h % 4 == 0:
                 layer1 = noise1.repeat(4, axis=0).repeat(4, axis=1)
             else:
-                # Fallback to PIL for non-integer scales or remainder pixels
                 layer1 = np.array(
                     Image.fromarray(noise1).resize(size_tuple, Image.NEAREST)
                 )
 
-            # Layer 2: Still requires BILINEAR for a soft organic feel
             layer2 = np.array(
                 Image.fromarray(noise2).resize(size_tuple, Image.BILINEAR)
             )
 
-            # Blend layers (50/50 mix) for a richer organic look
             combined = (layer1.astype("uint16") + layer2.astype("uint16")) // 2
             pool.append(combined.astype("uint8"))
 
@@ -98,41 +227,49 @@ def create_noise_overlay(size, duration, opacity=0.08):
         idx = int(t * 24) % 24
         return pool[idx]
 
-    # Robust fix for MoviePy 1.0.3: Start with ColorClip and transform
     noise_clip = ColorClip(size=size, color=(0, 0, 0), duration=duration)
+    # MoviePy 1.0.3 VideoClip size fix
+    noise_clip.size = size
 
     return noise_clip.fl(lambda get_frame, t: make_frame(t)).set_opacity(opacity)
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     """Creates a soft radial gradient glow in the center.
-    Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
+    Performance: Caches the base glow and uses PIL resizing to avoid per-frame overhead.
     """
     w, h = size
-    # Downscale for performance
-    scale = 10
-    small_size = (w // scale, h // scale)
-    inner_color = (*color, int(255 * opacity))
+    cache_key = (tuple(size), color, opacity)
 
-    base = Image.new("RGBA", small_size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(base)
+    if cache_key in GLOW_CACHE:
+        glow_array = GLOW_CACHE[cache_key]
+    else:
+        # Downscale for performance during generation
+        scale = 10
+        small_size = (w // scale, h // scale)
+        inner_color = (*color, int(255 * opacity))
 
-    circle_size = min(small_size) * 0.9
-    left = (small_size[0] - circle_size) / 2
-    top = (small_size[1] - circle_size) / 2
-    draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
+        base = Image.new("RGBA", small_size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(base)
 
-    glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
-    glow_array = np.array(glow)
+        circle_size = min(small_size) * 0.9
+        left = (small_size[0] - circle_size) / 2
+        top = (small_size[1] - circle_size) / 2
+        draw.ellipse(
+            [left, top, left + circle_size, top + circle_size], fill=inner_color
+        )
 
-    # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
-    # Reverting to static opacity for stability.
+        glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
+        # Resize to final size once using PIL
+        glow_final = glow.resize(size, Image.BILINEAR)
+        glow_array = np.array(glow_final)
+        GLOW_CACHE[cache_key] = glow_array
+
     return (
         ImageClip(glow_array)
         .set_duration(duration)
         .set_position("center")
-        .set_opacity(opacity)
-        .resize(size)
+        .set_opacity(1.0)  # Opacity already baked into array
     )
 
 
@@ -239,22 +376,34 @@ def apply_float(clip, duration, amplitude=0.01):
 def create_vignette(size, duration, opacity=0.4):
     """Creates a soft dark vignette to focus attention (2026 'bold minimal' look)."""
     w, h = size
-    # Create at 1/4 scale to save memory/processing
-    vw, vh = w // 4, h // 4
-    vignette_img = Image.new("L", (vw, vh), 255)
-    draw = ImageDraw.Draw(vignette_img)
+    cache_key = (tuple(size), opacity)
 
-    # Draw centered oval
-    draw.ellipse([0, 0, vw, vh], fill=0)
-    # Intense blur for soft falloff
-    vignette_img = vignette_img.filter(ImageFilter.GaussianBlur(radius=vw / 4))
+    if cache_key in VIGNETTE_CACHE:
+        rgba = VIGNETTE_CACHE[cache_key]
+    else:
+        # Create at 1/4 scale to save memory/processing during generation
+        vw, vh = w // 4, h // 4
+        vignette_img = Image.new("L", (vw, vh), 255)
+        draw = ImageDraw.Draw(vignette_img)
 
-    vignette_array = np.array(vignette_img)
-    # Convert to black RGBA with varying alpha
-    rgba = np.zeros((vh, vw, 4), dtype="uint8")
-    rgba[..., 3] = (vignette_array.astype("float") * opacity).astype("uint8")
+        # Draw centered oval
+        draw.ellipse([0, 0, vw, vh], fill=0)
+        # Intense blur for soft falloff
+        vignette_img = vignette_img.filter(ImageFilter.GaussianBlur(radius=vw / 4))
 
-    return ImageClip(rgba).set_duration(duration).set_position("center").resize(size)
+        vignette_array = np.array(vignette_img)
+        # Convert to black RGBA with varying alpha at 1/4 scale
+        rgba_small = np.zeros((vh, vw, 4), dtype="uint8")
+        rgba_small[..., 3] = ((255 - vignette_array.astype("float")) * opacity).astype(
+            "uint8"
+        )
+
+        # Resize to final size using PIL
+        rgba_img = Image.fromarray(rgba_small).resize(size, Image.BILINEAR)
+        rgba = np.array(rgba_img)
+        VIGNETTE_CACHE[cache_key] = rgba
+
+    return ImageClip(rgba).set_duration(duration).set_position("center")
 
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
@@ -275,11 +424,11 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
         .set_position(("center", "center"))
     )
 
-    # Performance: Aggressive kinetic scaling (exponential decay with cosine oscillation)
-    # Constants pre-calculated for the temporal lambda
+    # Performance: Aggressive 2026-style 'vibrate' scaling logic
     def hook_scale(t):
-        # Snappier oscillation for 2026 'vibrate' feel
-        return 1.0 + 0.4 * math.exp(-8 * t) * math.cos(15 * t)
+        return (
+            1.1 + 0.45 * math.exp(-10 * t) * math.cos(20 * t) + 0.05 * math.sin(5 * t)
+        )
 
     # Fixed: Use a static slight tilt for style instead of a lambda to avoid MoviePy 1.0.3 errors
     return hook.resize(hook_scale).rotate(-3)

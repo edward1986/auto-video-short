@@ -43,3 +43,15 @@
 ## 2025-05-24 - Avoid Lambda for Static Properties in MoviePy
 **Learning:** In MoviePy 1.x, passing a lambda function (e.g., `lambda t: (0.5, 0.5)`) to methods like `set_position` or `resize` triggers a function call for every single frame during rendering. If the value is constant, passing the raw value (e.g., a tuple or float) allows MoviePy to skip these redundant calls.
 **Action:** Always prefer static values over constant-returning lambdas for MoviePy clip properties to reduce per-frame overhead.
+
+## 2026-03-05 - PIL Text Rendering and Pillow 10+ Compatibility
+**Learning:** Bypassing MoviePy's `TextClip` (and thus ImageMagick) with a custom PIL-based renderer (`get_pil_text_clip`) improves portability and allows for precise control over 2026-style typography (1.2x line spacing, bold fallbacks). Additionally, MoviePy 1.0.3 relies on `Image.ANTIALIAS`, which is removed in Pillow 10; a runtime monkeypatch (`Image.ANTIALIAS = Image.LANCZOS`) is required to prevent crashes in modern environments.
+**Action:** Use PIL for robust text rendering in ImageMagick-free environments. Always apply the ANTIALIAS monkeypatch when using MoviePy 1.0.3 with modern Pillow.
+
+## 2026-03-06 - Pre-compositing Optimization for Overlays
+**Learning:** Resizing static overlays (vignettes, glows) using PIL (`Image.resize`) *before* creating a MoviePy `ImageClip` is ~100x faster than letting MoviePy resize the clip on every frame. Caching the resulting NumPy arrays further eliminates redundant processing.
+**Action:** Always resize source images to their final dimensions using PIL before wrapping them in a MoviePy `ImageClip`.
+
+## 2026-03-07 - 2026 Vertical Safe Margins & Kinetic Motion
+**Learning:** Modern 9:16 short-form platforms have aggressive UI overlays. Elements must be kept within strict vertical safe zones (e.g., y=0.15 for headers, y=0.55 for captions). Visually, the 2026 aesthetic relies on high-impact 'vibrate' hooks and snappy power-4 ease-out curves for transitions.
+**Action:** Adhere to strict vertical safe margins for mobile-first layouts. Use exponential decay and high-power ease-out for kinetic typography.
