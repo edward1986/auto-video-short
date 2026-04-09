@@ -11,9 +11,13 @@ from PIL import Image, ImageDraw, ImageFont
 load_dotenv(".env")
 
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+AUTH_TOKEN = os.getenv("AUTH_TOKEN")
+VIDEOURL_ENV = os.getenv("VIDEOURL")
 
 VIDEOURL = (
-    "https://api.pexels.com/videos/search?query=cats&orientation=portrait&per_page=49"
+    VIDEOURL_ENV
+    if VIDEOURL_ENV
+    else "https://api.pexels.com/videos/search?query=cats&orientation=portrait&per_page=49"
 )
 VIDEO_NAME = "video.mp4"
 AUDIO_NAME = "audio.mp3"
@@ -28,10 +32,23 @@ def download_video(output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    # Resolve headers: prefer PEXELS_API_KEY, fallback to AUTH_TOKEN (which might be raw or JSON)
+    headers = {}
+    if PEXELS_API_KEY:
+        headers["Authorization"] = PEXELS_API_KEY
+    elif AUTH_TOKEN:
+        try:
+            # Check if AUTH_TOKEN is a JSON string (e.g. {"Authorization": "..."})
+            token_data = json.loads(AUTH_TOKEN)
+            headers.update(token_data)
+        except (json.JSONDecodeError, TypeError):
+            # Otherwise treat it as a raw token
+            headers["Authorization"] = AUTH_TOKEN
+
     # Request stored in response variable
     response = requests.get(
         VIDEOURL,
-        headers={"Authorization": PEXELS_API_KEY},
+        headers=headers,
     )
 
     # Check if the response was successful

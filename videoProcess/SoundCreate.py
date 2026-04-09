@@ -10,6 +10,10 @@ AUDIO = os.getenv("AUDIO_NAME", "speech.mp3")
 
 # API Keys (with fallback) - Read from env
 ELEVENLABS_API_KEYS = os.getenv("ELEVENLABS_API_KEYS", "").split(",")
+# Fallback for single key env var
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+if ELEVENLABS_API_KEY and ELEVENLABS_API_KEY not in ELEVENLABS_API_KEYS:
+    ELEVENLABS_API_KEYS.append(ELEVENLABS_API_KEY)
 
 # List of available ElevenLabs voice IDs
 ELEVENLABS_VOICE_IDS = [

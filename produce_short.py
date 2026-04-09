@@ -1,5 +1,11 @@
 from random import randint, choice
 from datetime import datetime
+from PIL import Image
+
+# Monkeypatch for Pillow 10+ compatibility with MoviePy 1.0.3
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+
 import json
 import random
 import os

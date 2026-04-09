@@ -9,6 +9,12 @@ import mysql.connector
 
 from os import environ
 from datetime import datetime
+from PIL import Image
+
+# Monkeypatch for Pillow 10+ compatibility with MoviePy 1.0.3
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+
 from dotenv import load_dotenv
 from textwrap import fill, shorten
 from typing import Any, Optional, Tuple, Dict
@@ -513,6 +519,10 @@ except Exception as e:
 # =========================
 try:
     download_video(output_dir)
+    # Double-check that video was actually downloaded before proceeding
+    expected_video_path = f"{output_dir}/{VIDEO_NAME}"
+    if not os.path.exists(expected_video_path):
+        raise FileNotFoundError(f"Video file {expected_video_path} not found after download.")
 except Exception as e:
     print(f"Error downloading video: {e}")
     sys.exit(1)
