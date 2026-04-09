@@ -16,6 +16,10 @@ DARKEN_LUT_CACHE = {}
 # Global noise pool cache to avoid redundant generation for identical sizes
 NOISE_POOL_CACHE = {}
 
+# Global caches for static overlays to avoid redundant generation
+VIGNETTE_CACHE = {}
+GLOW_CACHE = {}
+
 
 def get_text_clip(text, **kwargs):
     """Retrieves a cached TextClip or creates a new one if not found."""
@@ -38,13 +42,22 @@ def darken_clip(clip, factor=0.45):
     """Darkens a clip by multiplying all pixel values by a factor (0.0 to 1.0).
     Higher factor = brighter, lower factor = darker. 0.45 is ideal for 2026 'bold minimal' contrast.
     Performance: Uses a Look-Up Table (LUT) for uint8 to avoid per-pixel floating point math.
+    For ImageClips, the transformation is applied once to the underlying image.
     """
+    if factor not in DARKEN_LUT_CACHE:
+        DARKEN_LUT_CACHE[factor] = (np.arange(256) * factor).astype("uint8")
+
+    # Ultra-optimized path: for ImageClips, apply the LUT once to the static image
+    if isinstance(clip, ImageClip):
+        if clip.img.dtype == np.uint8:
+            # Consistent with MoviePy API, we return a copy to avoid mutating the original clip's image
+            clip = clip.copy()
+            clip.img = DARKEN_LUT_CACHE[factor][clip.img]
+            return clip
 
     def apply_darken(image):
         # Optimized path for standard uint8 images
         if image.dtype == np.uint8:
-            if factor not in DARKEN_LUT_CACHE:
-                DARKEN_LUT_CACHE[factor] = (np.arange(256) * factor).astype("uint8")
             return DARKEN_LUT_CACHE[factor][image]
 
         # Fallback for other dtypes (float, uint16, etc.)
@@ -98,17 +111,27 @@ def create_noise_overlay(size, duration, opacity=0.08):
         idx = int(t * 24) % 24
         return pool[idx]
 
-    # Robust fix for MoviePy 1.0.3: Start with ColorClip and transform
-    noise_clip = ColorClip(size=size, color=(0, 0, 0), duration=duration)
+    # Robust fix for MoviePy 1.0.3: Use VideoClip directly and assign size
+    from moviepy.editor import VideoClip
 
-    return noise_clip.fl(lambda get_frame, t: make_frame(t)).set_opacity(opacity)
+    noise_clip = VideoClip(make_frame, duration=duration)
+    noise_clip.size = size
+
+    return noise_clip.set_opacity(opacity)
 
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     """Creates a soft radial gradient glow in the center.
     Performance: Generates at 1/10th scale to minimize Gaussian Blur cost.
+    Uses caching to avoid redundant generation for identical sizes/colors.
     """
-    w, h = size
+    size_tuple = tuple(size) if isinstance(size, (list, tuple)) else size
+    cache_key = (size_tuple, color, opacity)
+
+    if cache_key in GLOW_CACHE:
+        return GLOW_CACHE[cache_key].copy().set_duration(duration)
+
+    w, h = size_tuple
     # Downscale for performance
     scale = 10
     small_size = (w // scale, h // scale)
@@ -127,13 +150,15 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
 
     # Fixed: set_opacity in MoviePy 1.0.3 does not support functions.
     # Reverting to static opacity for stability.
-    return (
+    clip = (
         ImageClip(glow_array)
-        .set_duration(duration)
         .set_position("center")
         .set_opacity(opacity)
-        .resize(size)
+        .resize(size_tuple)
     )
+
+    GLOW_CACHE[cache_key] = clip
+    return clip.copy().set_duration(duration)
 
 
 def create_flash_transition(size, duration=0.1, opacity=0.8):
@@ -167,9 +192,10 @@ def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.15):
     inv_duration = 1.0 / max(total_duration, 0.001)
     # Using exponential curve: scale = start * (end/start)^(t/duration)
     ratio = end_scale / start_scale
-    log_ratio = math.log(ratio)
+    # Performance: pre-calculate log_ratio * inv_duration for the temporal lambda
+    k = math.log(ratio) * inv_duration
 
-    return clip.resize(lambda t: start_scale * math.exp(log_ratio * t * inv_duration))
+    return clip.resize(lambda t: start_scale * math.exp(k * t))
 
 
 def apply_slide_in(
@@ -238,7 +264,13 @@ def apply_float(clip, duration, amplitude=0.01):
 
 def create_vignette(size, duration, opacity=0.4):
     """Creates a soft dark vignette to focus attention (2026 'bold minimal' look)."""
-    w, h = size
+    size_tuple = tuple(size) if isinstance(size, (list, tuple)) else size
+    cache_key = (size_tuple, opacity)
+
+    if cache_key in VIGNETTE_CACHE:
+        return VIGNETTE_CACHE[cache_key].copy().set_duration(duration)
+
+    w, h = size_tuple
     # Create at 1/4 scale to save memory/processing
     vw, vh = w // 4, h // 4
     vignette_img = Image.new("L", (vw, vh), 255)
@@ -254,7 +286,10 @@ def create_vignette(size, duration, opacity=0.4):
     rgba = np.zeros((vh, vw, 4), dtype="uint8")
     rgba[..., 3] = (vignette_array.astype("float") * opacity).astype("uint8")
 
-    return ImageClip(rgba).set_duration(duration).set_position("center").resize(size)
+    clip = ImageClip(rgba).set_position("center").resize(size_tuple)
+    VIGNETTE_CACHE[cache_key] = clip
+
+    return clip.copy().set_duration(duration)
 
 
 def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
