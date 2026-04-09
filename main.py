@@ -13,6 +13,12 @@ from dotenv import load_dotenv
 from textwrap import fill, shorten
 from typing import Any, Optional, Tuple, Dict
 
+from PIL import Image
+
+# Monkeypatch for MoviePy 1.0.3 compatibility with Pillow 10+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+
 from pyfiglet import Figlet
 from moviepy.editor import (
     VideoFileClip,
@@ -593,8 +599,8 @@ try:
             phrase_mode=True,
         )
 
-    # Position captions in mobile safe area (center)
-    text_clips = [c.set_position(("center", "center")) for c in text_clips]
+    # Position captions in mobile safe area (y=0.55 for 2026 style)
+    text_clips = [c.set_position(("center", 0.55), relative=True) for c in text_clips]
 
     final = CompositeVideoClip(
         [
