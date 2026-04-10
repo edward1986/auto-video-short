@@ -49,6 +49,10 @@ def get_pil_text_clip(
     stroke_width=0,
     size=None,
     align="center",
+    shadow_color=None,
+    shadow_offset=(4, 4),
+    box_color=None,
+    box_padding=10,
     **kwargs,
 ):
     """PIL-based alternative to MoviePy TextClip to bypass ImageMagick dependency."""
@@ -111,26 +115,57 @@ def get_pil_text_clip(
     total_h = sum(line_heights) + int(sum(line_heights) * (line_spacing_factor - 1) * (len(lines) - 1))
 
     if size:
-        final_w = size[0] or (max_w + stroke_width * 2)
-        final_h = size[1] or (total_h + stroke_width * 2)
+        final_w = size[0] or (max_w + stroke_width * 2 + (box_padding * 2 if box_color else 0))
+        final_h = size[1] or (total_h + stroke_width * 2 + (box_padding * 2 if box_color else 0))
     else:
-        final_w = max_w + stroke_width * 2 + 10
-        final_h = total_h + stroke_width * 2 + 10
+        final_w = max_w + stroke_width * 2 + 10 + (box_padding * 2 if box_color else 0)
+        final_h = total_h + stroke_width * 2 + 10 + (box_padding * 2 if box_color else 0)
 
     # Draw text
     img = Image.new("RGBA", (int(final_w), int(final_h)), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     current_y = (final_h - total_h) // 2
+
+    # 1. Draw Background Box if specified
+    if box_color:
+        # Calculate box coordinates based on alignment
+        if align == "center":
+            box_l = (final_w - max_w) // 2 - box_padding
+            box_r = (final_w + max_w) // 2 + box_padding
+        elif align == "right":
+            box_l = final_w - max_w - stroke_width - box_padding * 2
+            box_r = final_w - stroke_width
+        else:
+            box_l = stroke_width
+            box_r = max_w + stroke_width + box_padding * 2
+
+        box_t = current_y - box_padding
+        box_b = current_y + total_h + box_padding
+        draw.rectangle([box_l, box_t, box_r, box_b], fill=box_color)
+
     for i, line in enumerate(lines):
         w, h = line_widths[i], line_heights[i]
         if align == "center":
             current_x = (final_w - w) // 2
         elif align == "right":
-            current_x = final_w - w - stroke_width
+            current_x = final_w - w - stroke_width - (box_padding if box_color else 0)
         else:
-            current_x = stroke_width
+            current_x = stroke_width + (box_padding if box_color else 0)
 
+        # 2. Draw Shadow if specified
+        if shadow_color:
+            off_x, off_y = shadow_offset
+            draw.text(
+                (current_x + off_x, current_y + off_y),
+                line,
+                font=pil_font,
+                fill=shadow_color,
+                stroke_width=stroke_width,
+                stroke_fill=shadow_color if stroke_width > 0 else None,
+            )
+
+        # 3. Draw Main Text
         draw.text(
             (current_x, current_y),
             line,
@@ -147,8 +182,25 @@ def get_pil_text_clip(
 def get_text_clip(text, **kwargs):
     """Retrieves a cached text clip or creates a new one using PIL."""
     # Filter out MoviePy-specific kwargs that PIL renderer doesn't use directly
-    supported_kwargs = ["fontsize", "color", "font", "stroke_color", "stroke_width", "size", "align"]
+    supported_kwargs = [
+        "fontsize",
+        "color",
+        "font",
+        "stroke_color",
+        "stroke_width",
+        "size",
+        "align",
+        "shadow_color",
+        "shadow_offset",
+        "box_color",
+        "box_padding",
+    ]
     filtered_kwargs = {k: v for k, v in kwargs.items() if k in supported_kwargs}
+
+    # Convert tuple/list params to tuple for hashing
+    for k, v in filtered_kwargs.items():
+        if isinstance(v, (list, tuple)):
+            filtered_kwargs[k] = tuple(v)
 
     sorted_params = sorted(filtered_kwargs.items())
     cache_key = (text, tuple(sorted_params))
@@ -216,8 +268,8 @@ def create_noise_overlay(size, duration, opacity=0.12):
                 Image.fromarray(noise2).resize(size_tuple, Image.BILINEAR)
             )
 
-            # Blend layers (50/50 mix) for a richer organic look
-            combined = (layer1.astype("uint16") + layer2.astype("uint16")) // 2
+            # 2026 Style: Blend layers with emphasis on chunky grain (60/40 mix) for more texture
+            combined = (layer1.astype("uint16") * 6 + layer2.astype("uint16") * 4) // 10
             pool.append(combined.astype("uint8"))
 
         NOISE_POOL_CACHE[size_tuple] = pool
@@ -281,8 +333,8 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     return glow_clip
 
 
-def create_flash_transition(size, duration=0.1, opacity=0.8):
-    """Creates a white flash overlay with a snappy fade-out for high-energy transitions."""
+def create_flash_transition(size, duration=0.15, opacity=0.9):
+    """Creates a white flash overlay with a snappy fade-out for high-energy 2026 transitions."""
     return (
         ColorClip(size=size, color=(255, 255, 255))
         .set_duration(duration)
@@ -493,7 +545,7 @@ def build_modern_captions(
         if phrase_mode:
             font_size = int(font_size * 0.8)  # Slightly smaller for multi-word
 
-        # Text clip - Bold, high-contrast
+        # 2026 Style: Integrated shadow and background box (replaces separate shadow clip)
         txt = (
             get_text_clip(
                 word.upper(),
@@ -504,6 +556,10 @@ def build_modern_captions(
                 stroke_width=6,
                 size=(video_size[0] * 0.8, None),
                 align="center",
+                shadow_color="black",
+                shadow_offset=(6, 6),
+                box_color=(0, 0, 0, 128) if is_highlight else None,
+                box_padding=20,
             )
             .set_start(start)
             .set_duration(duration)
@@ -524,26 +580,7 @@ def build_modern_captions(
         rot = (hash(word) % 5) - 2
         txt = txt.rotate(rot)
 
-        # Drop shadow (Modern Offset)
-        shadow = (
-            get_text_clip(
-                word.upper(),
-                fontsize=font_size,
-                color="black",
-                font=font,
-                size=(video_size[0] * 0.8, None),
-                align="center",
-            )
-            .set_start(start)
-            .set_duration(duration)
-            .set_position(("center", "center"))
-            .set_opacity(0.8)
-        )
-        # Offset shadow slightly
-        # Performance: Use a static tuple instead of a lambda to avoid thousands of function calls
-        shadow = shadow.set_position((0.505, 0.505), relative=True)
-
-        clips.extend([shadow, txt])
+        clips.append(txt)
 
     return clips
 
