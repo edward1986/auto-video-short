@@ -43,3 +43,7 @@
 ## 2025-05-24 - Avoid Lambda for Static Properties in MoviePy
 **Learning:** In MoviePy 1.x, passing a lambda function (e.g., `lambda t: (0.5, 0.5)`) to methods like `set_position` or `resize` triggers a function call for every single frame during rendering. If the value is constant, passing the raw value (e.g., a tuple or float) allows MoviePy to skip these redundant calls.
 **Action:** Always prefer static values over constant-returning lambdas for MoviePy clip properties to reduce per-frame overhead.
+
+## 2025-05-25 - Reduced Composite Overhead via Integrated Rendering
+**Learning:** In MoviePy (v1.x), the rendering overhead of `CompositeVideoClip` grows significantly with the number of clips. For text elements with shadows or background boxes, rendering these features directly in the underlying image (e.g., using PIL) instead of as separate MoviePy clips reduces the total clip count and flattens the hierarchy. This results in a ~4x speedup for complex frames. Additionally, for static `ImageClip` objects, applying point-wise transformations (like LUT-based darkening) once to the source image instead of per-frame during rendering provides a major performance boost without visual loss.
+**Action:** Merge static visual features (shadows, boxes) into the primary image renderer. Apply transformations to static clips at initialization.

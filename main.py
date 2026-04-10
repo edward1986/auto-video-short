@@ -24,7 +24,6 @@ from moviepy.editor import (
     VideoFileClip,
     AudioFileClip,
     CompositeVideoClip,
-    ColorClip,
 )
 from videoProcess.SoundCreate import make_audio
 from videoProcess.VideoDownload import download_video
@@ -188,6 +187,7 @@ def build_phrase_level_text_clips(words, video_size, group_size=4):
         if end <= start:
             end = start + 0.8
 
+        # Performance: Render text with integrated background box (reduces clip count by 50%)
         txt = (
             get_text_clip(
                 text,
@@ -196,23 +196,15 @@ def build_phrase_level_text_clips(words, video_size, group_size=4):
                 align="center",
                 method="caption",
                 size=(900, None),
+                box_color=(0, 0, 0, 128),  # 0.5 opacity black
+                box_padding=20,
             )
             .set_start(start)
             .set_duration(end - start)
             .set_position(("center", "center"))
         )
 
-        txt_w, txt_h = txt.size
-
-        bg = (
-            ColorClip(size=(txt_w + 40, txt_h + 20), color=(0, 0, 0))
-            .set_opacity(0.5)
-            .set_start(start)
-            .set_duration(end - start)
-            .set_position(("center", "center"))
-        )
-
-        clips.extend([bg, txt])
+        clips.append(txt)
 
     return clips
 

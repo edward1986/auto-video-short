@@ -49,9 +49,15 @@ def get_pil_text_clip(
     stroke_width=0,
     size=None,
     align="center",
+    shadow_color=None,
+    shadow_offset=(5, 5),
+    box_color=None,
+    box_padding=10,
     **kwargs,
 ):
-    """PIL-based alternative to MoviePy TextClip to bypass ImageMagick dependency."""
+    """PIL-based alternative to MoviePy TextClip to bypass ImageMagick dependency.
+    Performance: Supports integrated shadow and background box rendering to reduce clip count.
+    """
     # 2026 style: 1.2x line spacing
     line_spacing_factor = 1.2
 
@@ -110,18 +116,30 @@ def get_pil_text_clip(
     max_w = max(line_widths) if line_widths else 0
     total_h = sum(line_heights) + int(sum(line_heights) * (line_spacing_factor - 1) * (len(lines) - 1))
 
+    # Calculate final dimensions with padding and shadow offset
+    pad = box_padding
+    sx, sy = shadow_offset if shadow_color else (0, 0)
+
+    # We need to ensure the shadow doesn't clip
+    extra_w = max(0, sx) + stroke_width * 2 + pad * 2
+    extra_h = max(0, sy) + stroke_width * 2 + pad * 2
+
     if size:
-        final_w = size[0] or (max_w + stroke_width * 2)
-        final_h = size[1] or (total_h + stroke_width * 2)
+        final_w = size[0] or (max_w + extra_w)
+        final_h = size[1] or (total_h + extra_h)
     else:
-        final_w = max_w + stroke_width * 2 + 10
-        final_h = total_h + stroke_width * 2 + 10
+        final_w = max_w + extra_w + 10
+        final_h = total_h + extra_h + 10
 
     # Draw text
     img = Image.new("RGBA", (int(final_w), int(final_h)), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    current_y = (final_h - total_h) // 2
+    # Performance: Render background box if requested
+    if box_color:
+        draw.rectangle([0, 0, final_w, final_h], fill=box_color)
+
+    current_y = (final_h - total_h - sy) // 2 + pad
     for i, line in enumerate(lines):
         w, h = line_widths[i], line_heights[i]
         if align == "center":
@@ -130,6 +148,16 @@ def get_pil_text_clip(
             current_x = final_w - w - stroke_width
         else:
             current_x = stroke_width
+
+        # Performance: Render shadow if requested (avoids separate Shadow Clip)
+        if shadow_color:
+            draw.text(
+                (current_x + sx, current_y + sy),
+                line,
+                font=pil_font,
+                fill=shadow_color,
+                stroke_width=stroke_width,
+            )
 
         draw.text(
             (current_x, current_y),
@@ -147,10 +175,23 @@ def get_pil_text_clip(
 def get_text_clip(text, **kwargs):
     """Retrieves a cached text clip or creates a new one using PIL."""
     # Filter out MoviePy-specific kwargs that PIL renderer doesn't use directly
-    supported_kwargs = ["fontsize", "color", "font", "stroke_color", "stroke_width", "size", "align"]
+    supported_kwargs = [
+        "fontsize",
+        "color",
+        "font",
+        "stroke_color",
+        "stroke_width",
+        "size",
+        "align",
+        "shadow_color",
+        "shadow_offset",
+        "box_color",
+        "box_padding",
+        "method",
+    ]
     filtered_kwargs = {k: v for k, v in kwargs.items() if k in supported_kwargs}
 
-    sorted_params = sorted(filtered_kwargs.items())
+    sorted_params = sorted(filtered_kwargs.items(), key=lambda x: str(x[0]))
     cache_key = (text, tuple(sorted_params))
 
     if cache_key in TEXT_CLIP_CACHE:
@@ -167,13 +208,33 @@ def darken_clip(clip, factor=0.45):
     Higher factor = brighter, lower factor = darker. 0.45 is ideal for 2026 'bold minimal' contrast.
     Performance: Uses a Look-Up Table (LUT) for uint8 to avoid per-pixel floating point math.
     """
+    if factor not in DARKEN_LUT_CACHE:
+        DARKEN_LUT_CACHE[factor] = (np.arange(256) * factor).astype("uint8")
+    lut = DARKEN_LUT_CACHE[factor]
+
+    # Performance: If it's a static ImageClip, apply the LUT once to the image itself
+    # instead of per-frame during rendering.
+    # Supporting both .image (MoviePy 2.x) and .img (MoviePy 1.x)
+    # We create a new ImageClip to avoid using non-existent .copy()
+    for attr in ["image", "img"]:
+        if hasattr(clip, attr) and getattr(clip, attr) is not None:
+            img_attr = getattr(clip, attr)
+            if img_attr.dtype == np.uint8:
+                darkened_img = lut[img_attr]
+                new_clip = ImageClip(darkened_img)
+                # Transfer key properties
+                if hasattr(clip, "duration"):
+                    new_clip = new_clip.set_duration(clip.duration)
+                if hasattr(clip, "start"):
+                    new_clip = new_clip.set_start(clip.start)
+                if hasattr(clip, "pos"):
+                    new_clip = new_clip.set_position(clip.pos)
+                return new_clip
 
     def apply_darken(image):
         # Optimized path for standard uint8 images
         if image.dtype == np.uint8:
-            if factor not in DARKEN_LUT_CACHE:
-                DARKEN_LUT_CACHE[factor] = (np.arange(256) * factor).astype("uint8")
-            return DARKEN_LUT_CACHE[factor][image]
+            return lut[image]
 
         # Fallback for other dtypes (float, uint16, etc.)
         return (image * factor).astype(image.dtype)
@@ -493,7 +554,7 @@ def build_modern_captions(
         if phrase_mode:
             font_size = int(font_size * 0.8)  # Slightly smaller for multi-word
 
-        # Text clip - Bold, high-contrast
+        # Performance: Render text with integrated shadow (reduces clip count by 50%)
         txt = (
             get_text_clip(
                 word.upper(),
@@ -504,6 +565,8 @@ def build_modern_captions(
                 stroke_width=6,
                 size=(video_size[0] * 0.8, None),
                 align="center",
+                shadow_color="black",
+                shadow_offset=(5, 5),
             )
             .set_start(start)
             .set_duration(duration)
@@ -514,7 +577,9 @@ def build_modern_captions(
         txt = apply_kinetic_pop(txt, duration=0.12, scale=1.4)
 
         # 2026 style: snappy slide-up for kinetic feel
-        txt = apply_slide_in(txt, duration=0.15, direction="bottom", final_pos=("center", "center"))
+        txt = apply_slide_in(
+            txt, duration=0.15, direction="bottom", final_pos=("center", "center")
+        )
 
         # 2026 Style: Subtle float
         txt = apply_float(txt, duration, amplitude=0.005)
@@ -524,26 +589,7 @@ def build_modern_captions(
         rot = (hash(word) % 5) - 2
         txt = txt.rotate(rot)
 
-        # Drop shadow (Modern Offset)
-        shadow = (
-            get_text_clip(
-                word.upper(),
-                fontsize=font_size,
-                color="black",
-                font=font,
-                size=(video_size[0] * 0.8, None),
-                align="center",
-            )
-            .set_start(start)
-            .set_duration(duration)
-            .set_position(("center", "center"))
-            .set_opacity(0.8)
-        )
-        # Offset shadow slightly
-        # Performance: Use a static tuple instead of a lambda to avoid thousands of function calls
-        shadow = shadow.set_position((0.505, 0.505), relative=True)
-
-        clips.extend([shadow, txt])
+        clips.append(txt)
 
     return clips
 
