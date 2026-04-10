@@ -24,7 +24,6 @@ from moviepy.editor import (
     VideoFileClip,
     AudioFileClip,
     CompositeVideoClip,
-    ColorClip,
 )
 from videoProcess.SoundCreate import make_audio
 from videoProcess.VideoDownload import download_video
@@ -36,8 +35,8 @@ from videoProcess.Styling import (
     create_hook_clip,
     create_end_card,
     apply_zoom,
-    get_text_clip,
     darken_clip,
+    create_flash_transition,
 )
 
 from email.mime.multipart import MIMEMultipart
@@ -159,62 +158,6 @@ def transcribe_audio_with_cloudflare(audio_file_path: str) -> dict:
     return result.get("result", result)
 
 
-def build_phrase_level_text_clips(words, video_size, group_size=4):
-    clips = []
-    grouped = []
-    current = []
-
-    for item in words:
-        word = str(item.get("word", "")).strip()
-        if not word:
-            continue
-
-        current.append(item)
-
-        if len(current) >= group_size:
-            grouped.append(current)
-            current = []
-
-    if current:
-        grouped.append(current)
-
-    for group in grouped:
-        text = " ".join(str(x.get("word", "")).strip() for x in group).strip()
-        start = float(group[0].get("start", 0))
-        end = float(group[-1].get("end", start + 1.0))
-
-        if not text:
-            continue
-        if end <= start:
-            end = start + 0.8
-
-        txt = (
-            get_text_clip(
-                text,
-                color="white",
-                fontsize=55,
-                align="center",
-                method="caption",
-                size=(900, None),
-            )
-            .set_start(start)
-            .set_duration(end - start)
-            .set_position(("center", "center"))
-        )
-
-        txt_w, txt_h = txt.size
-
-        bg = (
-            ColorClip(size=(txt_w + 40, txt_h + 20), color=(0, 0, 0))
-            .set_opacity(0.5)
-            .set_start(start)
-            .set_duration(end - start)
-            .set_position(("center", "center"))
-        )
-
-        clips.extend([bg, txt])
-
-    return clips
 
 
 # =========================
@@ -576,6 +519,9 @@ try:
     )
     vignette_overlay = create_vignette(resolution, total_duration, opacity=0.5)
 
+    # 2026 Style: White flash transition at the end of the hook (2s)
+    flash = create_flash_transition(resolution).set_start(2.0)
+
     if whisper_words:
         text_clips = build_modern_captions(
             whisper_words,
@@ -609,6 +555,7 @@ try:
             noise_overlay,
             vignette_overlay,
             hook_clip,
+            flash,
         ]
         + text_clips,
         size=video_clip.size,
