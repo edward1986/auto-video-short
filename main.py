@@ -158,8 +158,6 @@ def transcribe_audio_with_cloudflare(audio_file_path: str) -> dict:
     return result.get("result", result)
 
 
-
-
 # =========================
 # GENERIC HELPERS
 # =========================
