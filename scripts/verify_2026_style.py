@@ -7,6 +7,7 @@ sys.path.append(os.getcwd())
 
 from videoProcess.Styling import get_text_clip
 
+
 def verify_style():
     print("Testing 2026 Integrated Styling...")
 
@@ -18,7 +19,7 @@ def verify_style():
         box_color=(255, 0, 0, 128),
         box_padding=20,
         align="center",
-        size=(800, 200)
+        size=(800, 200),
     )
 
     # Test Left Alignment
@@ -29,7 +30,7 @@ def verify_style():
         box_color=(0, 255, 0, 128),
         box_padding=20,
         align="left",
-        size=(800, 200)
+        size=(800, 200),
     )
 
     # Test Right Alignment
@@ -40,7 +41,7 @@ def verify_style():
         box_color=(0, 0, 255, 128),
         box_padding=20,
         align="right",
-        size=(800, 200)
+        size=(800, 200),
     )
 
     # Save frames
@@ -53,6 +54,7 @@ def verify_style():
         path = f"out/verify_align_{name}.png"
         img.save(path)
         print(f"Saved {name} alignment to {path}")
+
 
 if __name__ == "__main__":
     try:

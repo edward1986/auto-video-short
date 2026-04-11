@@ -32,11 +32,13 @@ GLOW_CACHE = {}
 VIGNETTE_CACHE = {}
 
 
-def _get_text_size(draw, text, font):
+def _get_text_size(text, font):
     """Helper to get text dimensions across PIL versions."""
     if hasattr(font, "getbbox"):
-        bbox = draw.textbbox((0, 0), text, font=font)
+        # Use getbbox directly on font if available (modern PIL)
+        bbox = font.getbbox(text)
         return bbox[2] - bbox[0], bbox[3] - bbox[1]
+    # Fallback for older versions (requires draw context or getsize)
     return font.getsize(text)
 
 
@@ -77,9 +79,6 @@ def get_pil_text_clip(
         FONT_CACHE[font_key] = pil_font
 
     # Measure total size & word wrap
-    temp_img = Image.new("RGBA", (1, 1))
-    temp_draw = ImageDraw.Draw(temp_img)
-
     target_width = size[0] if size and size[0] else None
     if target_width:
         wrapped_lines = []
@@ -92,7 +91,7 @@ def get_pil_text_clip(
                 if hasattr(pil_font, "getlength"):
                     w = pil_font.getlength(test_line)
                 else:
-                    w, _ = _get_text_size(temp_draw, test_line, pil_font)
+                    w, _ = _get_text_size(test_line, pil_font)
 
                 if w > target_width and current_line:
                     wrapped_lines.append(" ".join(current_line))
@@ -107,19 +106,27 @@ def get_pil_text_clip(
     line_heights = []
     line_widths = []
     for line in lines:
-        w, h = _get_text_size(temp_draw, line, pil_font)
+        w, h = _get_text_size(line, pil_font)
         line_widths.append(w)
         line_heights.append(h)
 
     max_w = max(line_widths) if line_widths else 0
-    total_h = sum(line_heights) + int(sum(line_heights) * (line_spacing_factor - 1) * (len(lines) - 1))
+    total_h = sum(line_heights) + int(
+        sum(line_heights) * (line_spacing_factor - 1) * (len(lines) - 1)
+    )
 
     if size:
-        final_w = size[0] or (max_w + stroke_width * 2 + (box_padding * 2 if box_color else 0))
-        final_h = size[1] or (total_h + stroke_width * 2 + (box_padding * 2 if box_color else 0))
+        final_w = size[0] or (
+            max_w + stroke_width * 2 + (box_padding * 2 if box_color else 0)
+        )
+        final_h = size[1] or (
+            total_h + stroke_width * 2 + (box_padding * 2 if box_color else 0)
+        )
     else:
         final_w = max_w + stroke_width * 2 + 10 + (box_padding * 2 if box_color else 0)
-        final_h = total_h + stroke_width * 2 + 10 + (box_padding * 2 if box_color else 0)
+        final_h = (
+            total_h + stroke_width * 2 + 10 + (box_padding * 2 if box_color else 0)
+        )
 
     # Draw text
     img = Image.new("RGBA", (int(final_w), int(final_h)), (0, 0, 0, 0))
@@ -219,16 +226,26 @@ def darken_clip(clip, factor=0.45):
     Higher factor = brighter, lower factor = darker. 0.45 is ideal for 2026 'bold minimal' contrast.
     Performance: Uses a Look-Up Table (LUT) for uint8 to avoid per-pixel floating point math.
     """
+    last_image = [None]
+    last_result = [None]
 
     def apply_darken(image):
+        # Performance: Identity cache for static ImageClip inputs
+        if image is last_image[0]:
+            return last_result[0]
+
         # Optimized path for standard uint8 images
         if image.dtype == np.uint8:
             if factor not in DARKEN_LUT_CACHE:
                 DARKEN_LUT_CACHE[factor] = (np.arange(256) * factor).astype("uint8")
-            return DARKEN_LUT_CACHE[factor][image]
+            result = DARKEN_LUT_CACHE[factor][image]
+        else:
+            # Fallback for other dtypes (float, uint16, etc.)
+            result = (image * factor).astype(image.dtype)
 
-        # Fallback for other dtypes (float, uint16, etc.)
-        return (image * factor).astype(image.dtype)
+        last_image[0] = image
+        last_result[0] = result
+        return result
 
     return clip.fl_image(apply_darken)
 
@@ -308,7 +325,9 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
         circle_size = min(small_size) * 0.9
         left = (small_size[0] - circle_size) / 2
         top = (small_size[1] - circle_size) / 2
-        draw.ellipse([left, top, left + circle_size, top + circle_size], fill=inner_color)
+        draw.ellipse(
+            [left, top, left + circle_size, top + circle_size], fill=inner_color
+        )
 
         glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
         # Resize to full size once to avoid per-frame resizing overhead
@@ -364,9 +383,10 @@ def apply_zoom(clip, total_duration, start_scale=1.0, end_scale=1.15):
     inv_duration = 1.0 / max(total_duration, 0.001)
     # Using exponential curve: scale = start * (end/start)^(t/duration)
     ratio = end_scale / start_scale
-    log_ratio = math.log(ratio)
+    # Performance: Pre-calculate the combined coefficient for the temporal lambda
+    coeff = math.log(ratio) * inv_duration
 
-    return clip.resize(lambda t: start_scale * math.exp(log_ratio * t * inv_duration))
+    return clip.resize(lambda t: start_scale * math.exp(coeff * t))
 
 
 def apply_slide_in(
@@ -412,8 +432,10 @@ def apply_shake(clip, duration=0.2, amplitude=5):
         if t > duration:
             return "center", "center"
         # High frequency noise-like oscillation
-        dx = amplitude * math.sin(t * 80) * math.exp(-t * 10)
-        dy = amplitude * math.cos(t * 70) * math.exp(-t * 10)
+        # Performance: Calculate decay once per frame
+        decay = math.exp(-t * 10)
+        dx = amplitude * math.sin(t * 80) * decay
+        dy = amplitude * math.cos(t * 70) * decay
         return dx, dy
 
     # apply_shake usually works best on clips already positioned at center
@@ -479,7 +501,7 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
             font=font,
             stroke_color="black",
             stroke_width=8,
-            align="center"
+            align="center",
         )
         .set_start(0)
         .set_duration(duration)
@@ -570,7 +592,9 @@ def build_modern_captions(
         txt = apply_kinetic_pop(txt, duration=0.12, scale=1.4)
 
         # 2026 style: snappy slide-up for kinetic feel
-        txt = apply_slide_in(txt, duration=0.15, direction="bottom", final_pos=("center", "center"))
+        txt = apply_slide_in(
+            txt, duration=0.15, direction="bottom", final_pos=("center", "center")
+        )
 
         # 2026 Style: Subtle float
         txt = apply_float(txt, duration, amplitude=0.005)
