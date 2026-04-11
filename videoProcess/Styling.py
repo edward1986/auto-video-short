@@ -57,60 +57,69 @@ def get_pil_text_clip(
     box_padding=10,
     **kwargs,
 ):
-    """PIL-based alternative to MoviePy TextClip to bypass ImageMagick dependency."""
+    """PIL-based alternative to MoviePy TextClip with 2026 auto-scaling logic."""
     # 2026 style: 1.2x line spacing
     line_spacing_factor = 1.2
-
-    # Font resolution
-    font_key = (font, fontsize)
-    if font_key in FONT_CACHE:
-        pil_font = FONT_CACHE[font_key]
-    else:
-        try:
-            # Try system font or path
-            pil_font = ImageFont.truetype(font, fontsize)
-        except Exception:
-            try:
-                # Fallback to local default.ttf
-                fallback_path = os.path.join(os.getcwd(), "default.ttf")
-                pil_font = ImageFont.truetype(fallback_path, fontsize)
-            except Exception:
-                pil_font = ImageFont.load_default()
-        FONT_CACHE[font_key] = pil_font
-
-    # Measure total size & word wrap
     target_width = size[0] if size and size[0] else None
-    if target_width:
-        wrapped_lines = []
-        for line in text.split("\n"):
-            words = line.split(" ")
-            current_line = []
-            for word in words:
-                test_line = " ".join(current_line + [word])
-                # Use getlength for precise pixel-based wrapping if available
-                if hasattr(pil_font, "getlength"):
-                    w = pil_font.getlength(test_line)
-                else:
-                    w, _ = _get_text_size(test_line, pil_font)
 
-                if w > target_width and current_line:
-                    wrapped_lines.append(" ".join(current_line))
-                    current_line = [word]
-                else:
-                    current_line.append(word)
-            wrapped_lines.append(" ".join(current_line))
-        lines = wrapped_lines
-    else:
-        lines = text.split("\n")
+    # Recursive Font Scaling: Ensure text fits within 90% of target width
+    # 2026 design requirement: Bold text must NEVER overflow mobile safe margins.
+    def get_layout(current_fs):
+        font_key = (font, current_fs)
+        if font_key in FONT_CACHE:
+            pil_font = FONT_CACHE[font_key]
+        else:
+            try:
+                pil_font = ImageFont.truetype(font, current_fs)
+            except Exception:
+                try:
+                    fallback_path = os.path.join(os.getcwd(), "default.ttf")
+                    pil_font = ImageFont.truetype(fallback_path, current_fs)
+                except Exception:
+                    pil_font = ImageFont.load_default()
+            FONT_CACHE[font_key] = pil_font
 
-    line_heights = []
-    line_widths = []
-    for line in lines:
-        w, h = _get_text_size(line, pil_font)
-        line_widths.append(w)
-        line_heights.append(h)
+        if target_width:
+            wrapped_lines = []
+            for line in text.split("\n"):
+                words = line.split(" ")
+                current_line = []
+                for word in words:
+                    test_line = " ".join(current_line + [word])
+                    if hasattr(pil_font, "getlength"):
+                        w = pil_font.getlength(test_line)
+                    else:
+                        w, _ = _get_text_size(test_line, pil_font)
 
-    max_w = max(line_widths) if line_widths else 0
+                    if w > target_width and current_line:
+                        wrapped_lines.append(" ".join(current_line))
+                        current_line = [word]
+                    else:
+                        current_line.append(word)
+                wrapped_lines.append(" ".join(current_line))
+            lines = wrapped_lines
+        else:
+            lines = text.split("\n")
+
+        line_heights = []
+        line_widths = []
+        for line in lines:
+            w, h = _get_text_size(line, pil_font)
+            line_widths.append(w)
+            line_heights.append(h)
+
+        max_w = max(line_widths) if line_widths else 0
+        return pil_font, lines, line_widths, line_heights, max_w
+
+    # Initial layout
+    pil_font, lines, line_widths, line_heights, max_w = get_layout(fontsize)
+
+    # 2026 Auto-scaling: If text is too wide, shrink until it fits (min 20pt)
+    current_fs = fontsize
+    while target_width and max_w > target_width * 0.95 and current_fs > 20:
+        current_fs = int(current_fs * 0.9)
+        pil_font, lines, line_widths, line_heights, max_w = get_layout(current_fs)
+
     total_h = sum(line_heights) + int(
         sum(line_heights) * (line_spacing_factor - 1) * (len(lines) - 1)
     )
@@ -305,10 +314,12 @@ def create_noise_overlay(size, duration, opacity=0.12):
 
 def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     """Creates a soft radial gradient glow in the center with a breathing pulse.
-    Performance: Generates at 1/10th scale and caches the result.
+    Supports multiple colors for layered 2026 accent effects.
     """
     size_tuple = tuple(size) if isinstance(size, (list, tuple)) else size
-    cache_key = (size_tuple, color, opacity)
+    # Support for list of colors
+    colors = color if isinstance(color, list) else [color]
+    cache_key = (size_tuple, tuple(colors), opacity)
 
     if cache_key in GLOW_CACHE:
         glow_clip = GLOW_CACHE[cache_key].copy()
@@ -317,19 +328,27 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
         # Downscale for performance
         scale = 10
         small_size = (w // scale, h // scale)
-        inner_color = (*color, int(255 * opacity))
 
-        base = Image.new("RGBA", small_size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(base)
+        # Create layered glow for multiple colors
+        combined_base = Image.new("RGBA", small_size, (0, 0, 0, 0))
 
-        circle_size = min(small_size) * 0.9
-        left = (small_size[0] - circle_size) / 2
-        top = (small_size[1] - circle_size) / 2
-        draw.ellipse(
-            [left, top, left + circle_size, top + circle_size], fill=inner_color
+        for idx, c in enumerate(colors):
+            inner_color = (*c, int(255 * opacity / len(colors)))
+            layer = Image.new("RGBA", small_size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(layer)
+
+            # Each color layer slightly offset or different size for 'organic' 2026 look
+            circle_size = min(small_size) * (0.9 - (idx * 0.1))
+            left = (small_size[0] - circle_size) / 2
+            top = (small_size[1] - circle_size) / 2
+            draw.ellipse(
+                [left, top, left + circle_size, top + circle_size], fill=inner_color
+            )
+            combined_base = Image.alpha_composite(combined_base, layer)
+
+        glow = combined_base.filter(
+            ImageFilter.GaussianBlur(radius=min(small_size) / 4)
         )
-
-        glow = base.filter(ImageFilter.GaussianBlur(radius=circle_size / 3))
         # Resize to full size once to avoid per-frame resizing overhead
         glow_full = glow.resize(size_tuple, Image.BILINEAR)
         glow_array = np.array(glow_full)
@@ -490,9 +509,12 @@ def create_vignette(size, duration, opacity=0.5):
     return vignette_clip.set_duration(duration).set_position("center")
 
 
-def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
+def create_hook_clip(
+    text, video_size=(1080, 1920), duration=2.0, font="Arial-Bold", fontsize=220
+):
     """Creates a high-impact 2-second hook title card with aggressive kinetic animations."""
     # 2026 Trend: Oversized bold typography for immediate scroll-stop.
+    # Added size constraint to prevent overflow.
     hook = (
         get_text_clip(
             text.upper(),
@@ -502,6 +524,7 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
             stroke_color="black",
             stroke_width=8,
             align="center",
+            size=(video_size[0] * 0.85, None),
         )
         .set_start(0)
         .set_duration(duration)
@@ -519,10 +542,16 @@ def create_hook_clip(text, duration=2.0, font="Arial-Bold", fontsize=220):
 
 
 def build_modern_captions(
-    words, video_size, highlight_word="", font="Arial-Bold", phrase_mode=False
+    words,
+    video_size,
+    highlight_word="",
+    font="Arial-Bold",
+    phrase_mode=False,
+    y_pos=0.5,
 ):
     """Builds word-by-word or phrase-based captions with kinetic animations.
     phrase_mode=True groups words into chunks for a 'minimal' look.
+    y_pos: Vertical position (default 0.5 center). 2026 Style typically uses 0.55.
     """
     clips = []
     highlight_word = highlight_word.lower() if highlight_word else ""
@@ -585,7 +614,7 @@ def build_modern_captions(
             )
             .set_start(start)
             .set_duration(duration)
-            .set_position(("center", "center"))
+            .set_position(("center", y_pos), relative=True)
         )
 
         # Kinetic "pop" animation (Aggressive 1.4 scale for 2026)
@@ -593,7 +622,7 @@ def build_modern_captions(
 
         # 2026 style: snappy slide-up for kinetic feel
         txt = apply_slide_in(
-            txt, duration=0.15, direction="bottom", final_pos=("center", "center")
+            txt, duration=0.15, direction="bottom", final_pos=("center", y_pos)
         )
 
         # 2026 Style: Subtle float

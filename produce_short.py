@@ -26,6 +26,7 @@ from videoProcess.Styling import (
     apply_zoom,
     apply_kinetic_pop,
     apply_slide_in,
+    apply_shake,
     build_modern_captions,
     get_text_clip,
     darken_clip,
@@ -107,15 +108,18 @@ def produce_short(
 
     # Overlays - 2026 style (Noise/Grain, Gradient Glow, and Vignette)
     noise_overlay = create_noise_overlay(
-        resolution, full_question_duration, opacity=0.1
+        resolution, full_question_duration, opacity=0.12
     )
     glow_overlay = create_gradient_glow(
-        resolution, full_question_duration, color=(0, 255, 0), opacity=0.15
+        resolution,
+        full_question_duration,
+        color=[(0, 255, 0), (255, 255, 255)],
+        opacity=0.15,
     )
     vignette_overlay = create_vignette(resolution, full_question_duration, opacity=0.5)
 
     # 2-second high-impact hook
-    hook_clip = create_hook_clip("TRIVIA TIME!", font=font)
+    hook_clip = create_hook_clip("TRIVIA TIME!", video_size=resolution, font=font)
 
     # Initial overlays
     clips = [
@@ -143,17 +147,14 @@ def produce_short(
             found_highlight = w
             break
 
-    question_clips_raw = build_modern_captions(
+    question_clips = build_modern_captions(
         question_words,
         resolution,
         highlight_word=found_highlight,
         font=font,
         phrase_mode=True,
+        y_pos=0.15,
     )
-    # 2026 Style: Question at y=0.15 (mobile safe margin)
-    question_clips = [
-        c.set_position(("center", 0.15), relative=True) for c in question_clips_raw
-    ]
 
     clips.extend(question_clips)
 
@@ -229,8 +230,6 @@ def produce_short(
     correct_answer_reveal = apply_kinetic_pop(
         correct_answer_reveal, duration=0.4, scale=1.6
     )
-    from videoProcess.Styling import apply_shake
-
     correct_answer_reveal = apply_shake(correct_answer_reveal, duration=0.3)
     clips.append(correct_answer_reveal)
 
