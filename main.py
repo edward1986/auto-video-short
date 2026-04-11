@@ -50,7 +50,6 @@ from google.auth.transport.requests import Request as GoogleAuthRequest
 from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest, urlopen
 
-
 load_dotenv(".env")
 
 WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
@@ -508,12 +507,15 @@ try:
     video_clip = apply_zoom(video_clip, total_duration)
 
     # 2-second hook title card
-    hook_clip = create_hook_clip(word.upper())
+    hook_clip = create_hook_clip(word.upper(), video_size=resolution)
 
     # Grain, Gradient Glow, and Vignette Overlays
-    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.1)
+    noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.12)
     glow_overlay = create_gradient_glow(
-        resolution, total_duration, color=(200, 200, 255), opacity=0.15
+        resolution,
+        total_duration,
+        color=[(200, 200, 255), (0, 255, 0)],
+        opacity=0.15,
     )
     vignette_overlay = create_vignette(resolution, total_duration, opacity=0.5)
 
@@ -526,6 +528,7 @@ try:
             video_clip.size,
             highlight_word=word,
             phrase_mode=True,
+            y_pos=0.55,
         )
     else:
         # Fallback to modern captions even if whisper fails (simulated word timestamps)
@@ -541,10 +544,8 @@ try:
             video_clip.size,
             highlight_word=word,
             phrase_mode=True,
+            y_pos=0.55,
         )
-
-    # Position captions in mobile safe area (y=0.55 for 2026 style)
-    text_clips = [c.set_position(("center", 0.55), relative=True) for c in text_clips]
 
     final = CompositeVideoClip(
         [

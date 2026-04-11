@@ -2,7 +2,6 @@ import boto3
 import os
 from dotenv import load_dotenv
 
-
 # load environment constants
 load_dotenv(".env")
 
