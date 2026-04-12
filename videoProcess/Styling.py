@@ -368,9 +368,9 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     # (MoviePy 1.0.3 set_opacity doesn't support functions)
     def pulse_mask(gf, t):
         mask_frame = gf(t)
-        # 2026 style: Breathing pulse (0.8 to 1.0 opacity oscillation)
-        factor = 0.9 + 0.1 * math.sin(t * 3)
-        return mask_frame * factor
+        # 2026 style: More dynamic Breathing pulse (0.7 to 1.1 opacity oscillation)
+        factor = 0.9 + 0.2 * math.sin(t * 4)
+        return np.clip(mask_frame * factor, 0, 1)
 
     if glow_clip.mask:
         glow_clip.mask = glow_clip.mask.fl(pulse_mask)
@@ -542,10 +542,77 @@ def create_hook_clip(
     # Performance: Aggressive kinetic scaling (exponential decay with cosine oscillation)
     # Constants pre-calculated for the temporal lambda
     def hook_scale(t):
-        # Snappier oscillation for 2026 'vibrate' feel
-        return 1.0 + 0.4 * math.exp(-8 * t) * math.cos(15 * t)
+        # 2026 Trend: Even snappier "vibrate" oscillation for high engagement
+        return (
+            1.1 + 0.45 * math.exp(-10 * t) * math.cos(20 * t) + 0.05 * math.sin(5 * t)
+        )
 
     return hook.resize(hook_scale)
+
+
+def create_progress_bar(size, duration, color=(0, 255, 0), height=8):
+    """Creates a modern neon progress bar at the bottom of the video (2026 trend)."""
+    w, h = size
+
+    def make_frame(t):
+        # Create a black frame with 0 alpha (transparent)
+        frame = np.zeros((h, w, 3), dtype="uint8")
+        progress = min(t / duration, 1.0)
+        bar_w = int(w * progress)
+        if bar_w > 0:
+            # Draw progress bar at the very bottom
+            frame[h - height : h, 0:bar_w] = color
+        return frame
+
+    def make_mask(t):
+        mask = np.zeros((h, w), dtype="float32")
+        progress = min(t / duration, 1.0)
+        bar_w = int(w * progress)
+        if bar_w > 0:
+            mask[h - height : h, 0:bar_w] = 1.0
+        return mask
+
+    from moviepy.editor import VideoClip
+
+    bar_clip = VideoClip(make_frame, duration=duration).set_mask(
+        VideoClip(make_mask, ismask=True, duration=duration)
+    )
+    bar_clip.size = (w, h)
+    return bar_clip
+
+
+def apply_dynamic_cuts(clip, segment_duration=3.0):
+    """Creates 'fast clean cuts' by alternating flips and zoom levels (2026 trend)."""
+    duration = clip.duration
+    w, h = clip.size
+    num_segments = int(duration // segment_duration) + 1
+    clips = []
+
+    for i in range(num_segments):
+        start = i * segment_duration
+        end = min((i + 1) * segment_duration, duration)
+        if start >= duration:
+            break
+
+        segment = clip.subclip(start, end)
+
+        # Alternating effects for 'dynamic' feel
+        if i % 2 == 1:
+            # Flip horizontally
+            segment = segment.fx(lambda c: c.margin(left=0).mirror_x())
+
+        if i % 3 == 0:
+            # Subtle extra zoom + ensure size matches original for clean concatenation
+            segment = segment.resize(1.1).crop(
+                x_center=w / 2, y_center=h / 2, width=w, height=h
+            )
+
+        clips.append(segment)
+
+    from moviepy.editor import concatenate_videoclips
+
+    # Use method="chain" to keep original sizes (which we ensured) and avoid complex composition
+    return concatenate_videoclips(clips, method="chain")
 
 
 def build_modern_captions(

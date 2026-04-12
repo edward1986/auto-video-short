@@ -37,6 +37,8 @@ from videoProcess.Styling import (
     apply_zoom,
     darken_clip,
     create_flash_transition,
+    create_progress_bar,
+    apply_dynamic_cuts,
 )
 
 from email.mime.multipart import MIMEMultipart
@@ -506,8 +508,12 @@ try:
     video_clip = darken_clip(video_clip, factor=0.45)
     video_clip = apply_zoom(video_clip, total_duration)
 
-    # 2-second hook title card
-    hook_clip = create_hook_clip(word.upper(), video_size=resolution)
+    # 2026 Style: Apply dynamic cuts for "fast clean cuts" feel
+    video_clip = apply_dynamic_cuts(video_clip, segment_duration=2.5)
+
+    # 2-second hook title card - 2026 High-impact Engagement
+    hook_text = f"MIND-BLOWING {word.upper()}!" if len(word) < 10 else "DID YOU KNOW?"
+    hook_clip = create_hook_clip(hook_text, video_size=resolution)
 
     # Grain, Gradient Glow, and Vignette Overlays
     noise_overlay = create_noise_overlay(resolution, total_duration, opacity=0.12)
@@ -518,6 +524,9 @@ try:
         opacity=0.15,
     )
     vignette_overlay = create_vignette(resolution, total_duration, opacity=0.5)
+
+    # 2026 Style: Progress Bar
+    progress_bar = create_progress_bar(resolution, total_duration, color=(0, 255, 0))
 
     # 2026 Style: White flash transition at the end of the hook (2s)
     flash = create_flash_transition(resolution).set_start(2.0)
@@ -555,6 +564,7 @@ try:
             vignette_overlay,
             hook_clip,
             flash,
+            progress_bar,
         ]
         + text_clips,
         size=video_clip.size,

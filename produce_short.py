@@ -32,6 +32,8 @@ from videoProcess.Styling import (
     darken_clip,
     create_flash_transition,
     create_vignette,
+    create_progress_bar,
+    apply_dynamic_cuts,
 )
 
 CLIENT_ID = "553209643758-dn4375pj94hssfcipff2e1kn8eeqoprr.apps.googleusercontent.com"
@@ -95,6 +97,9 @@ def produce_short(
 
     background_clip = concatenate_videoclips([bg_q, bg_a], method="chain")
 
+    # 2026 Style: Apply dynamic cuts for "fast clean cuts" feel
+    background_clip = apply_dynamic_cuts(background_clip, segment_duration=2.5)
+
     music_duration = audio_clip.duration
     available_music_time = max(1, music_duration - full_question_duration)
     music_start_time = max(
@@ -121,6 +126,11 @@ def produce_short(
     # 2-second high-impact hook
     hook_clip = create_hook_clip("TRIVIA TIME!", video_size=resolution, font=font)
 
+    # 2026 Style: Progress Bar
+    progress_bar = create_progress_bar(
+        resolution, full_question_duration, color=(0, 255, 0)
+    )
+
     # Initial overlays
     clips = [
         background_clip,
@@ -128,6 +138,7 @@ def produce_short(
         noise_overlay,
         vignette_overlay,
         hook_clip,
+        progress_bar,
     ]
 
     # ✅ Display the selected question - 2026 Modern Caption Style (Word-by-word)
