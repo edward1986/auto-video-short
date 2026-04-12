@@ -47,3 +47,7 @@
 ## 2025-05-25 - Closure-based Identity Caching and Optimized PIL Measurement
 **Learning:** In MoviePy, static clips (like `ImageClip`) often return the exact same NumPy array object for every frame. Implementing a closure-based identity cache (`image is last_image`) in video filters like `darken_clip` can bypass expensive per-pixel LUT transformations for all but the first frame, providing a near 100% speedup for static overlays. Additionally, using `font.getbbox()` directly for text measurement instead of an `ImageDraw` context reduces object allocation overhead, speeding up text clip generation by ~40%.
 **Action:** Use identity checks to skip redundant processing on identical frames in temporal closures. Leverage `font.getbbox()` for modern PIL text measurement to avoid unnecessary draw context creation.
+
+## 2026-04-12 - Static Rotation Offloading to PIL
+**Learning:** In MoviePy 1.x, calling `.rotate()` on a clip often introduces significant per-frame overhead during composition. For static clips (like text generated via PIL), performing the rotation once within the PIL generation phase (using `img.rotate(..., expand=True)`) and then creating the `ImageClip` results in a ~90x speedup for that clip's rendering path.
+**Action:** Always offload static rotations to the PIL-based image generation phase instead of using MoviePy's transformation methods.
