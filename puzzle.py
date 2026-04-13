@@ -8,6 +8,17 @@ import moviepy.editor as editor
 from moviepy.video.fx.resize import resize
 from moviepy.audio.fx.volumex import volumex
 
+from videoProcess.Styling import (
+    get_text_clip,
+    create_noise_overlay,
+    create_gradient_glow,
+    create_vignette,
+    apply_kinetic_pop,
+    apply_slide_in,
+    darken_clip,
+    apply_zoom,
+)
+
 from board import *  # noqa: F403
 
 clip_durations = {"puzzle": 10, "move": 0.2, "solution": 2.5, "line_move": 1}
@@ -23,40 +34,47 @@ def produce_short(
     music: str,
     music_drop_time: float,
 ):
-    # Puzzle question text
+    resolution = (1080, 1920)
+
+    # Puzzle question text - 2026 Style
     question_text = (
-        editor.TextClip(
-            "Can you find the brilliant move?",
+        get_text_clip(
+            "Can you find the brilliant move?".upper(),
             font=font,
-            fontsize=120,
+            fontsize=100,
             color="white",
             stroke_color="black",
-            stroke_width=2,
-            method="caption",
-            size=(1080, None),
+            stroke_width=4,
+            size=(900, None),
+            align="center",
         )
         .set_duration(clip_durations["puzzle"])
-        .set_position((0, 0.6), relative=True)
     )
+    question_text = apply_slide_in(
+        question_text, duration=0.5, direction="bottom", final_pos=("center", 0.55)
+    )
+    question_text = apply_kinetic_pop(question_text, duration=0.3, scale=1.2)
 
-    # Puzzle countdown text clips
+    # Puzzle countdown text clips - 2026 Style
     countdown_texts = [
         (
-            editor.TextClip(
+            get_text_clip(
                 str(clip_durations["puzzle"] - i),
                 font=font,
-                fontsize=120,
+                fontsize=180,
                 color="white",
                 stroke_color="black",
-                stroke_width=2,
-                method="caption",
-                size=(1080, None),
+                stroke_width=6,
+                align="center",
             )
             .set_start(i)
             .set_duration(1)
-            .set_position((0, 0.8), relative=True)
+            .set_position(("center", 0.65), relative=True)
         )
         for i in range(clip_durations["puzzle"])
+    ]
+    countdown_texts = [
+        apply_kinetic_pop(c, duration=0.2, scale=1.4) for c in countdown_texts
     ]
 
     # Initial chess board elements
@@ -179,30 +197,41 @@ def produce_short(
         )
     )
 
-    # Background image
-    background = resize(
-        (editor.ImageClip(background).set_duration(full_duration).set_position((0, 0))),
-        height=1920,
-    )
+    # Background image - 2026 Style: Darken and Zoom
+    background_clip = editor.ImageClip(background).set_duration(full_duration)
+    background_clip = resize(background_clip, height=1920)
+    background_clip = darken_clip(background_clip, factor=0.45)
+    background_clip = apply_zoom(background_clip, full_duration)
 
-    # Correct move text
+    # Correct move text - 2026 Style
     solution_san = game_moves[1].san()
 
     solution_text = (
-        editor.TextClip(
+        get_text_clip(
             solution_san + "!!",
             font=font,
-            fontsize=160,
+            fontsize=200,
             color="#00ff00",
             stroke_color="black",
-            stroke_width=2,
-            method="caption",
-            size=(1080, None),
+            stroke_width=8,
+            align="center",
+            size=(1000, None),
         )
         .set_start(clip_durations["puzzle"])
         .set_end(full_duration)
-        .set_position((0, 0.65), relative=True)
+        .set_position(("center", 0.55), relative=True)
     )
+    solution_text = apply_kinetic_pop(solution_text, duration=0.4, scale=1.6)
+
+    # Overlays - 2026 style (Noise/Grain, Gradient Glow, and Vignette)
+    noise_overlay = create_noise_overlay(resolution, full_duration, opacity=0.12)
+    glow_overlay = create_gradient_glow(
+        resolution,
+        full_duration,
+        color=[(0, 255, 0), (255, 255, 255)],
+        opacity=0.15,
+    )
+    vignette_overlay = create_vignette(resolution, full_duration, opacity=0.5)
 
     # Background music
     music_start_time = max(0.01, music_drop_time - clip_durations["puzzle"])
@@ -225,7 +254,10 @@ def produce_short(
 
     result = editor.CompositeVideoClip(
         [
-            background,
+            background_clip,
+            glow_overlay,
+            noise_overlay,
+            vignette_overlay,
             question_text,
             *countdown_texts,
             solution_text,
