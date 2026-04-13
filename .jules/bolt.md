@@ -51,3 +51,7 @@
 ## 2026-04-12 - Static Rotation Offloading to PIL
 **Learning:** In MoviePy 1.x, calling `.rotate()` on a clip often introduces significant per-frame overhead during composition. For static clips (like text generated via PIL), performing the rotation once within the PIL generation phase (using `img.rotate(..., expand=True)`) and then creating the `ImageClip` results in a ~90x speedup for that clip's rendering path.
 **Action:** Always offload static rotations to the PIL-based image generation phase instead of using MoviePy's transformation methods.
+
+## 2026-04-13 - Overlay Dimension Reduction
+**Learning:** In MoviePy 1.x, the cost of compositing and frame generation is proportional to the size of the constituent clips, even if they are mostly transparent. Creating overlays (like progress bars) that only cover their active area and positioning them via `.set_position()` is ~300x faster than generating full-screen frames with transparency.
+**Action:** Always minimize the bounding box of generated overlays and use MoviePy's positioning logic instead of full-frame drawing.
