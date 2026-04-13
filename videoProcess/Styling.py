@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 if not hasattr(Image, "ANTIALIAS"):
     Image.ANTIALIAS = Image.LANCZOS
 
-from moviepy.editor import ColorClip, ImageClip, CompositeVideoClip
+from moviepy.editor import ColorClip, ImageClip, CompositeVideoClip, VideoClip
 
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
@@ -308,8 +308,6 @@ def create_noise_overlay(size, duration, opacity=0.12):
         NOISE_POOL_CACHE[size_tuple] = pool
 
     # Robust fix for MoviePy 1.0.3: Assign size directly to bypass VideoClip inheritance issues
-    from moviepy.editor import VideoClip
-
     def make_frame(t):
         idx = int(t * 24) % 24
         return pool[idx]
@@ -551,34 +549,32 @@ def create_hook_clip(
 
 
 def create_progress_bar(size, duration, color=(0, 255, 0), height=8):
-    """Creates a modern neon progress bar at the bottom of the video (2026 trend)."""
+    """Creates a modern neon progress bar at the bottom of the video (2026 trend).
+    Performance: Creates a small clip instead of a full-screen one to reduce composition overhead.
+    """
     w, h = size
+    # Create a bar that is only as high as needed
+    bar_clip = ColorClip(size=(w, height), color=color).set_duration(duration)
 
-    def make_frame(t):
-        # Create a black frame with 0 alpha (transparent)
-        frame = np.zeros((h, w, 3), dtype="uint8")
-        progress = min(t / duration, 1.0)
-        bar_w = int(w * progress)
-        if bar_w > 0:
-            # Draw progress bar at the very bottom
-            frame[h - height : h, 0:bar_w] = color
-        return frame
+    # Pre-calculate constants for the temporal lambda
+    inv_duration = 1.0 / max(duration, 0.001)
 
     def make_mask(t):
-        mask = np.zeros((h, w), dtype="float32")
-        progress = min(t / duration, 1.0)
+        progress = min(t * inv_duration, 1.0)
+        # Only allocate for the bar's size
+        mask = np.zeros((height, w), dtype="float32")
         bar_w = int(w * progress)
         if bar_w > 0:
-            mask[h - height : h, 0:bar_w] = 1.0
+            mask[:, 0:bar_w] = 1.0
         return mask
 
-    from moviepy.editor import VideoClip
+    mask_clip = VideoClip(make_mask, ismask=True, duration=duration)
+    mask_clip.size = (w, height)
+    bar_clip = bar_clip.set_mask(mask_clip)
 
-    bar_clip = VideoClip(make_frame, duration=duration).set_mask(
-        VideoClip(make_mask, ismask=True, duration=duration)
-    )
-    bar_clip.size = (w, h)
-    return bar_clip
+    # Position it at the bottom of the original video size
+    # Performance: Static position is much faster than lambda in MoviePy 1.x
+    return bar_clip.set_position(("center", h - height))
 
 
 def apply_dynamic_cuts(clip, segment_duration=3.0):
