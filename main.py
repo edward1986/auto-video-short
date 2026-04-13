@@ -537,7 +537,7 @@ try:
             video_clip.size,
             highlight_word=word,
             phrase_mode=True,
-            y_pos=0.55,
+            y_pos=0.50,  # 2026 Style: Centered within safe margins
         )
     else:
         # Fallback to modern captions even if whisper fails (simulated word timestamps)
@@ -553,7 +553,7 @@ try:
             video_clip.size,
             highlight_word=word,
             phrase_mode=True,
-            y_pos=0.55,
+            y_pos=0.50,  # 2026 Style: Centered within safe margins
         )
 
     final = CompositeVideoClip(

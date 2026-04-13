@@ -1,4 +1,5 @@
-moviepy
+moviepy==1.0.3
+numpy==1.26.4
 boto3
 python-dotenv
 pyfiglet
@@ -8,3 +9,6 @@ Pillow>=10.1.0
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+pytest
+ruff
+black
