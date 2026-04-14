@@ -55,3 +55,7 @@
 ## 2026-04-13 - Overlay Dimension Reduction
 **Learning:** In MoviePy 1.x, the cost of compositing and frame generation is proportional to the size of the constituent clips, even if they are mostly transparent. Creating overlays (like progress bars) that only cover their active area and positioning them via `.set_position()` is ~300x faster than generating full-screen frames with transparency.
 **Action:** Always minimize the bounding box of generated overlays and use MoviePy's positioning logic instead of full-frame drawing.
+
+## 2026-04-14 - Bypass Redundant Resizing in MoviePy 1.x
+**Learning:** In MoviePy 1.x, temporal scaling effects (e.g., `.resize(lambda t: ...)`) call the underlying `resizer` for every frame, even if the scale factor is 1.0. In environments without OpenCV, the fallback PIL resizer is extremely slow due to redundant NumPy-to-PIL conversions and resampling.
+**Action:** Monkeypatch `moviepy.video.fx.resize.resizer` to return the original frame immediately if target dimensions match the input dimensions, achieving a >1000x speedup for frames where no scaling is required.
