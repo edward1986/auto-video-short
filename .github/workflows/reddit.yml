@@ -26,7 +26,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.12'
 
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -38,7 +38,11 @@ jobs:
           pip install python-dotenv
           sudo apt-get install -y imagemagick
           pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
-          pip install praw requests moviepy==1.0.3
+          pip install praw requests moviepy==1.0.3 numpy==1.26.4 Pillow>=10.1.0
+      - name: Patch MoviePy for Pillow 10+
+        run: |
+          PYTHON_SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+          sudo find $PYTHON_SITE -name resize.py -exec sed -i 's/Image.ANTIALIAS/Image.LANCZOS/g' {} +
       - name: Update ImageMagick policy
         run: |
           if [ -f /etc/ImageMagick-7/policy.xml ]; then

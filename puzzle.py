@@ -17,6 +17,7 @@ from videoProcess.Styling import (
     apply_slide_in,
     darken_clip,
     apply_zoom,
+    create_flash_transition,
 )
 
 from board import *  # noqa: F403
@@ -37,19 +38,16 @@ def produce_short(
     resolution = (1080, 1920)
 
     # Puzzle question text - 2026 Style
-    question_text = (
-        get_text_clip(
-            "Can you find the brilliant move?".upper(),
-            font=font,
-            fontsize=100,
-            color="white",
-            stroke_color="black",
-            stroke_width=4,
-            size=(900, None),
-            align="center",
-        )
-        .set_duration(clip_durations["puzzle"])
-    )
+    question_text = get_text_clip(
+        "Can you find the brilliant move?".upper(),
+        font=font,
+        fontsize=100,
+        color="white",
+        stroke_color="black",
+        stroke_width=4,
+        size=(900, None),
+        align="center",
+    ).set_duration(clip_durations["puzzle"])
     question_text = apply_slide_in(
         question_text, duration=0.5, direction="bottom", final_pos=("center", 0.55)
     )
@@ -233,6 +231,9 @@ def produce_short(
     )
     vignette_overlay = create_vignette(resolution, full_duration, opacity=0.5)
 
+    # 2026 Style: White flash transition at the start of the solution
+    flash = create_flash_transition(resolution).set_start(clip_durations["puzzle"])
+
     # Background music
     music_start_time = max(0.01, music_drop_time - clip_durations["puzzle"])
     music_clip = volumex(
@@ -261,6 +262,7 @@ def produce_short(
             question_text,
             *countdown_texts,
             solution_text,
+            flash,
             *board_clips,
             *line_board_clips,
         ],

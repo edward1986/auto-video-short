@@ -212,7 +212,9 @@ def produce_short(
             )
             .set_start(i)
             .set_duration(1)
-            .set_position(("center", 0.65), relative=True)  # Strictly within 2026 safe margins
+            .set_position(
+                ("center", 0.65), relative=True
+            )  # Strictly within 2026 safe margins
         )
         # Pulse every second
         countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.4)
