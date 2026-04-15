@@ -9,6 +9,7 @@ if not hasattr(Image, "ANTIALIAS"):
     Image.ANTIALIAS = Image.LANCZOS
 
 import moviepy.video.fx.resize as resize_module
+import moviepy.video.fx.all as vfx
 
 # Performance: Monkeypatch MoviePy's resizer to bypass PIL/OpenCV overhead when size hasn't changed.
 # This provides a ~3000x speedup for frames where temporal scaling (like pop/zoom) evaluates to 1.0.
@@ -673,7 +674,7 @@ def apply_dynamic_cuts(clip, segment_duration=3.0):
         # Alternating effects for 'dynamic' feel
         if i % 2 == 1:
             # Flip horizontally
-            segment = segment.fx(lambda c: c.margin(left=0).mirror_x())
+            segment = segment.margin(left=0).fx(vfx.mirror_x)
 
         if i % 3 == 0:
             # Subtle extra zoom + ensure size matches original for clean concatenation
