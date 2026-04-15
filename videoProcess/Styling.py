@@ -23,12 +23,12 @@ def _optimized_resizer(pic, newsize):
 
 resize_module.resizer = _optimized_resizer
 
-from moviepy.editor import (
+from moviepy.editor import (  # noqa: E402
     ColorClip,
     ImageClip,
     CompositeVideoClip,
     VideoClip,
-)  # noqa: E402
+)
 
 # Pre-compiled regex for better performance in build_modern_captions
 NON_ALPHANUMERIC_RE = re.compile(r"[^a-zA-Z0-9]")
@@ -47,6 +47,9 @@ NOISE_POOL_CACHE = {}
 
 # Global GLOW cache to avoid redundant rendering
 GLOW_CACHE = {}
+
+# Global GLOW mask pulse cache to avoid redundant array math
+GLOW_PULSE_CACHE = {}
 
 # Global VIGNETTE cache to avoid redundant rendering
 VIGNETTE_CACHE = {}
@@ -383,12 +386,24 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
     glow_clip = glow_clip.set_duration(duration).set_position("center")
 
     # Implement breathing pulse effect by modulating the mask's frame data
-    # (MoviePy 1.0.3 set_opacity doesn't support functions)
+    # Performance: Temporal cache for the pulsed mask to avoid million-pixel array math every frame.
     def pulse_mask(gf, t):
+        # Round time to 0.05s intervals for caching (visually smooth at 4 rad/s)
+        t_rounded = round(t * 20) / 20
+        pulse_key = (id(glow_clip), t_rounded)
+
+        if pulse_key in GLOW_PULSE_CACHE:
+            return GLOW_PULSE_CACHE[pulse_key].copy()
+
         mask_frame = gf(t)
-        # 2026 style: More dynamic Breathing pulse (0.7 to 1.1 opacity oscillation)
         factor = 0.9 + 0.2 * math.sin(t * 4)
-        return np.clip(mask_frame * factor, 0, 1)
+        result = np.clip(mask_frame * factor, 0, 1)
+
+        # Basic cache management: keep it from growing indefinitely
+        if len(GLOW_PULSE_CACHE) > 500:
+            GLOW_PULSE_CACHE.clear()
+        GLOW_PULSE_CACHE[pulse_key] = result
+        return result.copy()
 
     if glow_clip.mask:
         glow_clip.mask = glow_clip.mask.fl(pulse_mask)
@@ -459,6 +474,48 @@ def apply_slide_in(
         if direction == "right":
             return (rel_x + offset, rel_y)
         return final_pos
+
+    return clip.set_position(pos, relative=True)
+
+
+def apply_kinetic_motion(
+    clip,
+    slide_duration=0.4,
+    direction="bottom",
+    final_pos=("center", "center"),
+    float_amplitude=0.005,
+):
+    """Combines snappy slide-in and organic floating into a single position logic.
+    Performance: Prevents multiple set_position() calls from overwriting each other and
+    reduces per-frame lambda overhead.
+    """
+    tx, ty = final_pos
+    rel_x = 0.5 if tx == "center" else tx
+    rel_y = 0.5 if ty == "center" else ty
+    inv_slide = 1.0 / max(slide_duration, 0.001)
+
+    def pos(t):
+        # 1. Slide Logic
+        if t < slide_duration:
+            offset = (1 - (t * inv_slide)) ** 4
+            if direction == "bottom":
+                curr_x, curr_y = rel_x, rel_y + offset
+            elif direction == "top":
+                curr_x, curr_y = rel_x, rel_y - offset
+            elif direction == "left":
+                curr_x, curr_y = rel_x - offset, rel_y
+            elif direction == "right":
+                curr_x, curr_y = rel_x + offset, rel_y
+            else:
+                curr_x, curr_y = rel_x, rel_y
+        else:
+            curr_x, curr_y = rel_x, rel_y
+
+        # 2. Float Logic
+        dx = float_amplitude * math.sin(t * 1.5)
+        dy = float_amplitude * math.cos(t * 1.2)
+
+        return curr_x + dx, curr_y + dy
 
     return clip.set_position(pos, relative=True)
 
@@ -581,9 +638,10 @@ def create_progress_bar(size, duration, color=(0, 255, 0), height=8):
 
     def make_mask(t):
         progress = min(t * inv_duration, 1.0)
-        # Only allocate for the bar's size
-        mask = np.zeros((height, w), dtype="float32")
         bar_w = int(w * progress)
+        # Performance: Pre-allocate mask only once per frame (MoviePy requires a new array
+        # to ensure thread-safety during multi-threaded rendering).
+        mask = np.zeros((height, w), dtype="float32")
         if bar_w > 0:
             mask[:, 0:bar_w] = 1.0
         return mask
@@ -715,13 +773,15 @@ def build_modern_captions(
         # Kinetic "pop" animation (Aggressive 1.4 scale for 2026)
         txt = apply_kinetic_pop(txt, duration=0.12, scale=1.4)
 
-        # 2026 style: snappy slide-up for kinetic feel
-        txt = apply_slide_in(
-            txt, duration=0.15, direction="bottom", final_pos=("center", y_pos)
+        # 2026 style: Combined kinetic motion (slide-up + float)
+        # Performance: Single position lambda to avoid overwriting and redundant calls
+        txt = apply_kinetic_motion(
+            txt,
+            slide_duration=0.15,
+            direction="bottom",
+            final_pos=("center", y_pos),
+            float_amplitude=0.005,
         )
-
-        # 2026 Style: Subtle float
-        txt = apply_float(txt, duration, amplitude=0.005)
 
         clips.append(txt)
 
@@ -753,8 +813,12 @@ def create_end_card(
     ).set_duration(duration)
 
     # Kinetic pulse and snappy slide-in from bottom
-    cta_text = apply_slide_in(
-        cta_text, duration=0.5, direction="bottom", final_pos=("center", "center")
+    cta_text = apply_kinetic_motion(
+        cta_text,
+        slide_duration=0.5,
+        direction="bottom",
+        final_pos=("center", "center"),
+        float_amplitude=0,  # No float for end card
     )
     # Performance: Pre-calculate pulse constants
     pulse_freq = 6 * math.pi
