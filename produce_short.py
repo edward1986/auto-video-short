@@ -69,8 +69,11 @@ def produce_short(
     print(f"Answers: {question['answers']}")
     print(f"Correct Answer Index: {question['correct']}")
 
-    # ✅ Load background and music once to avoid repeated file I/O
-    bg_clip = editor.VideoFileClip(background, target_resolution=(1920, None))
+    # ✅ Load background (without audio) and music once to avoid repeated file I/O
+    # Loading with audio=False prevents duration mismatch issues when using subclip/cutout
+    bg_clip = editor.VideoFileClip(
+        background, audio=False, target_resolution=(1920, None)
+    )
     audio_clip = editor.AudioFileClip(music)
 
     background_duration = bg_clip.duration
@@ -79,9 +82,11 @@ def produce_short(
     q_dur = clip_durations["question"]
     a_dur = clip_durations["answer"]
 
-    bg_segment = bg_clip.cutout(
-        0, max(1, round(background_duration) - 65)
-    ).set_position(("center", "center"))
+    # Use robust subclip logic to select the last part of the background video
+    # This avoids the ValueError caused by negative durations in MoviePy's cutout/subclip.
+    bg_segment = bg_clip.subclip(max(0, background_duration - 65)).set_position(
+        ("center", "center")
+    )
 
     # Segment 1: Question (Slow zoom in + Darken for contrast)
     bg_q = resize(bg_segment.subclip(0, q_dur), height=1920)
@@ -106,8 +111,9 @@ def produce_short(
         1, min(available_music_time, randint(1, int(available_music_time)))
     )
 
+    # Use subclip instead of cutout for better reliability
     music_track = volumex(
-        audio_clip.cutout(0, music_start_time).set_end(full_question_duration),
+        audio_clip.subclip(music_start_time, music_start_time + full_question_duration),
         0.6,
     )
 
