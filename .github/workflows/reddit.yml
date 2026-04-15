@@ -38,7 +38,7 @@ jobs:
           pip install python-dotenv
           sudo apt-get install -y imagemagick
           pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
-          pip install praw requests moviepy==1.0.3 numpy==1.26.4 Pillow>=10.1.0
+          pip install praw requests moviepy==1.0.3 "numpy>=1.26.0,<2.0.0" "Pillow>=10.1.0"
       - name: Patch MoviePy for Pillow 10+
         run: |
           PYTHON_SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")

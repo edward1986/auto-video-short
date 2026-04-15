@@ -24,15 +24,14 @@ jobs:
 
       - name: Ensure Virtual Environment Exists
         run: |
-          if [ ! -d "venv" ]; then
-            python3 -m venv venv  # ✅ Create venv only if missing
-          fi
+          rm -rf venv
+          python -m venv venv
 
       - name: Reinstall Dependencies Inside venv
         run: |
           source venv/bin/activate  # ✅ Activate venv
           python -m pip install --upgrade pip
-          python -m pip install --no-cache-dir --force-reinstall moviepy==1.0.3 numpy==1.26.4 imageio imageio[ffmpeg] Pillow>=10.1.0
+          python -m pip install --no-cache-dir --force-reinstall moviepy==1.0.3 "numpy>=1.26.0,<2.0.0" imageio imageio[ffmpeg] "Pillow>=10.1.0"
           pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
           pip install oauth2client boto3 python-dotenv pyfiglet transformers gtts
       - name: Install ImageMagick

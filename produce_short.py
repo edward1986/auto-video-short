@@ -76,20 +76,23 @@ def produce_short(
     )
     audio_clip = editor.AudioFileClip(music)
 
+    # Ensure background is at least as long as our total duration
+    if bg_clip.duration < full_question_duration:
+        bg_clip = bg_clip.loop(duration=full_question_duration)
+
     background_duration = bg_clip.duration
     # 2026 Style: Dynamic "Jump-Zoom" Background
     # We split the background into two segments to create a clean 'cut' reset during the reveal
     q_dur = clip_durations["question"]
     a_dur = clip_durations["answer"]
 
-    # Use robust subclip logic to select the last part of the background video
-    # This avoids the ValueError caused by negative durations in MoviePy's cutout/subclip.
-    bg_segment = bg_clip.subclip(max(0, background_duration - 65)).set_position(
-        ("center", "center")
-    )
+    # Use robust subclip logic to select a segment from the background video.
+    # We take it from the end of the clip for variety, ensuring it's at least 65s if possible.
+    segment_start = max(0, background_duration - 65)
+    bg_segment = bg_clip.subclip(segment_start).set_position(("center", "center"))
 
     # Segment 1: Question (Slow zoom in + Darken for contrast)
-    bg_q = resize(bg_segment.subclip(0, q_dur), height=1920)
+    bg_q = resize(bg_segment.subclip(0, min(bg_segment.duration, q_dur)), height=1920)
     bg_q = apply_zoom(bg_q, q_dur, start_scale=1.0, end_scale=1.15)
     bg_q = darken_clip(bg_q, factor=0.45)
 
@@ -105,17 +108,21 @@ def produce_short(
     # 2026 Style: Apply dynamic cuts for "fast clean cuts" feel
     background_clip = apply_dynamic_cuts(background_clip, segment_duration=2.5)
 
+    # Ensure music is long enough
+    if audio_clip.duration < full_question_duration:
+        audio_clip = audio_clip.loop(duration=full_question_duration)
+
     music_duration = audio_clip.duration
-    available_music_time = max(1, music_duration - full_question_duration)
-    music_start_time = max(
-        1, min(available_music_time, randint(1, int(available_music_time)))
+    available_music_time = max(0, music_duration - full_question_duration)
+    music_start_time = (
+        randint(0, int(available_music_time)) if available_music_time > 0 else 0
     )
 
     # Use subclip instead of cutout for better reliability
     music_track = volumex(
         audio_clip.subclip(music_start_time, music_start_time + full_question_duration),
         0.6,
-    )
+    ).set_duration(full_question_duration)
 
     # Overlays - 2026 style (Noise/Grain, Gradient Glow, and Vignette)
     noise_overlay = create_noise_overlay(
