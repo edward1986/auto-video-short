@@ -59,3 +59,7 @@
 ## 2026-04-14 - Bypass Redundant Resizing in MoviePy 1.x
 **Learning:** In MoviePy 1.x, temporal scaling effects (e.g., `.resize(lambda t: ...)`) call the underlying `resizer` for every frame, even if the scale factor is 1.0. In environments without OpenCV, the fallback PIL resizer is extremely slow due to redundant NumPy-to-PIL conversions and resampling.
 **Action:** Monkeypatch `moviepy.video.fx.resize.resizer` to return the original frame immediately if target dimensions match the input dimensions, achieving a >1000x speedup for frames where no scaling is required.
+
+## 2025-05-26 - Motion Layering and Thread-Safe Caching
+**Learning:** In MoviePy 1.x, calling `.set_position()` multiple times on the same clip overwrites the `pos` attribute, causing earlier animations (like slide-ins) to be lost if a later effect (like float) is applied. Consolidating motion logic into a single `apply_kinetic_motion` lambda ensures all transformations coexist. Additionally, when implementing temporal caching for heavy per-frame mask math (e.g. pulse effects), always return `.copy()` of NumPy arrays and avoid shared mutable buffers (like pre-allocated arrays) to ensure thread-safety during multi-threaded rendering with `write_videofile`.
+**Action:** Consolidate multiple positioning effects into a single lambda. Always return deep copies of cached clips and frames to prevent cross-thread state corruption.
