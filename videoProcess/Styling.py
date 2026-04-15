@@ -28,6 +28,7 @@ from moviepy.editor import (  # noqa: E402
     ImageClip,
     CompositeVideoClip,
     VideoClip,
+    vfx,
 )
 
 # Pre-compiled regex for better performance in build_modern_captions
@@ -673,7 +674,7 @@ def apply_dynamic_cuts(clip, segment_duration=3.0):
         # Alternating effects for 'dynamic' feel
         if i % 2 == 1:
             # Flip horizontally
-            segment = segment.fx(lambda c: c.margin(left=0).mirror_x())
+            segment = segment.fx(vfx.mirror_x)
 
         if i % 3 == 0:
             # Subtle extra zoom + ensure size matches original for clean concatenation
