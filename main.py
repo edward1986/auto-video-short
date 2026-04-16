@@ -568,6 +568,7 @@ try:
         ]
         + text_clips,
         size=video_clip.size,
+        use_bgclip=True,
     )
 
     # Branded end card (2.5 seconds)
