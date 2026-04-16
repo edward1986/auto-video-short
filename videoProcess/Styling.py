@@ -726,6 +726,9 @@ def build_modern_captions(
     else:
         process_items = words
 
+    # Performance: Pre-calculate common constants for the loop
+    caption_width = video_size[0] * 0.8
+
     for item in process_items:
         word = str(item.get("word", "")).strip()
         start = float(item.get("start", 0))
@@ -758,7 +761,7 @@ def build_modern_captions(
                 font=font,
                 stroke_color="black",
                 stroke_width=6,
-                size=(video_size[0] * 0.8, None),
+                size=(caption_width, None),
                 align="center",
                 shadow_color="black",
                 shadow_offset=(6, 6),
@@ -828,4 +831,6 @@ def create_end_card(
         lambda t: 1.0 + 0.1 * math.exp(-3 * t) * math.sin(pulse_freq * t)
     )
 
-    return CompositeVideoClip([cta_bg, glow, cta_text], size=video_size)
+    return CompositeVideoClip(
+        [cta_bg, glow, cta_text], size=video_size, use_bgclip=True
+    )

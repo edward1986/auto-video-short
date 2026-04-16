@@ -203,7 +203,9 @@ for video_file, comment, title in video_items:
         flash = create_flash_transition(resolution, duration=0.2)
 
         composite = CompositeVideoClip(
-            [clip, glow, noise, vignette, comment_clip, flash], size=resolution
+            [clip, glow, noise, vignette, comment_clip, flash],
+            size=resolution,
+            use_bgclip=True,
         )
         clips.append(composite)
     except Exception as e:

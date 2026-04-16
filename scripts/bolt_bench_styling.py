@@ -5,13 +5,11 @@ from moviepy.editor import ColorClip, CompositeVideoClip
 from videoProcess.Styling import (
     apply_kinetic_motion,
     create_gradient_glow,
-    create_progress_bar,
-    get_text_clip
+    create_progress_bar
 )
 
 def verify_animation_fix():
     print("--- Verifying Animation Fix ---")
-    resolution = (1080, 1920)
     clip = ColorClip((100, 100), color=(255, 0, 0)).set_duration(1)
 
     # Apply combined motion

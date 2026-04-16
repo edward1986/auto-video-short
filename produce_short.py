@@ -261,7 +261,7 @@ def produce_short(
 
     # ✅ Combine all clips
     result: editor.CompositeVideoClip = editor.CompositeVideoClip(
-        clips, size=resolution
+        clips, size=resolution, use_bgclip=True
     ).set_audio(music_track)
 
     # Branded end card (2.5 seconds)
