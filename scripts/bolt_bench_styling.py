@@ -5,8 +5,9 @@ from moviepy.editor import ColorClip, CompositeVideoClip
 from videoProcess.Styling import (
     apply_kinetic_motion,
     create_gradient_glow,
-    create_progress_bar
+    create_progress_bar,
 )
+
 
 def verify_animation_fix():
     print("--- Verifying Animation Fix ---")
@@ -18,7 +19,7 @@ def verify_animation_fix():
         slide_duration=0.4,
         direction="bottom",
         final_pos=("center", 0.7),
-        float_amplitude=0.01
+        float_amplitude=0.01,
     )
 
     # Check pos at t=0 (should be slide offset + float offset)
@@ -40,7 +41,10 @@ def verify_animation_fix():
     if abs(pos1[0] - expected_x) < 1e-5 and abs(pos1[1] - expected_y) < 1e-5:
         print("FIX VERIFIED: apply_kinetic_motion correctly combines slide and float.")
     else:
-        print(f"Fix failed or logic mismatch. Expected ({expected_x}, {expected_y}), got {pos1}")
+        print(
+            f"Fix failed or logic mismatch. Expected ({expected_x}, {expected_y}), got {pos1}"
+        )
+
 
 def bench_effects():
     print("\n--- Benchmarking Optimized Styling Effects ---")
@@ -59,7 +63,7 @@ def bench_effects():
         for t in np.linspace(0, duration, 100):
             _ = glow.mask.get_frame(t)
         end = time.perf_counter()
-        print(f"Glow mask get_frame (cached): {(end - start)/100:.6f}s per frame")
+        print(f"Glow mask get_frame (cached): {(end - start) / 100:.6f}s per frame")
     else:
         print("No mask on glow.")
 
@@ -71,7 +75,7 @@ def bench_effects():
         for t in np.linspace(0, duration, 100):
             _ = pbar.mask.get_frame(t)
         end = time.perf_counter()
-        print(f"Progress Bar mask get_frame: {(end - start)/100:.6f}s per frame")
+        print(f"Progress Bar mask get_frame: {(end - start) / 100:.6f}s per frame")
     else:
         print("No mask on pbar.")
 
@@ -82,7 +86,8 @@ def bench_effects():
     for t in np.linspace(0, 1, 10):
         _ = cvc.get_frame(t)
     end = time.perf_counter()
-    print(f"Composite get_frame: {(end - start)/10:.6f}s per frame")
+    print(f"Composite get_frame: {(end - start) / 10:.6f}s per frame")
+
 
 if __name__ == "__main__":
     try:
@@ -91,4 +96,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Benchmark failed: {e}")
         import traceback
+
         traceback.print_exc()
