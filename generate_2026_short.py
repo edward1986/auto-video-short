@@ -72,21 +72,20 @@ def generate():
     flash = create_flash_transition(resolution).set_start(2.0)
 
     # 4. Content - Hook, Captions
+    # 2026 Hook Strategy: Strong visual + text hook (0-2s)
     hook = create_hook_clip(
-        "THE FUTURE IS HERE", video_size=resolution, duration=2.0, font=font_path
+        "YOU'RE NOT READY", video_size=resolution, duration=2.0, font=font_path
     )
 
     # Script for captions
-    # Core Message (3-10s)
-    # Reinforcement (10-15s)
+    # Core Message (3-10s): Large kinetic typography, bold, minimal.
+    # Reinforcement (10-15s): Highlight key words.
     script_data = [
         {"word": "2026", "start": 3.0, "end": 4.0},
-        {"word": "DESIGN", "start": 4.0, "end": 5.0},
-        {"word": "STYLE", "start": 5.0, "end": 6.0},
-        {"word": "IS", "start": 6.0, "end": 6.5},
-        {"word": "BOLD.", "start": 6.5, "end": 7.5},
-        {"word": "MINIMAL.", "start": 7.5, "end": 8.5},
-        {"word": "KINETIC.", "start": 8.5, "end": 10.0},
+        {"word": "DESIGN.", "start": 4.0, "end": 5.0},
+        {"word": "MINIMAL.", "start": 5.0, "end": 6.0},
+        {"word": "BOLD.", "start": 6.0, "end": 7.5},
+        {"word": "KINETIC.", "start": 7.5, "end": 10.0},
         {"word": "SCROLL-STOPPING", "start": 10.0, "end": 11.5},
         {"word": "VISUALS.", "start": 11.5, "end": 13.0},
         {"word": "PREMIUM", "start": 13.0, "end": 14.0},
@@ -110,6 +109,7 @@ def generate():
     )
 
     # 6. End Card
+    # Branded outro with CTA
     end_card = create_end_card(
         resolution, duration=end_card_duration, text="FOLLOW FOR MORE", font=font_path
     )
