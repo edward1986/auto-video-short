@@ -62,6 +62,22 @@ VIGNETTE_CACHE = {}
 # Global PBAR_MASK cache to avoid redundant mask allocations
 PBAR_MASK_CACHE = {}
 
+# Performance: Pre-defined set for faster keyword filtering in get_text_clip
+SUPPORTED_TEXT_KWARGS = {
+    "fontsize",
+    "color",
+    "font",
+    "stroke_color",
+    "stroke_width",
+    "size",
+    "align",
+    "shadow_color",
+    "shadow_offset",
+    "box_color",
+    "box_padding",
+    "rotation",
+}
+
 
 def _get_text_size(text, font):
     """Helper to get text dimensions across PIL versions."""
@@ -113,12 +129,13 @@ def get_pil_text_clip(
 
         if target_width:
             wrapped_lines = []
+            has_getlength = hasattr(pil_font, "getlength")
             for line in text.split("\n"):
                 words = line.split(" ")
                 current_line = []
                 for word in words:
                     test_line = " ".join(current_line + [word])
-                    if hasattr(pil_font, "getlength"):
+                    if has_getlength:
                         w = pil_font.getlength(test_line)
                     else:
                         w, _ = _get_text_size(test_line, pil_font)
@@ -234,30 +251,16 @@ def get_pil_text_clip(
 
 def get_text_clip(text, **kwargs):
     """Retrieves a cached text clip or creates a new one using PIL."""
-    # Filter out MoviePy-specific kwargs that PIL renderer doesn't use directly
-    supported_kwargs = [
-        "fontsize",
-        "color",
-        "font",
-        "stroke_color",
-        "stroke_width",
-        "size",
-        "align",
-        "shadow_color",
-        "shadow_offset",
-        "box_color",
-        "box_padding",
-        "rotation",
-    ]
-    filtered_kwargs = {k: v for k, v in kwargs.items() if k in supported_kwargs}
+    # Performance: O(1) filtering using pre-defined module set
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k in SUPPORTED_TEXT_KWARGS}
 
-    # Convert tuple/list params to tuple for hashing
+    # Normalize values for hashing (lists/tuples to tuples)
     for k, v in filtered_kwargs.items():
         if isinstance(v, (list, tuple)):
             filtered_kwargs[k] = tuple(v)
 
-    sorted_params = sorted(filtered_kwargs.items())
-    cache_key = (text, tuple(sorted_params))
+    # Performance: Use frozenset of items for faster hashing than sorted tuple
+    cache_key = (text, frozenset(filtered_kwargs.items()))
 
     if cache_key in TEXT_CLIP_CACHE:
         return TEXT_CLIP_CACHE[cache_key].copy()
@@ -401,7 +404,7 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
         pulse_key = (id(glow_clip), t_rounded)
 
         if pulse_key in GLOW_PULSE_CACHE:
-            return GLOW_PULSE_CACHE[pulse_key].copy()
+            return GLOW_PULSE_CACHE[pulse_key]
 
         mask_frame = gf(t)
         factor = 0.9 + 0.2 * math.sin(t * 4)
@@ -411,7 +414,7 @@ def create_gradient_glow(size, duration, color=(200, 200, 255), opacity=0.2):
         if len(GLOW_PULSE_CACHE) > 500:
             GLOW_PULSE_CACHE.clear()
         GLOW_PULSE_CACHE[pulse_key] = result
-        return result.copy()
+        return result
 
     if glow_clip.mask:
         glow_clip.mask = glow_clip.mask.fl(pulse_mask)
@@ -501,6 +504,25 @@ def apply_kinetic_motion(
     rel_x = 0.5 if tx == "center" else tx
     rel_y = 0.5 if ty == "center" else ty
     inv_slide = 1.0 / max(slide_duration, 0.001)
+
+    # Performance: Optimization for static positions (no float)
+    if float_amplitude == 0:
+
+        def pos_no_float(t):
+            if t >= slide_duration:
+                return rel_x, rel_y
+            offset = (1 - (t * inv_slide)) ** 4
+            if direction == "bottom":
+                return rel_x, rel_y + offset
+            if direction == "top":
+                return rel_x, rel_y - offset
+            if direction == "left":
+                return rel_x - offset, rel_y
+            if direction == "right":
+                return rel_x + offset, rel_y
+            return rel_x, rel_y
+
+        return clip.set_position(pos_no_float, relative=True)
 
     def pos(t):
         # 1. Slide Logic
