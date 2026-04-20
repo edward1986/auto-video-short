@@ -129,20 +129,20 @@ for post in new:
         break
     print("Post title:", post.title, flush=True)
 
-    # Retrieve top comment
-    try:
-        post.comments.replace_more(limit=0)
-        if post.comments:
-            top_comment = post.comments[0].body
-        else:
-            top_comment = "No comments available."
-    except Exception:
-        top_comment = "Error retrieving comment."
-
     # Process only video posts
     if post.is_video and post.media and "reddit_video" in post.media:
         video_url = post.media["reddit_video"].get("fallback_url")
         if video_url:
+            # Performance: Retrieve top comment only for video posts to avoid redundant API calls.
+            try:
+                post.comments.replace_more(limit=0)
+                if post.comments:
+                    top_comment = post.comments[0].body
+                else:
+                    top_comment = "No comments available."
+            except Exception:
+                top_comment = "Error retrieving comment."
+
             try:
                 reqDWN = requests.get(video_url)
                 video_filename = os.path.join(
