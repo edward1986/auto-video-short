@@ -135,17 +135,22 @@ def get_pil_text_clip(
             FONT_CACHE[font_key] = pil_font
 
         if target_width:
+            # Performance: Cache the measurement function once per layout call to avoid
+            # repeated attribute lookups and conditional branching inside the inner word loop.
+            if hasattr(pil_font, "getlength"):
+                measure_width = pil_font.getlength
+            else:
+
+                def measure_width(t):
+                    return _get_text_size(t, pil_font)[0]
+
             wrapped_lines = []
-            has_getlength = hasattr(pil_font, "getlength")
             for line in text.split("\n"):
                 words = line.split(" ")
                 current_line = []
                 for word in words:
                     test_line = " ".join(current_line + [word])
-                    if has_getlength:
-                        w = pil_font.getlength(test_line)
-                    else:
-                        w, _ = _get_text_size(test_line, pil_font)
+                    w = measure_width(test_line)
 
                     if w > target_width and current_line:
                         wrapped_lines.append(" ".join(current_line))
