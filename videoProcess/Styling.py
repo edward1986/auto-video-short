@@ -17,12 +17,23 @@ _original_resizer = resize_module.resizer
 
 
 def _optimized_resizer(pic, newsize):
+    """Optimized resizer that bypasses heavy processing if the size hasn't changed."""
+    if newsize == 1.0 or newsize == 1:
+        return pic
+
     try:
-        if (int(newsize[0]), int(newsize[1])) == (pic.shape[1], pic.shape[0]):
+        # Performance: Access shape once and avoid redundant tuple/list creation.
+        # Most common case: newsize is already exactly matching (e.g. from trans_newsize).
+        # We check direct equality first, then integer equality to match MoviePy's truncation.
+        ph, pw = pic.shape[0], pic.shape[1]
+        nw, nh = newsize[0], newsize[1]
+
+        if (nw == pw and nh == ph) or (int(nw) == pw and int(nh) == ph):
             return pic
     except (TypeError, IndexError, ValueError):
-        # Fallback for non-standard newsize formats (like floats or None)
+        # Fallback for non-indexable newsize formats or other unexpected types
         pass
+
     return _original_resizer(pic, newsize)
 
 
