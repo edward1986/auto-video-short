@@ -18,8 +18,10 @@ _original_resizer = resize_module.resizer
 
 def _optimized_resizer(pic, newsize):
     """Optimized resizer that bypasses heavy processing if the size hasn't changed."""
-    if newsize == 1.0 or newsize == 1:
-        return pic
+    # Performance: Temporal animations (zoom/pop) frequently pass a scalar ratio (int/float/np.float).
+    # We check for scalar types up-front to avoid a costly TypeError in the hot path.
+    if not hasattr(newsize, "__iter__"):
+        return pic if newsize == 1 else _original_resizer(pic, newsize)
 
     try:
         # Performance: Access shape once and avoid redundant tuple/list creation.
@@ -31,7 +33,7 @@ def _optimized_resizer(pic, newsize):
         if (nw == pw and nh == ph) or (int(nw) == pw and int(nh) == ph):
             return pic
     except (TypeError, IndexError, ValueError):
-        # Fallback for non-indexable newsize formats or other unexpected types
+        # Fallback for unexpected formats or types
         pass
 
     return _original_resizer(pic, newsize)
