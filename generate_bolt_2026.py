@@ -31,6 +31,7 @@ from videoProcess.Styling import (
     apply_shake,
 )
 
+
 def load_trivia():
     with open("questions.json", "r", encoding="utf-8") as file:
         data = json.load(file)
@@ -43,6 +44,7 @@ def load_trivia():
 
     return random.choice(all_questions)
 
+
 def generate():
     resolution = (1080, 1920)
     bg_path = "parkour.mp4"
@@ -53,7 +55,9 @@ def generate():
     # Robustness: Check if assets exist
     for path in [bg_path, audio_path, font_path, "questions.json"]:
         if not os.path.exists(path):
-            sys.exit(f"Error: Required asset '{path}' not found. Please ensure it exists in the root directory.")
+            sys.exit(
+                f"Error: Required asset '{path}' not found. Please ensure it exists in the root directory."
+            )
 
     question_data = load_trivia()
     print(f"Selected Question: {question_data['title']}")
@@ -107,40 +111,46 @@ def generate():
     )
 
     # Question Captions
-    raw_words = question_data['title'].split()
+    raw_words = question_data["title"].split()
     time_per_word = (q_dur - 2.0) / max(len(raw_words), 1)
     words_data = []
     for i, w in enumerate(raw_words):
-        words_data.append({
-            "word": w,
-            "start": 2.0 + (i * time_per_word),
-            "end": 2.0 + ((i + 1) * time_per_word)
-        })
+        words_data.append(
+            {
+                "word": w,
+                "start": 2.0 + (i * time_per_word),
+                "end": 2.0 + ((i + 1) * time_per_word),
+            }
+        )
 
     captions = build_modern_captions(
         words_data,
         resolution,
-        highlight_word="NOT", # Common trivia highlight
+        highlight_word="NOT",  # Common trivia highlight
         font=font_path,
         phrase_mode=True,
-        y_pos=0.2
+        y_pos=0.2,
     )
 
     # Answer Choices
     answer_clips = []
     labels = ["A", "B", "C", "D"]
-    for i, ans in enumerate(question_data['answers']):
+    for i, ans in enumerate(question_data["answers"]):
         target_y = 0.45 + (i * 0.08)
-        ans_clip = get_text_clip(
-            f"{labels[i]}: {ans}".upper(),
-            fontsize=80,
-            color="white",
-            font=font_path,
-            stroke_color="black",
-            stroke_width=4,
-            size=(900, None),
-            align="center"
-        ).set_start(3.0 + (i * 0.2)).set_duration(q_dur - (3.0 + (i * 0.2)))
+        ans_clip = (
+            get_text_clip(
+                f"{labels[i]}: {ans}".upper(),
+                fontsize=80,
+                color="white",
+                font=font_path,
+                stroke_color="black",
+                stroke_width=4,
+                size=(900, None),
+                align="center",
+            )
+            .set_start(3.0 + (i * 0.2))
+            .set_duration(q_dur - (3.0 + (i * 0.2)))
+        )
 
         ans_clip = ans_clip.set_position(("center", target_y), relative=True)
         ans_clip = apply_kinetic_pop(ans_clip, duration=0.2, scale=1.1)
@@ -148,29 +158,39 @@ def generate():
 
     # Correct Answer Reveal
     correct_text = f"CORRECT: {question_data['answers'][question_data['correct']]}"
-    reveal = get_text_clip(
-        correct_text.upper(),
-        fontsize=120,
-        color="#00FF00",
-        font=font_path,
-        stroke_color="black",
-        stroke_width=6,
-        size=(1000, None),
-        align="center"
-    ).set_start(q_dur).set_duration(a_dur).set_position("center")
+    reveal = (
+        get_text_clip(
+            correct_text.upper(),
+            fontsize=120,
+            color="#00FF00",
+            font=font_path,
+            stroke_color="black",
+            stroke_width=6,
+            size=(1000, None),
+            align="center",
+        )
+        .set_start(q_dur)
+        .set_duration(a_dur)
+        .set_position("center")
+    )
     reveal = apply_kinetic_pop(reveal, duration=0.4, scale=1.5)
     reveal = apply_shake(reveal, duration=0.5)
 
     # 5. Composite Main Segment
     main_video = CompositeVideoClip(
-        [bg_clip, glow, noise, vignette, hook, flash, progress_bar, reveal] + captions + answer_clips,
+        [bg_clip, glow, noise, vignette, hook, flash, progress_bar, reveal]
+        + captions
+        + answer_clips,
         size=resolution,
         use_bgclip=True,
     )
 
     # 6. End Card
     end_card = create_end_card(
-        resolution, duration=end_card_duration, text="SUBSCRIBE FOR MORE", font=font_path
+        resolution,
+        duration=end_card_duration,
+        text="SUBSCRIBE FOR MORE",
+        font=font_path,
     )
 
     # 7. Final Concatenation
@@ -189,10 +209,11 @@ def generate():
         codec="libx264",
         audio_codec="aac",
         threads=os.cpu_count() or 4,
-        preset="ultrafast", # Faster for this environment
+        preset="ultrafast",  # Faster for this environment
     )
 
     print(f"Video generated successfully: {output_path}")
+
 
 if __name__ == "__main__":
     generate()

@@ -21,7 +21,14 @@ def _optimized_resizer(pic, newsize):
     # Performance: Temporal animations (zoom/pop) frequently pass a scalar ratio (int/float/np.float).
     # We check for scalar types up-front to avoid a costly TypeError in the hot path.
     if not hasattr(newsize, "__iter__"):
-        return pic if newsize == 1 else _original_resizer(pic, newsize)
+        if newsize == 1:
+            return pic
+        ph, pw = pic.shape[0], pic.shape[1]
+        # Performance: Bypass resizing if the resulting integer dimensions are identical to the original.
+        # This occurs during high-frequency temporal scaling (zooms/pops) near 1.0.
+        if int(ph * newsize) == ph and int(pw * newsize) == pw:
+            return pic
+        return _original_resizer(pic, newsize)
 
     try:
         # Performance: Access shape once and avoid redundant tuple/list creation.
