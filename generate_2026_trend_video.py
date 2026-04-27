@@ -26,6 +26,7 @@ from videoProcess.Styling import (
     build_modern_captions,
 )
 
+
 def generate():
     print("Starting 2026 Trend Video Generation...")
     resolution = (1080, 1920)
@@ -132,6 +133,7 @@ def generate():
     )
 
     print(f"Video generated successfully: {output_path}")
+
 
 if __name__ == "__main__":
     generate()

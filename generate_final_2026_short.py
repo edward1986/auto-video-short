@@ -26,6 +26,7 @@ from videoProcess.Styling import (
     build_modern_captions,
 )
 
+
 def generate():
     resolution = (1080, 1920)
     bg_path = "parkour.mp4"
@@ -36,7 +37,9 @@ def generate():
     # Robustness: Check if assets exist (Address Code Review Feedback)
     for path in [bg_path, audio_path, font_path]:
         if not os.path.exists(path):
-            sys.exit(f"Error: Required asset '{path}' not found. Please ensure it exists in the root directory before running this generator.")
+            sys.exit(
+                f"Error: Required asset '{path}' not found. Please ensure it exists in the root directory before running this generator."
+            )
 
     # 1. Background and Audio Setup
     bg_clip = editor.VideoFileClip(
@@ -105,7 +108,7 @@ def generate():
         highlight_word="FUTURE",
         font=font_path,
         phrase_mode=True,
-        y_pos=0.55, # 2026 Safe Margin Requirement
+        y_pos=0.55,  # 2026 Safe Margin Requirement
     )
 
     # 6. Composite Main Segment
@@ -140,6 +143,7 @@ def generate():
     )
 
     print(f"Video generated successfully: {output_path}")
+
 
 if __name__ == "__main__":
     generate()

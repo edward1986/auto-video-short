@@ -26,6 +26,7 @@ from videoProcess.Styling import (
     build_modern_captions,
 )
 
+
 def generate():
     resolution = (1080, 1920)
     bg_path = "parkour.mp4"
@@ -36,7 +37,9 @@ def generate():
     # Robustness: Check if assets exist
     for path in [bg_path, audio_path, font_path]:
         if not os.path.exists(path):
-            sys.exit(f"Error: Required asset '{path}' not found. Please ensure it exists in the root directory before running this generator.")
+            sys.exit(
+                f"Error: Required asset '{path}' not found. Please ensure it exists in the root directory before running this generator."
+            )
 
     # 1. Background and Audio Setup
     bg_clip = editor.VideoFileClip(
@@ -112,7 +115,10 @@ def generate():
 
     # 7. End Card (15-17.5s)
     end_card = create_end_card(
-        resolution, duration=end_card_duration, text="SUBSCRIBE FOR TIPS", font=font_path
+        resolution,
+        duration=end_card_duration,
+        text="SUBSCRIBE FOR TIPS",
+        font=font_path,
     )
 
     # 8. Final Concatenation
@@ -131,10 +137,11 @@ def generate():
         codec="libx264",
         audio_codec="aac",
         threads=os.cpu_count() or 4,
-        preset="ultrafast", # Faster for development
+        preset="ultrafast",  # Faster for development
     )
 
     print(f"Video generated successfully: {output_path}")
+
 
 if __name__ == "__main__":
     generate()
