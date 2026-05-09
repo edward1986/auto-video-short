@@ -130,6 +130,7 @@ def get_pil_text_clip(
     box_color=None,
     box_padding=10,
     rotation=0,
+    allow_overflow=False,
     **kwargs,
 ):
     """PIL-based alternative to MoviePy TextClip with 2026 auto-scaling logic."""
@@ -196,10 +197,12 @@ def get_pil_text_clip(
     pil_font, lines, line_widths, line_heights, max_w = get_layout(fontsize)
 
     # 2026 Auto-scaling: If text is too wide, shrink until it fits (min 20pt)
+    # If allow_overflow is True, we allow the text to exceed target_width for stylistic effect.
     current_fs = fontsize
-    while target_width and max_w > target_width * 0.95 and current_fs > 20:
-        current_fs = int(current_fs * 0.9)
-        pil_font, lines, line_widths, line_heights, max_w = get_layout(current_fs)
+    if not allow_overflow:
+        while target_width and max_w > target_width * 0.95 and current_fs > 20:
+            current_fs = int(current_fs * 0.9)
+            pil_font, lines, line_widths, line_heights, max_w = get_layout(current_fs)
 
     # Performance: Pre-calculate common layout values
     total_line_height = sum(line_heights)
@@ -776,6 +779,7 @@ def build_modern_captions(
     font="Arial-Bold",
     phrase_mode=False,
     y_pos=0.5,
+    allow_overflow=False,
 ):
     """Builds word-by-word or phrase-based captions with kinetic animations.
     phrase_mode=True groups words into chunks for a 'minimal' look.
@@ -847,6 +851,7 @@ def build_modern_captions(
                 box_color=(0, 0, 0, 128) if is_highlight else None,
                 box_padding=20,
                 rotation=rot,
+                allow_overflow=allow_overflow,
             )
             .set_start(start)
             .set_duration(duration)
