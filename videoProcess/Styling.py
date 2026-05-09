@@ -110,7 +110,8 @@ def _get_text_size(text, font):
 
     if use_getbbox:
         # Use getbbox directly on font if available (modern PIL)
-        bbox = font.getbbox(text)
+        # 2026 Fix: Use 'anchor=lt' for more predictable baseline/ascender behavior
+        bbox = font.getbbox(text, anchor="lt")
         return bbox[2] - bbox[0], bbox[3] - bbox[1]
     # Fallback for older versions (requires draw context or getsize)
     return font.getsize(text)
@@ -205,20 +206,29 @@ def get_pil_text_clip(
             pil_font, lines, line_widths, line_heights, max_w = get_layout(current_fs)
 
     # Performance: Pre-calculate common layout values
-    total_line_height = sum(line_heights)
-    total_h = total_line_height + int(
-        total_line_height * (line_spacing_factor - 1) * (len(lines) - 1)
-    )
+    # 2026 Fix: More robust height calculation including spacing between lines
+    total_h = 0
+    for i, h in enumerate(line_heights):
+        total_h += h
+        if i < len(line_heights) - 1:
+            # Add the gap between this line and the next
+            total_h += int(h * (line_spacing_factor - 1))
 
     stroke_x2 = stroke_width * 2
     box_pad_x2 = box_padding * 2 if box_color else 0
+    # Add a generous safety margin (2026 'bold' style often has large descenders/strokes)
+    safety_margin = 20 + stroke_x2
 
     if size:
-        final_w = size[0] or (max_w + stroke_x2 + box_pad_x2)
-        final_h = size[1] or (total_h + stroke_x2 + box_pad_x2)
+        # If allow_overflow is true, we grow the width if max_w exceeds size[0]
+        calc_w = max_w + stroke_x2 + box_pad_x2 + safety_margin
+        final_w = max(size[0] or 0, calc_w) if allow_overflow else (size[0] or calc_w)
+
+        calc_h = total_h + stroke_x2 + box_pad_x2 + safety_margin
+        final_h = max(size[1] or 0, calc_h) if allow_overflow else (size[1] or calc_h)
     else:
-        final_w = max_w + stroke_x2 + 10 + box_pad_x2
-        final_h = total_h + stroke_x2 + 10 + box_pad_x2
+        final_w = max_w + stroke_x2 + box_pad_x2 + safety_margin
+        final_h = total_h + stroke_x2 + box_pad_x2 + safety_margin
 
     # Draw text
     img = Image.new("RGBA", (int(final_w), int(final_h)), (0, 0, 0, 0))
@@ -262,6 +272,7 @@ def get_pil_text_clip(
                 fill=shadow_color,
                 stroke_width=stroke_width,
                 stroke_fill=shadow_color if stroke_width > 0 else None,
+                anchor="lt",
             )
 
         # 3. Draw Main Text
@@ -272,6 +283,7 @@ def get_pil_text_clip(
             fill=color,
             stroke_width=stroke_width,
             stroke_fill=stroke_color,
+            anchor="lt",
         )
         current_y += int(h * line_spacing_factor)
 
