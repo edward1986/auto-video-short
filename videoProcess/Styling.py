@@ -101,7 +101,9 @@ SUPPORTED_TEXT_KWARGS = {
 
 
 def _get_text_size(text, font):
-    """Helper to get text dimensions across PIL versions."""
+    """Helper to get text dimensions across PIL versions.
+    Returns (width, height, x_offset, y_offset) where offsets are from anchor 'lt'.
+    """
     # Performance: Cache the hasattr check on the font object to avoid repeated lookups
     use_getbbox = getattr(font, "_use_getbbox", None)
     if use_getbbox is None:
@@ -112,9 +114,11 @@ def _get_text_size(text, font):
         # Use getbbox directly on font if available (modern PIL)
         # 2026 Fix: Use 'anchor=lt' for more predictable baseline/ascender behavior
         bbox = font.getbbox(text, anchor="lt")
-        return bbox[2] - bbox[0], bbox[3] - bbox[1]
+        # bbox is (x0, y0, x1, y1)
+        return bbox[2] - bbox[0], bbox[3] - bbox[1], bbox[0], bbox[1]
     # Fallback for older versions (requires draw context or getsize)
-    return font.getsize(text)
+    w, h = font.getsize(text)
+    return w, h, 0, 0
 
 
 def get_pil_text_clip(
@@ -186,16 +190,18 @@ def get_pil_text_clip(
 
         line_heights = []
         line_widths = []
+        line_offsets = []
         for line in lines:
-            w, h = _get_text_size(line, pil_font)
+            w, h, ox, oy = _get_text_size(line, pil_font)
             line_widths.append(w)
             line_heights.append(h)
+            line_offsets.append((ox, oy))
 
         max_w = max(line_widths) if line_widths else 0
-        return pil_font, lines, line_widths, line_heights, max_w
+        return pil_font, lines, line_widths, line_heights, line_offsets, max_w
 
     # Initial layout
-    pil_font, lines, line_widths, line_heights, max_w = get_layout(fontsize)
+    pil_font, lines, line_widths, line_heights, line_offsets, max_w = get_layout(fontsize)
 
     # 2026 Auto-scaling: If text is too wide, shrink until it fits (min 20pt)
     # If allow_overflow is True, we allow the text to exceed target_width for stylistic effect.
@@ -203,7 +209,7 @@ def get_pil_text_clip(
     if not allow_overflow:
         while target_width and max_w > target_width * 0.95 and current_fs > 20:
             current_fs = int(current_fs * 0.9)
-            pil_font, lines, line_widths, line_heights, max_w = get_layout(current_fs)
+            pil_font, lines, line_widths, line_heights, line_offsets, max_w = get_layout(current_fs)
 
     # Performance: Pre-calculate common layout values
     # 2026 Fix: More robust height calculation including spacing between lines
@@ -216,38 +222,39 @@ def get_pil_text_clip(
 
     stroke_x2 = stroke_width * 2
     box_pad_x2 = box_padding * 2 if box_color else 0
-    # Add a generous safety margin (2026 'bold' style often has large descenders/strokes)
-    safety_margin = 20 + stroke_x2
+
+    # 2026 Fix: Calculate minimal required canvas to avoid clipping
+    # Incorporate stroke_width directly into the measured bounds
+    content_w = max_w + stroke_x2 + box_pad_x2
+    content_h = total_h + stroke_x2 + box_pad_x2
 
     if size:
-        # If allow_overflow is true, we grow the width if max_w exceeds size[0]
-        calc_w = max_w + stroke_x2 + box_pad_x2 + safety_margin
-        final_w = max(size[0] or 0, calc_w) if allow_overflow else (size[0] or calc_w)
-
-        calc_h = total_h + stroke_x2 + box_pad_x2 + safety_margin
-        final_h = max(size[1] or 0, calc_h) if allow_overflow else (size[1] or calc_h)
+        final_w = max(size[0] or 0, content_w) if allow_overflow else (size[0] or content_w)
+        final_h = max(size[1] or 0, content_h) if allow_overflow else (size[1] or content_h)
     else:
-        final_w = max_w + stroke_x2 + box_pad_x2 + safety_margin
-        final_h = total_h + stroke_x2 + box_pad_x2 + safety_margin
+        # Add a small safety buffer for antialiasing/descenders if no size is specified
+        final_w = content_w + 10
+        final_h = content_h + 10
 
     # Draw text
     img = Image.new("RGBA", (int(final_w), int(final_h)), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
+    # Calculate starting Y to center the block
     current_y = (final_h - total_h) // 2
 
     # 1. Draw Background Box if specified
     if box_color:
-        # Calculate box coordinates based on alignment
+        # 2026 Fix: Ensure box is centered exactly within the canvas
         if align == "center":
-            box_l = (final_w - max_w) // 2 - box_padding
-            box_r = (final_w + max_w) // 2 + box_padding
+            box_l = (final_w - (max_w + box_pad_x2)) // 2
+            box_r = box_l + max_w + box_pad_x2
         elif align == "right":
-            box_l = final_w - max_w - stroke_width - box_padding * 2
+            box_l = final_w - max_w - box_pad_x2 - stroke_width
             box_r = final_w - stroke_width
         else:
             box_l = stroke_width
-            box_r = max_w + stroke_width + box_padding * 2
+            box_r = box_l + max_w + box_pad_x2
 
         box_t = current_y - box_padding
         box_b = current_y + total_h + box_padding
@@ -255,18 +262,23 @@ def get_pil_text_clip(
 
     for i, line in enumerate(lines):
         w, h = line_widths[i], line_heights[i]
+        ox, oy = line_offsets[i]
+
         if align == "center":
-            current_x = (final_w - w) // 2
+            current_x = (final_w - w) // 2 - ox
         elif align == "right":
-            current_x = final_w - w - stroke_width - (box_padding if box_color else 0)
+            current_x = final_w - w - stroke_width - (box_padding if box_color else 0) - ox
         else:
-            current_x = stroke_width + (box_padding if box_color else 0)
+            current_x = stroke_width + (box_padding if box_color else 0) - ox
+
+        # Apply Y offset correction
+        draw_y = current_y - oy
 
         # 2. Draw Shadow if specified
         if shadow_color:
             off_x, off_y = shadow_offset
             draw.text(
-                (current_x + off_x, current_y + off_y),
+                (current_x + off_x, draw_y + off_y),
                 line,
                 font=pil_font,
                 fill=shadow_color,
@@ -277,7 +289,7 @@ def get_pil_text_clip(
 
         # 3. Draw Main Text
         draw.text(
-            (current_x, current_y),
+            (current_x, draw_y),
             line,
             font=pil_font,
             fill=color,
