@@ -201,7 +201,9 @@ def get_pil_text_clip(
         return pil_font, lines, line_widths, line_heights, line_offsets, max_w
 
     # Initial layout
-    pil_font, lines, line_widths, line_heights, line_offsets, max_w = get_layout(fontsize)
+    pil_font, lines, line_widths, line_heights, line_offsets, max_w = get_layout(
+        fontsize
+    )
 
     # 2026 Auto-scaling: If text is too wide, shrink until it fits (min 20pt)
     # If allow_overflow is True, we allow the text to exceed target_width for stylistic effect.
@@ -209,7 +211,9 @@ def get_pil_text_clip(
     if not allow_overflow:
         while target_width and max_w > target_width * 0.95 and current_fs > 20:
             current_fs = int(current_fs * 0.9)
-            pil_font, lines, line_widths, line_heights, line_offsets, max_w = get_layout(current_fs)
+            pil_font, lines, line_widths, line_heights, line_offsets, max_w = (
+                get_layout(current_fs)
+            )
 
     # Performance: Pre-calculate common layout values
     # 2026 Fix: More robust height calculation including spacing between lines
@@ -225,16 +229,21 @@ def get_pil_text_clip(
 
     # 2026 Fix: Calculate minimal required canvas to avoid clipping
     # Incorporate stroke_width directly into the measured bounds
-    content_w = max_w + stroke_x2 + box_pad_x2
-    content_h = total_h + stroke_x2 + box_pad_x2
+    # Add a dynamic safety buffer to ensure descenders/ascenders and anti-aliasing aren't clipped.
+    safety_buffer = int(current_fs * 0.3)
+    content_w = max_w + stroke_x2 + box_pad_x2 + safety_buffer
+    content_h = total_h + stroke_x2 + box_pad_x2 + safety_buffer
 
     if size:
-        final_w = max(size[0] or 0, content_w) if allow_overflow else (size[0] or content_w)
-        final_h = max(size[1] or 0, content_h) if allow_overflow else (size[1] or content_h)
+        final_w = (
+            max(size[0] or 0, content_w) if allow_overflow else (size[0] or content_w)
+        )
+        final_h = (
+            max(size[1] or 0, content_h) if allow_overflow else (size[1] or content_h)
+        )
     else:
-        # Add a small safety buffer for antialiasing/descenders if no size is specified
-        final_w = content_w + 10
-        final_h = content_h + 10
+        final_w = content_w
+        final_h = content_h
 
     # Draw text
     img = Image.new("RGBA", (int(final_w), int(final_h)), (0, 0, 0, 0))
@@ -267,7 +276,9 @@ def get_pil_text_clip(
         if align == "center":
             current_x = (final_w - w) // 2 - ox
         elif align == "right":
-            current_x = final_w - w - stroke_width - (box_padding if box_color else 0) - ox
+            current_x = (
+                final_w - w - stroke_width - (box_padding if box_color else 0) - ox
+            )
         else:
             current_x = stroke_width + (box_padding if box_color else 0) - ox
 

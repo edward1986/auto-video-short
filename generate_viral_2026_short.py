@@ -11,7 +11,7 @@ if not hasattr(Image, "ANTIALIAS"):
     Image.ANTIALIAS = Image.LANCZOS
 
 import moviepy.editor as editor
-from moviepy.editor import CompositeVideoClip, concatenate_videoclips
+from moviepy.editor import CompositeVideoClip, concatenate_videoclips, ImageClip
 from videoProcess.Styling import (
     create_noise_overlay,
     create_gradient_glow,
@@ -28,19 +28,18 @@ from videoProcess.Styling import (
 
 
 def generate():
-    print("🚀 Initiating 2026 Masterpiece Video Generation...")
+    print("🚀 Generating Viral 2026 Short-Form Video...")
     resolution = (1080, 1920)
     bg_path = "parkour.mp4"
     audio_path = "music.mp3"
     font_path = "default.ttf"
-    output_path = "2026_masterpiece.mp4"
+    grid_path = "gridbackground.png"
+    output_path = "out/viral_2026_short.mp4"
 
     # Robustness: Check if assets exist
-    for path in [bg_path, audio_path, font_path]:
+    for path in [bg_path, audio_path, font_path, grid_path]:
         if not os.path.exists(path):
-            sys.exit(
-                f"Error: Required asset '{path}' not found. Please ensure it exists in the root directory."
-            )
+            sys.exit(f"Error: Required asset '{path}' not found.")
 
     # 1. Background and Audio Setup
     bg_clip = editor.VideoFileClip(
@@ -63,67 +62,86 @@ def generate():
         audio_clip = audio_clip.subclip(0, total_duration)
 
     # 2. Apply Background Effects
-    # Ken Burns Zoom (1.0 to 1.2 for extra energy)
-    bg_clip = apply_zoom(bg_clip, main_duration, start_scale=1.0, end_scale=1.2)
-    # Darken for extreme contrast (0.35 factor)
-    bg_clip = darken_clip(bg_clip, factor=0.35)
-    # Fast dynamic cuts every 1.5s
-    bg_clip = apply_dynamic_cuts(bg_clip, segment_duration=1.5)
+    # Ken Burns Zoom (1.0 to 1.3 for high energy)
+    bg_clip = apply_zoom(bg_clip, main_duration, start_scale=1.0, end_scale=1.3)
+    # Darken for extreme contrast (0.3 factor)
+    bg_clip = darken_clip(bg_clip, factor=0.3)
+    # Fast dynamic cuts
+    bg_clip = apply_dynamic_cuts(bg_clip, segment_duration=2.0)
 
-    # 3. Overlays (Full 2026 Suite)
+    # 3. Overlays
     noise = create_noise_overlay(resolution, main_duration, opacity=0.15)
-    # Multi-color gradient glow (Electric Blue + Neon Green)
+    # Neon Cyan + Magenta Glow for 2026 vibe
     glow = create_gradient_glow(
-        resolution, main_duration, color=[(0, 255, 128), (0, 128, 255)], opacity=0.25
+        resolution, main_duration, color=[(0, 255, 255), (255, 0, 255)], opacity=0.3
     )
     vignette = create_vignette(resolution, main_duration, opacity=0.7)
-    progress_bar = create_progress_bar(resolution, main_duration, color=(0, 255, 128))
-    # Sync flash with hook transition
+    progress_bar = create_progress_bar(resolution, main_duration, color=(0, 255, 255))
+
+    # Grid Background Overlay (0.15 opacity)
+    grid_overlay = (
+        ImageClip(grid_path)
+        .set_duration(main_duration)
+        .resize(resolution)
+        .set_opacity(0.15)
+        .set_position("center")
+    )
+
+    # Flash sync with hook
     flash = create_flash_transition(resolution).set_start(2.0)
 
     # 4. Content - Hook (0-2s)
     hook = create_hook_clip(
-        "2026 IS HERE", video_size=resolution, duration=2.0, font=font_path
+        "2026 REVOLUTION", video_size=resolution, duration=2.0, font=font_path
     )
 
-    # 5. Masterpiece Script
-    # Optimized for fast scrolling: one idea at a time, bold emphasis.
+    # 5. Viral Script
     script_data = [
         {"word": "THE FUTURE", "start": 3.0, "end": 5.0},
-        {"word": "OF CONTENT", "start": 5.0, "end": 7.0},
-        {"word": "IS KINETIC", "start": 7.0, "end": 8.5},
-        {"word": "MINIMAL", "start": 8.5, "end": 10.0},
-        {"word": "AND BOLD", "start": 10.0, "end": 12.0},
-        {"word": "MASTER THE", "start": 12.0, "end": 13.5},
-        {"word": "NEW STANDARD", "start": 13.5, "end": 15.0},
+        {"word": "IS NOW", "start": 5.0, "end": 7.0},
+        {"word": "MINIMAL", "start": 7.0, "end": 8.5},
+        {"word": "BOLD", "start": 8.5, "end": 10.0},
     ]
 
     captions = build_modern_captions(
         script_data,
         resolution,
-        highlight_word="KINETIC",
+        highlight_word="FUTURE",
         font=font_path,
         phrase_mode=True,
-        y_pos=0.55,  # Strict 2026 safe margin
+        y_pos=0.55,
+    )
+
+    # Reinforcement (10-15s) with allow_overflow for "out of bound" look
+    reinforcement_data = [
+        {"word": "SCROLL STOPPING", "start": 10.0, "end": 15.0},
+    ]
+
+    reinforcement_captions = build_modern_captions(
+        reinforcement_data,
+        resolution,
+        highlight_word="STOPPING",
+        font=font_path,
+        phrase_mode=True,
+        y_pos=0.5,
+        allow_overflow=True,
     )
 
     # 6. Composite Main Segment
     main_video = CompositeVideoClip(
-        [bg_clip, glow, noise, vignette, hook, flash, progress_bar] + captions,
+        [bg_clip, grid_overlay, glow, noise, vignette, hook, flash, progress_bar]
+        + captions
+        + reinforcement_captions,
         size=resolution,
         use_bgclip=True,
     )
 
     # 7. End Card (15-17.5s)
     end_card = create_end_card(
-        resolution,
-        duration=end_card_duration,
-        text="SUBSCRIBE FOR MORE",
-        font=font_path,
+        resolution, duration=end_card_duration, text="FOLLOW @BOLT", font=font_path
     )
 
     # 8. Final Concatenation
-    # Using small padding for smooth transition reset
     final_video = concatenate_videoclips(
         [main_video, end_card], method="compose", padding=-0.1
     )
@@ -143,7 +161,7 @@ def generate():
         preset="fast",
     )
 
-    print(f"✨ Masterpiece video generated successfully: {output_path}")
+    print(f"✨ Viral video generated successfully: {output_path}")
 
 
 if __name__ == "__main__":
