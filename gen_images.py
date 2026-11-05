@@ -12,8 +12,46 @@ import io
 import urllib.request
 import urllib.error
 from pathlib import Path
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageDraw, ImageFont
+def create_fallback_image(path, aspect="9:16"):
+    """Create a neutral trivia illustration when generation is blocked."""
+    width, height = (1920, 1080) if aspect == "16:9" else (1080, 1920)
 
+    im = Image.new("RGB", (width, height), (15, 23, 42))
+    draw = ImageDraw.Draw(im)
+
+    cx, cy = width // 2, height // 2
+
+    # Decorative trivia symbol
+    radius = min(width, height) // 6
+
+    draw.ellipse(
+        (cx-radius, cy-radius, cx+radius, cy+radius),
+        fill=(30, 45, 70),
+        outline=(34, 197, 94),
+        width=12
+    )
+
+    try:
+        font = ImageFont.truetype(
+            "DejaVuSans-Bold.ttf", radius
+        )
+    except OSError:
+        font = ImageFont.load_default()
+
+    draw.text(
+        (cx, cy),
+        "?",
+        font=font,
+        fill=(255, 255, 255),
+        anchor="mm"
+    )
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    im.save(path, "PNG")
+
+    print(f"Fallback image created: {path}")
+    return True
 STYLE = (
     "Polished 2D cartoon illustration from a viral stickman comedy animation: "
     "clean bold black outlines, flat cel shading, rich painted full-color background, "
@@ -78,13 +116,45 @@ def fetch(prompt, seed, path, aspect):
             print('ok', path.name, adjusted.size, flush=True)
             return True
         except urllib.error.HTTPError as e:
-            details = e.read(300).decode('utf-8', 'replace')
-            print('retry', path.name, attempt, e.code, details, flush=True)
-            if e.code in (400, 401, 403):
+            msg = e.read().decode("utf-8", "replace")
+        
+            print(
+                f"Cloudflare HTTP {e.code}: "
+                f"{os.path.basename(path)} - {msg[:300]}",
+                flush=True
+            )
+        
+            # NSFW moderation rejection
+            if e.code == 400 and (
+                '"code":8007' in msg.replace(" ", "")
+                or "Input prompt contains NSFW content" in msg
+            ):
+                print(
+                    "Prompt rejected by moderation. "
+                    "Using neutral fallback illustration."
+                )
+                return create_fallback_image(path, aspect)
+        
+            # Other invalid requests
+            if e.code == 400:
+                print("Invalid image-generation request.")
+                return False
+        
+            # Authentication errors
+            if e.code in (401, 403):
+                print("Cloudflare authentication failed.")
                 sys.exit(3)
-            if e.code == 429 and 'neuron' in details.lower():
-                print('DAILY_FREE_LIMIT_REACHED')
+        
+            # Daily limit
+            if e.code == 429 and "neuron" in msg.lower():
+                print("DAILY_FREE_LIMIT_REACHED")
                 sys.exit(4)
+        
+            if e.code == 429 or e.code >= 500:
+                time.sleep(10 + attempt * 10)
+                continue
+        
+            return False
         except Exception as e:
             print('retry', path.name, attempt, str(e)[:200], flush=True)
         if attempt < 4:
