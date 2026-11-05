@@ -14,6 +14,12 @@ from textwrap import fill, shorten
 from typing import Any, Optional, Tuple, Dict
 
 from pyfiglet import Figlet
+from PIL import Image
+
+# Compatibility: MoviePy 1.x uses Image.ANTIALIAS, removed in Pillow 10+.
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
+
 from moviepy.editor import (
     VideoFileClip,
     AudioFileClip,
