@@ -1,11 +1,19 @@
 name: Generate AI Short (Cloudflare + Kokoro)
 
 on:
+  schedule:
+    - cron: '10 1 * * *' # Daily at 09:10 Asia/Manila (UTC+8)
   workflow_dispatch:
     inputs:
       spec_path:
-        description: 'Path to the job JSON file (example: jobs/my-short/spec.json)'
-        required: true
+        description: 'Optional existing spec path; leave blank to generate a story automatically'
+        required: false
+        default: ''
+        type: string
+      topic:
+        description: 'Optional stickman comedy topic; empty uses an automatic rotating theme'
+        required: false
+        default: ''
         type: string
       output_name:
         description: 'Name for downloadable Actions artifact'
@@ -17,7 +25,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ai-short-${{ github.ref }}-${{ inputs.spec_path }}
+  group: ai-short-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -30,6 +38,7 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       KOKORO_DIR: ${{ github.workspace }}/.cache/kokoro
       PYTHONUNBUFFERED: '1'
+      SHORTS_TOPIC: ${{ inputs.topic }}
 
     steps:
       - name: Checkout code and job assets
@@ -54,6 +63,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-shorts.txt
 
+      - name: Automatically generate spec when none is supplied
+        if: ${{ inputs.spec_path == '' }}
+        run: |
+          python auto_spec.py jobs/auto/spec.json
+
       - name: Check job spec and scripts
         id: paths
         env:
@@ -62,7 +76,8 @@ jobs:
           python - <<'PY'
           import json, os, pathlib
           root = pathlib.Path.cwd().resolve()
-          spec = (root / os.environ['SPEC_PATH']).resolve()
+          supplied = os.environ['SPEC_PATH'].strip() or 'jobs/auto/spec.json'
+          spec = (root / supplied).resolve()
           if not spec.is_relative_to(root) or not spec.is_file():
               raise SystemExit(f'Job JSON not found inside repository: {spec}')
           if not (root / 'gen_images.py').is_file() or not (root / 'shorts.py').is_file():
@@ -123,10 +138,21 @@ jobs:
               print('Generated:', video, video.stat().st_size, 'bytes')
           PY
 
+      - name: Upload generated storyboard and images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storyboard-${{ github.run_id }}
+          path: |
+            jobs/auto/*.json
+            jobs/auto/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload MP4 as Actions artifact (no Git push)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.output_name }}-${{ github.run_id }}
+          name: ${{ inputs.output_name || 'ai-short' }}-${{ github.run_id }}
           path: render_output/*.mp4
           if-no-files-found: error
           retention-days: 7
