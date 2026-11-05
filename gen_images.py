@@ -57,16 +57,7 @@ def fit_image(im, size):
 def fetch(prompt, seed, path, aspect):
     prompt = (STYLE.replace('{FRAME}', FRAME.get(aspect, FRAME['9:16'])) + prompt)[:2048]
     # FLUX.1 Schnell's official Workers AI input schema does not offer width/height.
-    body = json.dumps({
-        "prompt": (
-            STYLE.replace(
-                "{FRAME}",
-                FRAME.get(aspect, FRAME["9:16"])
-            ) + prompt
-        )[:2048],
-        "steps": 4
-    }).encode("utf-8")
-    
+    body = json.dumps({'prompt': prompt, 'steps': 4}).encode('utf-8')
     for attempt in range(5):
         try:
             req = urllib.request.Request(URL, data=body, headers={
@@ -87,22 +78,13 @@ def fetch(prompt, seed, path, aspect):
             print('ok', path.name, adjusted.size, flush=True)
             return True
         except urllib.error.HTTPError as e:
-            msg = e.read().decode("utf-8", "replace")
-        
-            print(
-                f"HTTP {e.code}: {os.path.basename(path)} - {msg[:300]}",
-                flush=True
-            )
-        
+            details = e.read(300).decode('utf-8', 'replace')
+            print('retry', path.name, attempt, e.code, details, flush=True)
             if e.code in (400, 401, 403):
-                print("Non-retryable API error. Stopping.")
                 sys.exit(3)
-        
-            if e.code == 429 and "neuron" in msg.lower():
-                print("DAILY_FREE_LIMIT_REACHED")
+            if e.code == 429 and 'neuron' in details.lower():
+                print('DAILY_FREE_LIMIT_REACHED')
                 sys.exit(4)
-        
-            time.sleep(10 + attempt * 10)
         except Exception as e:
             print('retry', path.name, attempt, str(e)[:200], flush=True)
         if attempt < 4:
