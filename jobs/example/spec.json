@@ -1,0 +1,39 @@
+{
+  "slug": "stickman-coffee-short",
+  "aspect": "9:16",
+  "voice": "am_puck",
+  "speed": 1.05,
+  "music_gain": 0.35,
+  "segments": [
+    {
+      "type": "still",
+      "path": "scene-01.png",
+      "prompt": "A curious stickman walks into a cozy neighborhood coffee shop carrying a giant empty mug; playful expressions, inviting cafe interior",
+      "seed": 101,
+      "move": "zoom_in",
+      "transition": "cut",
+      "min": 3.2,
+      "narration": "A stickman walked into a coffee shop with the biggest cup in town."
+    },
+    {
+      "type": "still",
+      "path": "scene-02.png",
+      "prompt": "The barista stickman stares in disbelief at an enormous mug on the counter, comedic surprised pose, warm coffee shop interior",
+      "seed": 102,
+      "move": "pan_right",
+      "transition": "punch",
+      "min": 3.0,
+      "narration": "The barista asked, are you ordering coffee or filling a swimming pool?"
+    },
+    {
+      "type": "still",
+      "path": "scene-03.png",
+      "prompt": "The giant mug is filled with coffee and the happy stickman hugs it while the barista laughs, warm cinematic cafe lighting, wholesome visual comedy",
+      "seed": 103,
+      "move": "zoom_out",
+      "transition": "flash",
+      "min": 3.0,
+      "narration": "The stickman smiled and said, both!"
+    }
+  ]
+}
