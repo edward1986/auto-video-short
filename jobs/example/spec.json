@@ -1,5 +1,6 @@
+
 {
-  "slug": "stickman-coffee-short",
+  "slug": "stickman-accidental-superhero",
   "aspect": "9:16",
   "voice": "am_puck",
   "speed": 1.05,
@@ -8,32 +9,232 @@
     {
       "type": "still",
       "path": "scene-01.png",
-      "prompt": "A curious stickman walks into a cozy neighborhood coffee shop carrying a giant empty mug; playful expressions, inviting cafe interior",
-      "seed": 101,
+      "prompt": "A simple black stickman with a round white head and expressive black eyes wakes up in a tiny cozy bedroom, messy blanket, morning sunshine, colorful 2D cartoon illustration, vertical composition, family friendly, no text",
+      "seed": 201,
       "move": "zoom_in",
       "transition": "cut",
-      "min": 3.2,
-      "narration": "A stickman walked into a coffee shop with the biggest cup in town."
+      "min": 3.0,
+      "narration": "This is Bob. And today, Bob accidentally became a superhero."
     },
     {
       "type": "still",
       "path": "scene-02.png",
-      "prompt": "The barista stickman stares in disbelief at an enormous mug on the counter, comedic surprised pose, warm coffee shop interior",
-      "seed": 102,
+      "prompt": "Same black stickman Bob standing in his kitchen holding an empty cereal box upside down, disappointed expression, small sunny kitchen, colorful 2D cartoon illustration, vertical composition, no text",
+      "seed": 202,
       "move": "pan_right",
       "transition": "punch",
       "min": 3.0,
-      "narration": "The barista asked, are you ordering coffee or filling a swimming pool?"
+      "narration": "It all started when Bob ran out of cereal."
     },
     {
       "type": "still",
       "path": "scene-03.png",
-      "prompt": "The giant mug is filled with coffee and the happy stickman hugs it while the barista laughs, warm cinematic cafe lighting, wholesome visual comedy",
-      "seed": 103,
+      "prompt": "Same black stickman Bob walking down a busy cartoon sidewalk toward a grocery store, cheerful pedestrians, blue sky, playful urban scenery, colorful 2D animation style, vertical composition, no text",
+      "seed": 203,
       "move": "zoom_out",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "So he walked to the store. Completely unaware of his destiny."
+    },
+    {
+      "type": "still",
+      "path": "scene-04.png",
+      "prompt": "Same black stickman Bob looking at a shiny red cape hanging on a discount clothing rack outside a cartoon shop, curious expression, bright playful shopping street, family friendly 2D cartoon, vertical composition, no text",
+      "seed": 204,
+      "move": "zoom_in",
       "transition": "flash",
       "min": 3.0,
-      "narration": "The stickman smiled and said, both!"
+      "narration": "Then Bob spotted a red cape on sale for one dollar."
+    },
+    {
+      "type": "still",
+      "path": "scene-05.png",
+      "prompt": "Same black stickman Bob proudly wearing an oversized bright red superhero cape, heroic pose in front of a shop mirror, cape dragging on the floor, humorous colorful 2D cartoon style, vertical composition, no text",
+      "seed": 205,
+      "move": "pan_left",
+      "transition": "punch",
+      "min": 3.0,
+      "narration": "He bought it. Not for justice. But because it looked cool."
+    },
+    {
+      "type": "still",
+      "path": "scene-06.png",
+      "prompt": "Same black stickman Bob wearing his red cape standing near a city crosswalk, strong wind blowing the cape dramatically behind him, surprised cartoon pedestrians pointing, vibrant 2D illustration, vertical composition, no text",
+      "seed": 206,
+      "move": "zoom_out",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "Suddenly, a huge gust of wind made Bob look legendary."
+    },
+    {
+      "type": "still",
+      "path": "scene-07.png",
+      "prompt": "Small orange cartoon kitten stranded on a low tree branch, same red caped black stickman Bob standing below looking concerned, sunny neighborhood park, cheerful 2D cartoon art, vertical composition, no text",
+      "seed": 207,
+      "move": "zoom_in",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "Then Bob saw a kitten stuck in a tree."
+    },
+    {
+      "type": "still",
+      "path": "scene-08.png",
+      "prompt": "Same red caped black stickman Bob carefully reaching toward a small orange kitten on a low tree branch, funny awkward balancing pose, green park, colorful family friendly 2D cartoon, vertical composition, no text",
+      "seed": 208,
+      "move": "pan_right",
+      "transition": "punch",
+      "min": 3.0,
+      "narration": "Bob tried to rescue it. Unfortunately, Bob hated heights."
+    },
+    {
+      "type": "still",
+      "path": "scene-09.png",
+      "prompt": "Same red caped black stickman Bob sitting safely on green grass beneath a tree while a small orange kitten happily climbs onto his lap, surprised expression, sunny park, colorful 2D cartoon, vertical composition, no text",
+      "seed": 209,
+      "move": "zoom_in",
+      "transition": "flash",
+      "min": 3.0,
+      "narration": "But the kitten jumped down and rescued itself."
+    },
+    {
+      "type": "still",
+      "path": "scene-10.png",
+      "prompt": "Same red caped black stickman Bob holding a happy orange kitten while several cartoon stickman bystanders cheer and clap, bright public park, playful 2D cartoon illustration, vertical composition, no text",
+      "seed": 210,
+      "move": "zoom_out",
+      "transition": "punch",
+      "min": 3.0,
+      "narration": "Everyone cheered. They thought Bob had saved the kitten."
+    },
+    {
+      "type": "still",
+      "path": "scene-11.png",
+      "prompt": "Same red caped black stickman Bob walking through a colorful city street, several friendly stickman pedestrians pointing at him excitedly, exaggerated embarrassed expression, 2D cartoon, vertical composition, no text",
+      "seed": 211,
+      "move": "pan_left",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "Within minutes, the entire neighborhood knew his name."
+    },
+    {
+      "type": "still",
+      "path": "scene-12.png",
+      "prompt": "Same red caped black stickman Bob looking shocked at a smartphone displaying a colorful illustration of himself as a heroic figure, no readable text on screen, small city sidewalk, funny cartoon style, vertical composition",
+      "seed": 212,
+      "move": "zoom_in",
+      "transition": "flash",
+      "min": 3.0,
+      "narration": "Someone posted his picture online. Bob was suddenly famous."
+    },
+    {
+      "type": "still",
+      "path": "scene-13.png",
+      "prompt": "Same red caped black stickman Bob standing nervously in front of a cheering cartoon crowd, oversized superhero cape, multiple smartphones pointed at him, bright city plaza, colorful 2D cartoon, vertical composition, no text",
+      "seed": 213,
+      "move": "zoom_out",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "People began calling him Captain Cape. Bob did not approve."
+    },
+    {
+      "type": "still",
+      "path": "scene-14.png",
+      "prompt": "Same red caped black stickman Bob walking past a small grocery store, noticing an elderly gray haired stickman struggling with two heavy grocery bags, welcoming city sidewalk, colorful cartoon, vertical composition, no text",
+      "seed": 214,
+      "move": "pan_right",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "Then Bob noticed someone struggling with heavy groceries."
+    },
+    {
+      "type": "still",
+      "path": "scene-15.png",
+      "prompt": "Same red caped black stickman Bob carrying two grocery bags for a smiling elderly gray haired stickman, kindhearted scene on sunny city sidewalk, humorous 2D cartoon illustration, vertical composition, no text",
+      "seed": 215,
+      "move": "zoom_in",
+      "transition": "punch",
+      "min": 3.0,
+      "narration": "He helped carry the bags. This time, completely on purpose."
+    },
+    {
+      "type": "still",
+      "path": "scene-16.png",
+      "prompt": "Same red caped black stickman Bob holding open a glass door for several smiling stickman pedestrians outside a community building, cheerful vibrant 2D cartoon, vertical composition, no text",
+      "seed": 216,
+      "move": "pan_left",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "Next, he held a door open for twelve people."
+    },
+    {
+      "type": "still",
+      "path": "scene-17.png",
+      "prompt": "Same red caped black stickman Bob helping a tiny yellow cartoon duckling cross a quiet neighborhood path, duck family waiting safely nearby, bright whimsical park, 2D cartoon illustration, vertical composition, no text",
+      "seed": 217,
+      "move": "zoom_in",
+      "transition": "flash",
+      "min": 3.0,
+      "narration": "Then he helped a duck cross the road. Very heroic."
+    },
+    {
+      "type": "still",
+      "path": "scene-18.png",
+      "prompt": "Same red caped black stickman Bob standing proudly in a city plaza surrounded by grateful smiling cartoon stickman neighbors, festive cheerful atmosphere, colorful 2D illustration, vertical composition, no text",
+      "seed": 218,
+      "move": "zoom_out",
+      "transition": "punch",
+      "min": 3.0,
+      "narration": "Bob realized something important. Heroes do not need superpowers."
+    },
+    {
+      "type": "still",
+      "path": "scene-19.png",
+      "prompt": "Same red caped black stickman Bob gently helping a smaller stickman pick up scattered books from a sidewalk, friendly neighborhood background, warm 2D cartoon illustration, vertical composition, no text",
+      "seed": 219,
+      "move": "pan_right",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "Sometimes, being a hero just means helping someone."
+    },
+    {
+      "type": "still",
+      "path": "scene-20.png",
+      "prompt": "Same black stickman Bob wearing red cape walking into a cozy grocery store and stopping before a shelf filled with colorful cereal boxes, surprised happy expression, clean 2D cartoon illustration, vertical composition, no text",
+      "seed": 220,
+      "move": "zoom_in",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "Finally, Bob remembered why he had left home."
+    },
+    {
+      "type": "still",
+      "path": "scene-21.png",
+      "prompt": "Same black stickman Bob with bright red superhero cape proudly holding one colorful cereal box at grocery checkout counter, smiling friendly cashier stickman, whimsical 2D cartoon, vertical composition, no text",
+      "seed": 221,
+      "move": "pan_left",
+      "transition": "punch",
+      "min": 3.0,
+      "narration": "Cereal. The most important mission of the entire day."
+    },
+    {
+      "type": "still",
+      "path": "scene-22.png",
+      "prompt": "Same black stickman Bob wearing a red superhero cape sitting at home at a tiny breakfast table eating cereal from a bowl, smiling peacefully, warm afternoon sunlight, cozy colorful 2D cartoon, vertical composition, no text",
+      "seed": 222,
+      "move": "zoom_out",
+      "transition": "cut",
+      "min": 3.0,
+      "narration": "Bob went home, ate his cereal, and enjoyed his new reputation."
+    },
+    {
+      "type": "still",
+      "path": "scene-23.png",
+      "prompt": "Same black stickman Bob wearing a bright red cape standing in a heroic pose on a small neighborhood hill at sunset, orange kitten sitting next to him, cheerful city skyline, uplifting colorful 2D cartoon illustration, vertical composition, no text",
+      "seed": 223,
+      "move": "zoom_in",
+      "transition": "flash",
+      "min": 3.5,
+      "narration": "And that is how a one dollar cape turned an ordinary stickman into an extraordinary neighbor."
     }
   ]
 }
