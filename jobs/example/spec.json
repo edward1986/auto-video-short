@@ -1,6 +1,6 @@
 
 {
-  "slug": "stickman-accidental-superhero",
+  "slug": "stickman-five-dollar-time-machine",
   "aspect": "9:16",
   "voice": "am_puck",
   "speed": 1.05,
@@ -9,232 +9,232 @@
     {
       "type": "still",
       "path": "scene-01.png",
-      "prompt": "A simple black stickman with a round white head and expressive black eyes wakes up in a tiny cozy bedroom, messy blanket, morning sunshine, colorful 2D cartoon illustration, vertical composition, family friendly, no text",
-      "seed": 201,
+      "prompt": "A simple black stickman with a round white head and expressive eyes walking through a colorful outdoor garage sale, spotting a strange glowing machine among old household items, bright playful 2D cartoon, vertical 9:16, no text",
+      "seed": 301,
       "move": "zoom_in",
       "transition": "cut",
       "min": 3.0,
-      "narration": "This is Bob. And today, Bob accidentally became a superhero."
+      "narration": "This is Max. He just found a time machine for five dollars."
     },
     {
       "type": "still",
       "path": "scene-02.png",
-      "prompt": "Same black stickman Bob standing in his kitchen holding an empty cereal box upside down, disappointed expression, small sunny kitchen, colorful 2D cartoon illustration, vertical composition, no text",
-      "seed": 202,
+      "prompt": "Same black stickman Max staring curiously at a rusty silver machine with glowing blue buttons and a large circular clock, garage sale setting, exaggerated surprised expression, colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 302,
       "move": "pan_right",
       "transition": "punch",
       "min": 3.0,
-      "narration": "It all started when Bob ran out of cereal."
+      "narration": "The seller said it worked. Max asked if it came with batteries."
     },
     {
       "type": "still",
       "path": "scene-03.png",
-      "prompt": "Same black stickman Bob walking down a busy cartoon sidewalk toward a grocery store, cheerful pedestrians, blue sky, playful urban scenery, colorful 2D animation style, vertical composition, no text",
-      "seed": 203,
+      "prompt": "Same stickman Max carrying a small rusty silver time machine with blue glowing buttons into his cozy living room, excited expression, bright colorful cartoon illustration, vertical 9:16, no text",
+      "seed": 303,
       "move": "zoom_out",
       "transition": "cut",
       "min": 3.0,
-      "narration": "So he walked to the store. Completely unaware of his destiny."
+      "narration": "Naturally, Max bought it. What could possibly go wrong?"
     },
     {
       "type": "still",
       "path": "scene-04.png",
-      "prompt": "Same black stickman Bob looking at a shiny red cape hanging on a discount clothing rack outside a cartoon shop, curious expression, bright playful shopping street, family friendly 2D cartoon, vertical composition, no text",
-      "seed": 204,
+      "prompt": "Same stickman Max pressing a giant glowing blue button on a rusty silver time machine inside his living room, colorful swirling light surrounding the machine, funny surprised expression, family friendly 2D cartoon, vertical 9:16, no text",
+      "seed": 304,
       "move": "zoom_in",
       "transition": "flash",
       "min": 3.0,
-      "narration": "Then Bob spotted a red cape on sale for one dollar."
+      "narration": "He pressed the biggest button. Because of course he did."
     },
     {
       "type": "still",
       "path": "scene-05.png",
-      "prompt": "Same black stickman Bob proudly wearing an oversized bright red superhero cape, heroic pose in front of a shop mirror, cape dragging on the floor, humorous colorful 2D cartoon style, vertical composition, no text",
-      "seed": 205,
-      "move": "pan_left",
+      "prompt": "Same black stickman Max floating inside a swirling rainbow colored time travel tunnel with glowing clock shapes, arms waving, startled expression, dynamic clean 2D cartoon, vertical 9:16, no text",
+      "seed": 305,
+      "move": "zoom_out",
       "transition": "punch",
       "min": 3.0,
-      "narration": "He bought it. Not for justice. But because it looked cool."
+      "narration": "Suddenly, his entire living room disappeared."
     },
     {
       "type": "still",
       "path": "scene-06.png",
-      "prompt": "Same black stickman Bob wearing his red cape standing near a city crosswalk, strong wind blowing the cape dramatically behind him, surprised cartoon pedestrians pointing, vibrant 2D illustration, vertical composition, no text",
-      "seed": 206,
-      "move": "zoom_out",
+      "prompt": "Same stickman Max landing on soft green grass in a prehistoric jungle, enormous ferns, distant volcano, huge dinosaur footprints nearby, surprised expression, colorful whimsical cartoon, vertical 9:16, no text",
+      "seed": 306,
+      "move": "pan_left",
       "transition": "cut",
       "min": 3.0,
-      "narration": "Suddenly, a huge gust of wind made Bob look legendary."
+      "narration": "Max landed millions of years in the past."
     },
     {
       "type": "still",
       "path": "scene-07.png",
-      "prompt": "Small orange cartoon kitten stranded on a low tree branch, same red caped black stickman Bob standing below looking concerned, sunny neighborhood park, cheerful 2D cartoon art, vertical composition, no text",
-      "seed": 207,
+      "prompt": "Same black stickman Max staring at a giant friendly green dinosaur peeking over tall jungle trees, dinosaur smiling curiously, lush prehistoric forest, colorful family friendly 2D illustration, vertical 9:16, no text",
+      "seed": 307,
       "move": "zoom_in",
-      "transition": "cut",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "Then Bob saw a kitten stuck in a tree."
+      "narration": "And immediately met a dinosaur. A very large dinosaur."
     },
     {
       "type": "still",
       "path": "scene-08.png",
-      "prompt": "Same red caped black stickman Bob carefully reaching toward a small orange kitten on a low tree branch, funny awkward balancing pose, green park, colorful family friendly 2D cartoon, vertical composition, no text",
-      "seed": 208,
+      "prompt": "Same stickman Max offering a tiny sandwich to a gigantic friendly green dinosaur, amusing size contrast, prehistoric grassland, oversized ferns, playful colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 308,
       "move": "pan_right",
-      "transition": "punch",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "Bob tried to rescue it. Unfortunately, Bob hated heights."
+      "narration": "Max offered it a sandwich. The dinosaur wanted the entire bag."
     },
     {
       "type": "still",
       "path": "scene-09.png",
-      "prompt": "Same red caped black stickman Bob sitting safely on green grass beneath a tree while a small orange kitten happily climbs onto his lap, surprised expression, sunny park, colorful 2D cartoon, vertical composition, no text",
-      "seed": 209,
-      "move": "zoom_in",
+      "prompt": "Same black stickman Max running toward his rusty silver time machine with glowing blue buttons as a huge friendly green dinosaur follows him, funny energetic prehistoric cartoon landscape, vertical 9:16, no text",
+      "seed": 309,
+      "move": "zoom_out",
       "transition": "flash",
       "min": 3.0,
-      "narration": "But the kitten jumped down and rescued itself."
+      "narration": "Max decided it was time to leave. Very quickly."
     },
     {
       "type": "still",
       "path": "scene-10.png",
-      "prompt": "Same red caped black stickman Bob holding a happy orange kitten while several cartoon stickman bystanders cheer and clap, bright public park, playful 2D cartoon illustration, vertical composition, no text",
-      "seed": 210,
-      "move": "zoom_out",
-      "transition": "punch",
+      "prompt": "Same stickman Max standing beside rusty silver time machine in a medieval castle courtyard, stone towers, colorful banners, knights in shiny armor, surprised expression, vibrant 2D cartoon, vertical 9:16, no text",
+      "seed": 310,
+      "move": "zoom_in",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "Everyone cheered. They thought Bob had saved the kitten."
+      "narration": "His next stop was the Middle Ages."
     },
     {
       "type": "still",
       "path": "scene-11.png",
-      "prompt": "Same red caped black stickman Bob walking through a colorful city street, several friendly stickman pedestrians pointing at him excitedly, exaggerated embarrassed expression, 2D cartoon, vertical composition, no text",
-      "seed": 211,
+      "prompt": "Same stickman Max standing before a friendly medieval king wearing a large golden crown and purple robe in a grand castle hall, confused guards nearby, comedic cartoon expressions, vertical 9:16, no text",
+      "seed": 311,
       "move": "pan_left",
-      "transition": "cut",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "Within minutes, the entire neighborhood knew his name."
+      "narration": "The king demanded to know if Max was a powerful wizard."
     },
     {
       "type": "still",
       "path": "scene-12.png",
-      "prompt": "Same red caped black stickman Bob looking shocked at a smartphone displaying a colorful illustration of himself as a heroic figure, no readable text on screen, small city sidewalk, funny cartoon style, vertical composition",
-      "seed": 212,
+      "prompt": "Same stickman Max proudly holding a modern smartphone showing a bright colorful glowing screen to an amazed medieval king and knights, castle interior, exaggerated funny expressions, 2D cartoon, vertical 9:16, no text",
+      "seed": 312,
       "move": "zoom_in",
       "transition": "flash",
       "min": 3.0,
-      "narration": "Someone posted his picture online. Bob was suddenly famous."
+      "narration": "Max showed him his phone. Everyone immediately believed him."
     },
     {
       "type": "still",
       "path": "scene-13.png",
-      "prompt": "Same red caped black stickman Bob standing nervously in front of a cheering cartoon crowd, oversized superhero cape, multiple smartphones pointed at him, bright city plaza, colorful 2D cartoon, vertical composition, no text",
-      "seed": 213,
+      "prompt": "Same stickman Max sitting awkwardly on a golden throne wearing an oversized golden crown, medieval knights bowing, colorful castle hall, funny whimsical 2D cartoon, vertical 9:16, no text",
+      "seed": 313,
       "move": "zoom_out",
-      "transition": "cut",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "People began calling him Captain Cape. Bob did not approve."
+      "narration": "Five minutes later, Max was somehow the new royal wizard."
     },
     {
       "type": "still",
       "path": "scene-14.png",
-      "prompt": "Same red caped black stickman Bob walking past a small grocery store, noticing an elderly gray haired stickman struggling with two heavy grocery bags, welcoming city sidewalk, colorful cartoon, vertical composition, no text",
-      "seed": 214,
+      "prompt": "Same stickman Max escaping a medieval castle courtyard while carrying his rusty silver time machine with glowing blue buttons, friendly knights waving goodbye, sunny colorful cartoon setting, vertical 9:16, no text",
+      "seed": 314,
       "move": "pan_right",
       "transition": "cut",
       "min": 3.0,
-      "narration": "Then Bob noticed someone struggling with heavy groceries."
+      "narration": "But Max missed electricity. So he escaped through time again."
     },
     {
       "type": "still",
       "path": "scene-15.png",
-      "prompt": "Same red caped black stickman Bob carrying two grocery bags for a smiling elderly gray haired stickman, kindhearted scene on sunny city sidewalk, humorous 2D cartoon illustration, vertical composition, no text",
-      "seed": 215,
-      "move": "zoom_in",
-      "transition": "punch",
+      "prompt": "Same black stickman Max arriving in a futuristic city filled with floating vehicles, glass skyscrapers, glowing holographic displays without readable text, friendly robots walking around, colorful sci fi 2D cartoon, vertical 9:16",
+      "seed": 315,
+      "move": "zoom_out",
+      "transition": "flash",
       "min": 3.0,
-      "narration": "He helped carry the bags. This time, completely on purpose."
+      "narration": "This time, Max jumped five hundred years into the future."
     },
     {
       "type": "still",
       "path": "scene-16.png",
-      "prompt": "Same red caped black stickman Bob holding open a glass door for several smiling stickman pedestrians outside a community building, cheerful vibrant 2D cartoon, vertical composition, no text",
-      "seed": 216,
-      "move": "pan_left",
+      "prompt": "Same stickman Max staring at a small friendly round white robot with blue eyes offering him a glowing futuristic drink, neon futuristic street, funny curious expression, clean 2D cartoon, vertical 9:16, no text",
+      "seed": 316,
+      "move": "zoom_in",
       "transition": "cut",
       "min": 3.0,
-      "narration": "Next, he held a door open for twelve people."
+      "narration": "A robot greeted Max and offered him a complimentary smoothie."
     },
     {
       "type": "still",
       "path": "scene-17.png",
-      "prompt": "Same red caped black stickman Bob helping a tiny yellow cartoon duckling cross a quiet neighborhood path, duck family waiting safely nearby, bright whimsical park, 2D cartoon illustration, vertical composition, no text",
-      "seed": 217,
-      "move": "zoom_in",
-      "transition": "flash",
+      "prompt": "Same black stickman Max sitting inside a sleek futuristic flying taxi with a friendly round white robot driving, colorful futuristic buildings far below, playful science fiction cartoon, vertical 9:16, no text",
+      "seed": 317,
+      "move": "pan_left",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "Then he helped a duck cross the road. Very heroic."
+      "narration": "The future had flying taxis. And apparently no traffic."
     },
     {
       "type": "still",
       "path": "scene-18.png",
-      "prompt": "Same red caped black stickman Bob standing proudly in a city plaza surrounded by grateful smiling cartoon stickman neighbors, festive cheerful atmosphere, colorful 2D illustration, vertical composition, no text",
-      "seed": 218,
-      "move": "zoom_out",
-      "transition": "punch",
+      "prompt": "Same black stickman Max standing before a futuristic vending machine dispensing a giant slice of pizza, a small friendly robot beside him, bright humorous sci fi environment, colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 318,
+      "move": "zoom_in",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "Bob realized something important. Heroes do not need superpowers."
+      "narration": "Even better, pizza came out of vending machines."
     },
     {
       "type": "still",
       "path": "scene-19.png",
-      "prompt": "Same red caped black stickman Bob gently helping a smaller stickman pick up scattered books from a sidewalk, friendly neighborhood background, warm 2D cartoon illustration, vertical composition, no text",
-      "seed": 219,
-      "move": "pan_right",
-      "transition": "cut",
+      "prompt": "Same stickman Max looking shocked at a futuristic transparent vending machine holding a ridiculously tiny golden coffee cup behind glass, exaggerated shocked expression, colorful futuristic city, 2D cartoon, vertical 9:16, no text",
+      "seed": 319,
+      "move": "zoom_in",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "Sometimes, being a hero just means helping someone."
+      "narration": "But one tiny coffee cost a thousand dollars."
     },
     {
       "type": "still",
       "path": "scene-20.png",
-      "prompt": "Same black stickman Bob wearing red cape walking into a cozy grocery store and stopping before a shelf filled with colorful cereal boxes, surprised happy expression, clean 2D cartoon illustration, vertical composition, no text",
-      "seed": 220,
-      "move": "zoom_in",
-      "transition": "cut",
+      "prompt": "Same black stickman Max urgently pressing the glowing blue button on his rusty silver time machine in the middle of a futuristic street, swirling rainbow portal opening, friendly robots watching, 2D cartoon, vertical 9:16, no text",
+      "seed": 320,
+      "move": "zoom_out",
+      "transition": "flash",
       "min": 3.0,
-      "narration": "Finally, Bob remembered why he had left home."
+      "narration": "Max had seen enough. It was time to return home."
     },
     {
       "type": "still",
       "path": "scene-21.png",
-      "prompt": "Same black stickman Bob with bright red superhero cape proudly holding one colorful cereal box at grocery checkout counter, smiling friendly cashier stickman, whimsical 2D cartoon, vertical composition, no text",
-      "seed": 221,
-      "move": "pan_left",
-      "transition": "punch",
+      "prompt": "Same black stickman Max safely back inside his original cozy living room beside the rusty silver time machine, sitting on the floor looking relieved, warm sunlight through a window, colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 321,
+      "move": "pan_right",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "Cereal. The most important mission of the entire day."
+      "narration": "Finally, Max returned to his own time. Or so he thought."
     },
     {
       "type": "still",
       "path": "scene-22.png",
-      "prompt": "Same black stickman Bob wearing a red superhero cape sitting at home at a tiny breakfast table eating cereal from a bowl, smiling peacefully, warm afternoon sunlight, cozy colorful 2D cartoon, vertical composition, no text",
-      "seed": 222,
-      "move": "zoom_out",
-      "transition": "cut",
+      "prompt": "Same black stickman Max looking through his living room window and seeing a huge friendly green dinosaur casually walking along a modern suburban street, hilarious shocked expression, colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 322,
+      "move": "zoom_in",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "Bob went home, ate his cereal, and enjoyed his new reputation."
+      "narration": "Then Max looked outside. Somehow, the dinosaur had followed him."
     },
     {
       "type": "still",
       "path": "scene-23.png",
-      "prompt": "Same black stickman Bob wearing a bright red cape standing in a heroic pose on a small neighborhood hill at sunset, orange kitten sitting next to him, cheerful city skyline, uplifting colorful 2D cartoon illustration, vertical composition, no text",
-      "seed": 223,
-      "move": "zoom_in",
+      "prompt": "Same black stickman Max sitting happily on a suburban lawn sharing an enormous pile of sandwiches with a giant friendly green dinosaur, rusty silver time machine nearby, warm sunset, joyful whimsical 2D cartoon, vertical 9:16, no text",
+      "seed": 323,
+      "move": "zoom_out",
       "transition": "flash",
       "min": 3.5,
-      "narration": "And that is how a one dollar cape turned an ordinary stickman into an extraordinary neighbor."
+      "narration": "And that is how Max bought a five dollar time machine and got the world's most expensive pet."
     }
   ]
 }
