@@ -38,6 +38,10 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       KOKORO_DIR: ${{ github.workspace }}/.cache/kokoro
       PYTHONUNBUFFERED: '1'
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      YT_PRIVACY: public
       SHORTS_TOPIC: ${{ inputs.topic }}
 
     steps:
@@ -62,6 +66,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-shorts.txt
+          python -m pip install google-api-python-client google-auth google-auth-httplib2
 
       - name: Automatically generate spec when none is supplied
         if: ${{ inputs.spec_path == '' }}
@@ -157,3 +162,28 @@ jobs:
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
+
+      - name: Publish YouTube Short (PUBLIC)
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          spec=json.loads(Path(os.environ['SPEC_FILE']).read_text(encoding='utf-8'))
+          path=Path('render_output')/(spec['slug']+'.mp4')
+          if not path.is_file():
+              raise SystemExit(f'Missing expected MP4: {path}')
+          print(path)
+          PY
+          VIDEO_PATH=$(python -c 'import json,os; from pathlib import Path; s=json.load(open(os.environ["SPEC_FILE"])); print(Path("render_output")/(s["slug"]+".mp4"))')
+          python upload_youtube.py "$SPEC_FILE" "$VIDEO_PATH"
+        env:
+          SPEC_FILE: ${{ steps.paths.outputs.spec }}
+
+      - name: Save YouTube upload details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-upload-${{ github.run_id }}
+          path: youtube-upload.json
+          if-no-files-found: ignore
+          retention-days: 7
