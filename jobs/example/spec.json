@@ -1,6 +1,6 @@
 
 {
-  "slug": "stickman-five-dollar-time-machine",
+  "slug": "stickman-magic-remote",
   "aspect": "9:16",
   "voice": "am_puck",
   "speed": 1.05,
@@ -9,232 +9,232 @@
     {
       "type": "still",
       "path": "scene-01.png",
-      "prompt": "A simple black stickman with a round white head and expressive eyes walking through a colorful outdoor garage sale, spotting a strange glowing machine among old household items, bright playful 2D cartoon, vertical 9:16, no text",
-      "seed": 301,
+      "prompt": "A simple black stickman named Leo with a round white head and expressive black eyes sitting on a blue couch in a cozy living room, searching between couch cushions, colorful clean 2D cartoon, vertical 9:16 composition, family friendly, no text",
+      "seed": 401,
       "move": "zoom_in",
       "transition": "cut",
       "min": 3.0,
-      "narration": "This is Max. He just found a time machine for five dollars."
+      "narration": "This is Leo. And today, he found something impossible."
     },
     {
       "type": "still",
       "path": "scene-02.png",
-      "prompt": "Same black stickman Max staring curiously at a rusty silver machine with glowing blue buttons and a large circular clock, garage sale setting, exaggerated surprised expression, colorful 2D cartoon, vertical 9:16, no text",
-      "seed": 302,
-      "move": "pan_right",
+      "prompt": "Same black stickman Leo discovering a mysterious golden remote control with three glowing colorful buttons between blue couch cushions, surprised expression, cozy living room, playful 2D cartoon, vertical 9:16, no text",
+      "seed": 402,
+      "move": "zoom_in",
       "transition": "punch",
       "min": 3.0,
-      "narration": "The seller said it worked. Max asked if it came with batteries."
+      "narration": "A golden remote control was hiding inside his couch."
     },
     {
       "type": "still",
       "path": "scene-03.png",
-      "prompt": "Same stickman Max carrying a small rusty silver time machine with blue glowing buttons into his cozy living room, excited expression, bright colorful cartoon illustration, vertical 9:16, no text",
-      "seed": 303,
-      "move": "zoom_out",
+      "prompt": "Same black stickman Leo standing in his living room holding a small golden remote with glowing buttons, pointing it toward a television, confused expression, bright colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 403,
+      "move": "pan_right",
       "transition": "cut",
       "min": 3.0,
-      "narration": "Naturally, Max bought it. What could possibly go wrong?"
+      "narration": "Naturally, Leo thought it controlled the television."
     },
     {
       "type": "still",
       "path": "scene-04.png",
-      "prompt": "Same stickman Max pressing a giant glowing blue button on a rusty silver time machine inside his living room, colorful swirling light surrounding the machine, funny surprised expression, family friendly 2D cartoon, vertical 9:16, no text",
-      "seed": 304,
+      "prompt": "Same stickman Leo pressing the bright blue button of a golden remote while a small orange pet cat freezes mid jump above the living room floor, suspended motion, magical sparkles, clean 2D cartoon illustration, vertical 9:16, no text",
+      "seed": 404,
       "move": "zoom_in",
       "transition": "flash",
       "min": 3.0,
-      "narration": "He pressed the biggest button. Because of course he did."
+      "narration": "But when he pressed pause, his cat froze in midair."
     },
     {
       "type": "still",
       "path": "scene-05.png",
-      "prompt": "Same black stickman Max floating inside a swirling rainbow colored time travel tunnel with glowing clock shapes, arms waving, startled expression, dynamic clean 2D cartoon, vertical 9:16, no text",
-      "seed": 305,
-      "move": "zoom_out",
+      "prompt": "Same black stickman Leo staring wide eyed at an orange cat suspended perfectly still in midair, golden magic remote in his hand, living room clock frozen, colorful humorous 2D cartoon, vertical 9:16, no text",
+      "seed": 405,
+      "move": "pan_left",
       "transition": "punch",
       "min": 3.0,
-      "narration": "Suddenly, his entire living room disappeared."
+      "narration": "Leo realized the remote could pause real life."
     },
     {
       "type": "still",
       "path": "scene-06.png",
-      "prompt": "Same stickman Max landing on soft green grass in a prehistoric jungle, enormous ferns, distant volcano, huge dinosaur footprints nearby, surprised expression, colorful whimsical cartoon, vertical 9:16, no text",
-      "seed": 306,
-      "move": "pan_left",
+      "prompt": "Same stickman Leo standing on a sunny city sidewalk holding a glowing golden remote, busy pedestrians and cyclists frozen in place around him, playful magical atmosphere, colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 406,
+      "move": "zoom_out",
       "transition": "cut",
       "min": 3.0,
-      "narration": "Max landed millions of years in the past."
+      "narration": "So Leo went outside to test his new superpower."
     },
     {
       "type": "still",
       "path": "scene-07.png",
-      "prompt": "Same black stickman Max staring at a giant friendly green dinosaur peeking over tall jungle trees, dinosaur smiling curiously, lush prehistoric forest, colorful family friendly 2D illustration, vertical 9:16, no text",
-      "seed": 307,
-      "move": "zoom_in",
-      "transition": "punch",
+      "prompt": "Same black stickman Leo walking between completely frozen cartoon pedestrians on a colorful city street, one person frozen while carrying grocery bags, golden remote in Leo's hand, whimsical clean 2D cartoon, vertical 9:16, no text",
+      "seed": 407,
+      "move": "pan_right",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "And immediately met a dinosaur. A very large dinosaur."
+      "narration": "Everyone stopped moving. Except Leo."
     },
     {
       "type": "still",
       "path": "scene-08.png",
-      "prompt": "Same stickman Max offering a tiny sandwich to a gigantic friendly green dinosaur, amusing size contrast, prehistoric grassland, oversized ferns, playful colorful 2D cartoon, vertical 9:16, no text",
-      "seed": 308,
-      "move": "pan_right",
-      "transition": "cut",
+      "prompt": "Same black stickman Leo carefully catching a falling ice cream cone in midair before it hits the sidewalk, small happy child nearby frozen in surprise, magical golden remote visible, cheerful 2D cartoon, vertical 9:16, no text",
+      "seed": 408,
+      "move": "zoom_in",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "Max offered it a sandwich. The dinosaur wanted the entire bag."
+      "narration": "First, he saved a kid's falling ice cream."
     },
     {
       "type": "still",
       "path": "scene-09.png",
-      "prompt": "Same black stickman Max running toward his rusty silver time machine with glowing blue buttons as a huge friendly green dinosaur follows him, funny energetic prehistoric cartoon landscape, vertical 9:16, no text",
-      "seed": 309,
-      "move": "zoom_out",
-      "transition": "flash",
+      "prompt": "Same stickman Leo using a glowing golden remote near a city park bench, arranging scattered colorful papers back into a neat stack while a frozen office worker watches, playful 2D cartoon, vertical 9:16, no text",
+      "seed": 409,
+      "move": "pan_left",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "Max decided it was time to leave. Very quickly."
+      "narration": "Then he rescued someone's papers from the wind."
     },
     {
       "type": "still",
       "path": "scene-10.png",
-      "prompt": "Same stickman Max standing beside rusty silver time machine in a medieval castle courtyard, stone towers, colorful banners, knights in shiny armor, surprised expression, vibrant 2D cartoon, vertical 9:16, no text",
-      "seed": 310,
-      "move": "zoom_in",
-      "transition": "cut",
+      "prompt": "Same stickman Leo proudly holding golden remote and pressing a green glowing button, city pedestrians moving again, smiling happy child holding saved ice cream, warm cheerful 2D cartoon illustration, vertical 9:16, no text",
+      "seed": 410,
+      "move": "zoom_out",
+      "transition": "flash",
       "min": 3.0,
-      "narration": "His next stop was the Middle Ages."
+      "narration": "When he pressed play, everything continued like nothing happened."
     },
     {
       "type": "still",
       "path": "scene-11.png",
-      "prompt": "Same stickman Max standing before a friendly medieval king wearing a large golden crown and purple robe in a grand castle hall, confused guards nearby, comedic cartoon expressions, vertical 9:16, no text",
-      "seed": 311,
-      "move": "pan_left",
+      "prompt": "Same stickman Leo sitting at a small restaurant table holding a golden remote, accidentally knocking over a tall glass of orange juice, liquid splashing in the air, funny shocked expression, colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 411,
+      "move": "zoom_in",
       "transition": "punch",
       "min": 3.0,
-      "narration": "The king demanded to know if Max was a powerful wizard."
+      "narration": "At lunch, Leo accidentally spilled his entire drink."
     },
     {
       "type": "still",
       "path": "scene-12.png",
-      "prompt": "Same stickman Max proudly holding a modern smartphone showing a bright colorful glowing screen to an amazed medieval king and knights, castle interior, exaggerated funny expressions, 2D cartoon, vertical 9:16, no text",
-      "seed": 312,
-      "move": "zoom_in",
+      "prompt": "Same black stickman Leo pressing the purple rewind button on a golden remote, orange juice magically flowing backward into a glass, sparkling rewind motion trails, cheerful restaurant interior, 2D cartoon, vertical 9:16, no text",
+      "seed": 412,
+      "move": "zoom_out",
       "transition": "flash",
       "min": 3.0,
-      "narration": "Max showed him his phone. Everyone immediately believed him."
+      "narration": "He pressed rewind. And the juice flew back into the glass."
     },
     {
       "type": "still",
       "path": "scene-13.png",
-      "prompt": "Same stickman Max sitting awkwardly on a golden throne wearing an oversized golden crown, medieval knights bowing, colorful castle hall, funny whimsical 2D cartoon, vertical 9:16, no text",
-      "seed": 313,
-      "move": "zoom_out",
-      "transition": "punch",
+      "prompt": "Same stickman Leo sitting proudly at a restaurant table with a perfectly full orange juice glass, holding a glowing golden remote and smiling triumphantly, colorful cheerful cafe setting, 2D cartoon, vertical 9:16, no text",
+      "seed": 413,
+      "move": "zoom_in",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "Five minutes later, Max was somehow the new royal wizard."
+      "narration": "Leo smiled. Finally, a world without embarrassing mistakes."
     },
     {
       "type": "still",
       "path": "scene-14.png",
-      "prompt": "Same stickman Max escaping a medieval castle courtyard while carrying his rusty silver time machine with glowing blue buttons, friendly knights waving goodbye, sunny colorful cartoon setting, vertical 9:16, no text",
-      "seed": 314,
+      "prompt": "Same black stickman Leo standing beside a long grocery store checkout line, holding his golden remote and looking bored, shopping carts, colorful products, playful 2D cartoon, vertical 9:16, no text",
+      "seed": 414,
       "move": "pan_right",
       "transition": "cut",
       "min": 3.0,
-      "narration": "But Max missed electricity. So he escaped through time again."
+      "narration": "Next, Leo found himself waiting in a very long line."
     },
     {
       "type": "still",
       "path": "scene-15.png",
-      "prompt": "Same black stickman Max arriving in a futuristic city filled with floating vehicles, glass skyscrapers, glowing holographic displays without readable text, friendly robots walking around, colorful sci fi 2D cartoon, vertical 9:16",
-      "seed": 315,
-      "move": "zoom_out",
+      "prompt": "Same stickman Leo pressing a bright red fast forward button on a golden remote inside a grocery store, surrounding shoppers represented with colorful motion trails while Leo remains sharp, cheerful 2D cartoon, vertical 9:16, no text",
+      "seed": 415,
+      "move": "zoom_in",
       "transition": "flash",
       "min": 3.0,
-      "narration": "This time, Max jumped five hundred years into the future."
+      "narration": "He pressed fast forward. Suddenly, everything moved super fast."
     },
     {
       "type": "still",
       "path": "scene-16.png",
-      "prompt": "Same stickman Max staring at a small friendly round white robot with blue eyes offering him a glowing futuristic drink, neon futuristic street, funny curious expression, clean 2D cartoon, vertical 9:16, no text",
-      "seed": 316,
-      "move": "zoom_in",
-      "transition": "cut",
+      "prompt": "Same black stickman Leo looking shocked inside an empty grocery store at nighttime, dark windows revealing stars, golden remote in hand, shopping cart beside him, humorous 2D cartoon, vertical 9:16, no text",
+      "seed": 416,
+      "move": "zoom_out",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "A robot greeted Max and offered him a complimentary smoothie."
+      "narration": "Oops. He accidentally skipped the entire day."
     },
     {
       "type": "still",
       "path": "scene-17.png",
-      "prompt": "Same black stickman Max sitting inside a sleek futuristic flying taxi with a friendly round white robot driving, colorful futuristic buildings far below, playful science fiction cartoon, vertical 9:16, no text",
-      "seed": 317,
+      "prompt": "Same stickman Leo rushing out of grocery store under a starry night sky, clutching a golden glowing remote, worried expression, quiet colorful cartoon street, vertical 9:16, no text",
+      "seed": 417,
       "move": "pan_left",
-      "transition": "punch",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "The future had flying taxis. And apparently no traffic."
+      "narration": "Leo decided the remote was getting a little dangerous."
     },
     {
       "type": "still",
       "path": "scene-18.png",
-      "prompt": "Same black stickman Max standing before a futuristic vending machine dispensing a giant slice of pizza, a small friendly robot beside him, bright humorous sci fi environment, colorful 2D cartoon, vertical 9:16, no text",
-      "seed": 318,
+      "prompt": "Same black stickman Leo back at home, sitting on a blue couch studying a glowing golden remote carefully, thoughtful expression, warm lamp lighting, cozy clean 2D cartoon, vertical 9:16, no text",
+      "seed": 418,
       "move": "zoom_in",
       "transition": "cut",
       "min": 3.0,
-      "narration": "Even better, pizza came out of vending machines."
+      "narration": "At home, he noticed one mysterious button he had never tried."
     },
     {
       "type": "still",
       "path": "scene-19.png",
-      "prompt": "Same stickman Max looking shocked at a futuristic transparent vending machine holding a ridiculously tiny golden coffee cup behind glass, exaggerated shocked expression, colorful futuristic city, 2D cartoon, vertical 9:16, no text",
-      "seed": 319,
+      "prompt": "Close up of the same golden magical remote control in black stickman Leo's hand, one tiny glowing rainbow colored button at the bottom, Leo's wide surprised eyes in background, colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 419,
       "move": "zoom_in",
       "transition": "punch",
       "min": 3.0,
-      "narration": "But one tiny coffee cost a thousand dollars."
+      "narration": "It was glowing rainbow colors. That probably meant trouble."
     },
     {
       "type": "still",
       "path": "scene-20.png",
-      "prompt": "Same black stickman Max urgently pressing the glowing blue button on his rusty silver time machine in the middle of a futuristic street, swirling rainbow portal opening, friendly robots watching, 2D cartoon, vertical 9:16, no text",
-      "seed": 320,
+      "prompt": "Same black stickman Leo pressing the tiny glowing rainbow button on a golden remote, bright magical swirling sparkles filling his living room, surprised expression, playful colorful 2D cartoon, vertical 9:16, no text",
+      "seed": 420,
       "move": "zoom_out",
       "transition": "flash",
       "min": 3.0,
-      "narration": "Max had seen enough. It was time to return home."
+      "narration": "Of course, Leo pressed it anyway."
     },
     {
       "type": "still",
       "path": "scene-21.png",
-      "prompt": "Same black stickman Max safely back inside his original cozy living room beside the rusty silver time machine, sitting on the floor looking relieved, warm sunlight through a window, colorful 2D cartoon, vertical 9:16, no text",
-      "seed": 321,
+      "prompt": "Same stickman Leo staring in disbelief as all furniture in his cozy living room transforms into giant fluffy pastel colored marshmallows, blue couch becomes giant pink marshmallow, magical whimsical 2D cartoon, vertical 9:16, no text",
+      "seed": 421,
       "move": "pan_right",
-      "transition": "cut",
+      "transition": "punch",
       "min": 3.0,
-      "narration": "Finally, Max returned to his own time. Or so he thought."
+      "narration": "Suddenly, every piece of furniture turned into marshmallows."
     },
     {
       "type": "still",
       "path": "scene-22.png",
-      "prompt": "Same black stickman Max looking through his living room window and seeing a huge friendly green dinosaur casually walking along a modern suburban street, hilarious shocked expression, colorful 2D cartoon, vertical 9:16, no text",
-      "seed": 322,
-      "move": "zoom_in",
-      "transition": "punch",
+      "prompt": "Same black stickman Leo sitting awkwardly on a giant pink marshmallow couch in a living room made of colorful giant marshmallows, orange pet cat resting on fluffy marshmallow cushion, Leo looks confused, clean 2D cartoon, vertical 9:16, no text",
+      "seed": 422,
+      "move": "zoom_out",
+      "transition": "cut",
       "min": 3.0,
-      "narration": "Then Max looked outside. Somehow, the dinosaur had followed him."
+      "narration": "Leo tried rewind. Nothing happened. Apparently, marshmallows were permanent."
     },
     {
       "type": "still",
       "path": "scene-23.png",
-      "prompt": "Same black stickman Max sitting happily on a suburban lawn sharing an enormous pile of sandwiches with a giant friendly green dinosaur, rusty silver time machine nearby, warm sunset, joyful whimsical 2D cartoon, vertical 9:16, no text",
-      "seed": 323,
-      "move": "zoom_out",
+      "prompt": "Same stickman Leo smiling while relaxing on an enormous fluffy pink marshmallow couch with his small orange pet cat, holding golden magic remote, cozy magical living room full of colorful marshmallow furniture, warm sunset through window, whimsical clean 2D cartoon, vertical 9:16, no text",
+      "seed": 423,
+      "move": "zoom_in",
       "transition": "flash",
       "min": 3.5,
-      "narration": "And that is how Max bought a five dollar time machine and got the world's most expensive pet."
+      "narration": "And that is how Leo discovered the world's most comfortable couch. Sometimes, mistakes are surprisingly sweet."
     }
   ]
 }
