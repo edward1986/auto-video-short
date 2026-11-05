@@ -94,15 +94,4 @@ jobs:
         echo "YOUTUBE_CATEGORY_ID=${YOUTUBE_CATEGORY_ID}" >> $GITHUB_ENV
         echo "YOUTUBE_PRIVACY_STATUS=${YOUTUBE_PRIVACY_STATUS}" >> $GITHUB_ENV
         echo "YOUTUBE_VIDEO_ID=${YOUTUBE_VIDEO_ID}" >> $GITHUB_ENV
-
-    - name: Commit output files
-      run: |
-        git config --global user.name 'github-actions'
-        git config --global user.email 'github-actions@github.com'
-        git fetch origin
-        git pull origin Production --rebase
-        git add -f .
-        git commit -m "Add generated video files" || echo "No changes to commit"
-        git push origin Production
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT }}
+ 
