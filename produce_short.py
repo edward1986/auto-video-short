@@ -7,7 +7,7 @@ from PIL import Image
 
 # Monkeypatch for MoviePy 1.0.3 compatibility with Pillow 10+
 if not hasattr(Image, "ANTIALIAS"):
-    Image.ANTIALIAS = Image.LANCZOS
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
 
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
@@ -36,9 +36,9 @@ from videoProcess.Styling import (
     apply_dynamic_cuts,
 )
 
-CLIENT_ID = "553209643758-dn4375pj94hssfcipff2e1kn8eeqoprr.apps.googleusercontent.com"
-CLIENT_SECRET = "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"
-REFRESH_TOKEN = "1//0eo_Nlm6px-u0CgYIARAAGA4SNwF-L9IrN2zK_M5f3PUFHIn52Vp5Mmb3FbWVXWMHEBa94fLxt3_Z2Ljy6INmzrkyXoX4kcRd95o"
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
 video_file_path = "output.mp4"
 clip_durations = {"question": 10, "answer": 2.5}
 full_question_duration = sum(clip_durations.values())
@@ -58,263 +58,89 @@ class Question:
         self.answers = []
 
 
-def produce_short(
-    questions: list[Question], background: str, music: str, font: str, output: str
-):
-    # ✅ Select one random question
+def produce_short(questions: list[Question], background: str, music: str, font: str, output: str):
+    """Render a clean 9:16 quiz short without overlapping text or distortion."""
     question = choice(questions)
-    resolution = (1080, 1920)
+    W, H = 1080, 1920
+    q_dur = float(clip_durations["question"])
+    a_dur = float(clip_durations["answer"])
+    total = q_dur + a_dur
 
-    print(f"Selected Question: {question['title']}")
-    print(f"Answers: {question['answers']}")
-    print(f"Correct Answer Index: {question['correct']}")
+    # Avoid stretching the original video. Scale to cover 9:16, then center-crop.
+    bg_source = editor.VideoFileClip(background, audio=False)
+    music_source = editor.AudioFileClip(music)
+    bg = bg_source.loop(duration=total) if bg_source.duration < total else bg_source.subclip(0, total)
+    scale = max(W / bg.w, H / bg.h)
+    bg = bg.resize(scale)
+    bg = bg.crop(x_center=bg.w / 2, y_center=bg.h / 2, width=W, height=H)
+    bg = darken_clip(bg, factor=0.34)
 
-    # ✅ Load background (without audio) and music once to avoid repeated file I/O
-    # Loading with audio=False prevents duration mismatch issues when using subclip/cutout
-    bg_clip = editor.VideoFileClip(
-        background, audio=False, target_resolution=(1920, None)
-    )
-    audio_clip = editor.AudioFileClip(music)
-
-    # Ensure background is at least as long as our total duration
-    if bg_clip.duration < full_question_duration:
-        bg_clip = bg_clip.loop(duration=full_question_duration)
-
-    background_duration = bg_clip.duration
-    # 2026 Style: Dynamic "Jump-Zoom" Background
-    # We split the background into two segments to create a clean 'cut' reset during the reveal
-    q_dur = clip_durations["question"]
-    a_dur = clip_durations["answer"]
-
-    # Use robust subclip logic to select a segment from the background video.
-    # We take it from the end of the clip for variety, ensuring it's at least 65s if possible.
-    segment_start = max(0, background_duration - 65)
-    bg_segment = bg_clip.subclip(segment_start).set_position(("center", "center"))
-
-    # Segment 1: Question (Slow zoom in + Darken for contrast)
-    bg_q = resize(bg_segment.subclip(0, min(bg_segment.duration, q_dur)), height=1920)
-    bg_q = apply_zoom(bg_q, q_dur, start_scale=1.0, end_scale=1.15)
-    bg_q = darken_clip(bg_q, factor=0.45)
-
-    # Segment 2: Answer Reveal (Jump-zoom reset & faster zoom + Darken)
-    bg_a = resize(bg_segment.subclip(q_dur, q_dur + a_dur), height=1920)
-    bg_a = apply_zoom(
-        bg_a, a_dur, start_scale=1.05, end_scale=1.2
-    )  # Resets slightly and zooms faster
-    bg_a = darken_clip(bg_a, factor=0.45)
-
-    background_clip = concatenate_videoclips([bg_q, bg_a], method="chain")
-
-    # 2026 Style: Apply dynamic cuts for "fast clean cuts" feel
-    background_clip = apply_dynamic_cuts(background_clip, segment_duration=2.5)
-
-    # Ensure music is long enough
-    if audio_clip.duration < full_question_duration:
-        audio_clip = audio_clip.loop(duration=full_question_duration)
-
-    music_duration = audio_clip.duration
-    available_music_time = max(0, music_duration - full_question_duration)
-    music_start_time = (
-        randint(0, int(available_music_time)) if available_music_time > 0 else 0
-    )
-
-    # Use subclip instead of cutout for better reliability
-    music_track = volumex(
-        audio_clip.subclip(music_start_time, music_start_time + full_question_duration),
-        0.6,
-    ).set_duration(full_question_duration)
-
-    # Overlays - 2026 style (Noise/Grain, Gradient Glow, and Vignette)
-    noise_overlay = create_noise_overlay(
-        resolution, full_question_duration, opacity=0.12
-    )
-    glow_overlay = create_gradient_glow(
-        resolution,
-        full_question_duration,
-        color=[(0, 255, 0), (255, 255, 255)],
-        opacity=0.15,
-    )
-    vignette_overlay = create_vignette(resolution, full_question_duration, opacity=0.5)
-
-    # 2-second high-impact hook
-    hook_clip = create_hook_clip("TRIVIA TIME!", video_size=resolution, font=font)
-
-    # 2026 Style: Progress Bar
-    progress_bar = create_progress_bar(
-        resolution, full_question_duration, color=(0, 255, 0)
-    )
-
-    # Initial overlays
-    clips = [
-        background_clip,
-        glow_overlay,
-        noise_overlay,
-        vignette_overlay,
-        hook_clip,
-        progress_bar,
-    ]
-
-    # ✅ Display the selected question - 2026 Modern Caption Style (Word-by-word)
-    question_words = []
-    raw_words = question["title"].split()
-    time_per_word = clip_durations["question"] / max(len(raw_words), 1)
-    for i, w in enumerate(raw_words):
-        question_words.append(
-            {"word": w, "start": i * time_per_word, "end": (i + 1) * time_per_word}
+    def fit_text(value, font_size, top, max_height, *, color="white",
+                 start=0, until=None, max_width=900, stroke=3):
+        # Reserve a real pixel rectangle for each text element.
+        clip = get_text_clip(
+            str(value), fontsize=font_size, font=font, color=color,
+            stroke_color="black", stroke_width=stroke,
+            size=(max_width, None), align="center",
+        )
+        factor = min(1.0, max_width / max(clip.w, 1), max_height / max(clip.h, 1))
+        if factor < 1:
+            clip = clip.resize(factor)
+        x = (W - clip.w) / 2
+        y = top + (max_height - clip.h) / 2
+        return clip.set_position((x, y)).set_start(start).set_duration(
+            (total if until is None else until) - start
         )
 
-    # Keyword highlight in the question (e.g., words like NOT, WHICH, etc.)
-    highlight_keywords = ["NOT", "WHICH", "WHAT", "WHO", "WHERE"]
-    found_highlight = ""
-    for w in raw_words:
-        if w.upper() in highlight_keywords:
-            found_highlight = w
-            break
+    layers = [bg]
+    # Distinct safe zones: title 190-330, question 350-650,
+    # choices 700-1380, countdown 1480-1680.
+    layers.append(fit_text("TRIVIA TIME!", 104, 190, 140,
+                           color="#36FF79", until=q_dur))
+    layers.append(fit_text(question["title"].upper(), 80, 350, 300,
+                           until=q_dur))
 
-    question_clips = build_modern_captions(
-        question_words,
-        resolution,
-        highlight_word=found_highlight,
-        font=font,
-        phrase_mode=True,
-        y_pos=0.15,
-    )
+    answers = question["answers"]
+    if len(answers) > 4:
+        raise ValueError("Video layout supports no more than four choices")
+    for i, answer in enumerate(answers):
+        start = 0.35 + i * 0.18
+        layers.append(fit_text(
+            f"{chr(65 + i)} - {str(answer).upper()}", 68,
+            710 + i * 165, 140, start=start, until=q_dur,
+        ))
 
-    clips.extend(question_clips)
+    for elapsed in range(int(q_dur)):
+        layers.append(fit_text(str(int(q_dur) - elapsed), 145,
+                               1480, 210, start=float(elapsed),
+                               until=float(elapsed + 1), max_width=400))
 
-    # ✅ Display answer choices with labels - Cascading Entrance & Mobile Safe Margins
-    answer_labels = list("ABCD")
-    for i in range(len(question["answers"])):
-        # 2026 style: Focused layout with vertical safe margins (0.42 to 0.7)
-        target_y = 0.42 + (i * 0.07)
-        answer_clip = (
-            get_text_clip(
-                f"{answer_labels[i]} - {question['answers'][i]}".upper(),
-                fontsize=95,  # Boosted for readability
-                color="white",
-                stroke_color="black",
-                stroke_width=3,
-                method="caption",
-                size=(900, None),
-                font=font,
-            )
-            .set_start(0.5 + (i * 0.15))
-            .set_duration(clip_durations["question"] - (0.5 + (i * 0.15)))
-        )
-        # 2026 style: Snappy slide-in and pop
-        answer_clip = apply_slide_in(
-            answer_clip,
-            duration=0.4,
-            direction="bottom",
-            final_pos=("center", target_y),
-        )
-        answer_clip = apply_kinetic_pop(answer_clip, duration=0.2, scale=1.1)
-        clips.append(answer_clip)
+    # Reveal uses separate times and therefore cannot overlap the options.
+    layers.append(fit_text("CORRECT ANSWER", 85, 550, 160,
+                           color="#36FF79", start=q_dur, until=total))
+    layers.append(fit_text(str(answers[question["correct"]]).upper(),
+                           112, 780, 310, start=q_dur, until=total))
+    layers.append(create_progress_bar((W, H), total, color=(54, 255, 121)))
 
-    # ✅ Countdown timer (10 to 0) - Repositioned for mobile safe margins (y=0.75)
-    for i in range(clip_durations["question"]):
-        countdown_clip = (
-            get_text_clip(
-                str(clip_durations["question"] - i),
-                fontsize=200,
-                color="white",
-                stroke_color="black",
-                stroke_width=6,
-                method="label",
-                font=font,
-            )
-            .set_start(i)
-            .set_duration(1)
-            .set_position(
-                ("center", 0.65), relative=True
-            )  # Strictly within 2026 safe margins
-        )
-        # Pulse every second
-        countdown_clip = apply_kinetic_pop(countdown_clip, duration=0.2, scale=1.4)
-        clips.append(countdown_clip)
+    track = music_source.fx(editor.afx.audio_loop, duration=total) if music_source.duration < total else music_source.subclip(0, total)
+    track = volumex(track, 0.55).set_duration(total)
+    result = editor.CompositeVideoClip(layers, size=(W, H)).set_duration(total).set_audio(track)
 
-    # ✅ Transition Flash - 2026 Trend (Centralized 0.1s white flash)
-    flash = create_flash_transition(resolution).set_start(clip_durations["question"])
-    clips.append(flash)
-
-    # ✅ Highlight the correct answer - Modern neon reveal
-    correct_answer_reveal = (
-        get_text_clip(
-            f"CORRECT:\n{question['answers'][question['correct']]}".upper(),
-            fontsize=150,  # Boosted for 2026 style
-            color="#00FF00",  # Neon Green
-            stroke_color="black",
-            stroke_width=6,
-            method="caption",
-            size=(1000, None),
-            font=font,
-        )
-        .set_start(clip_durations["question"])
-        .set_duration(clip_durations["answer"])
-        .set_position("center")
-    )
-    correct_answer_reveal = apply_kinetic_pop(
-        correct_answer_reveal, duration=0.4, scale=1.6
-    )
-    correct_answer_reveal = apply_shake(correct_answer_reveal, duration=0.3)
-    clips.append(correct_answer_reveal)
-
-    # ✅ Combine all clips
-    result: editor.CompositeVideoClip = editor.CompositeVideoClip(
-        clips, size=resolution, use_bgclip=True
-    ).set_audio(music_track)
-
-    # Branded end card (2.5 seconds)
-    end_card = create_end_card(resolution, font=font)
-
-    # Clean transition between main content and end card (0.3s crossfade)
-    final_video = concatenate_videoclips(
-        [result, end_card], method="compose", padding=-0.3
-    )
-
-    # ✅ Export the final video
-    final_video.write_videofile(
-        output,
-        fps=24,
-        audio_codec="aac",
-        threads=os.cpu_count() or 4,
-        preset="fast",
-        temp_audiofile="out/TEMP_trivia.mp4",
+    os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
+    result.write_videofile(
+        output, codec="libx264", fps=24, audio_codec="aac",
+        audio_bitrate="160k", threads=4, preset="medium",
+        ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "+faststart"],
     )
     youtube_title = shorten(question["title"], width=90, placeholder="...")
-    youtube_description = (
-        "👉 Explore now at https://tinyurl.com/1zx00SheinGiftCardNow \nhttps://multiculturaltoolbox.com/blog/"
-        + " "
-        + question["title"]
-    )
-    youtube_tags = [
-        "trivia",
-        "quiz",
-        "facts",
-        "#shorts",
-        "#trivia",
-        "#quiz",
-    ]
-    youtube_category_id = "22"
-    youtube_privacy_status = "public"
-
+    youtube_tags = ["trivia", "quiz", "facts", "#shorts"]
     response = upload_video_to_youtube(
-        video_file_path,
-        youtube_title,
-        youtube_description,
-        youtube_tags,
-        youtube_category_id,
-        youtube_privacy_status,
+        output, youtube_title, question["title"], youtube_tags, "22", "public"
     )
-
-    if "id" in response:
-        print("Video uploaded to YouTube successfully!")
-    else:
-        print("Failed to upload video to YouTube.")
-
-    # ✅ Explicitly close clips to release system resources
-    bg_clip.close()
-    audio_clip.close()
+    print("YouTube upload:", response)
+    result.close()
+    bg_source.close()
+    music_source.close()
 
 
 def get_authenticated_service():
@@ -370,8 +196,6 @@ def upload_video_to_youtube(
             new_file_path = f"{timestampFile}_{base}_retry{counter}{ext}"
             counter += 1
 
-        if os.path.exists(video_file_path):
-            os.rename(video_file_path, new_file_path)
         return {"error": str(e)}
 
 
