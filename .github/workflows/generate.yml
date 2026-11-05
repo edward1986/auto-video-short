@@ -6,75 +6,138 @@ on:
     branches:
       - Production
   schedule:
-  - cron: '*/30 * * * *'  # Runs every hour
+    - cron: '*/30 * * * *' # Every 30 minutes
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: generate-video
+  cancel-in-progress: false
 
 jobs:
   generate_video:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Ensure Virtual Environment Exists
+      - name: Create Virtual Environment
         run: |
-          rm -rf venv
           python -m venv venv
 
-      - name: Reinstall Dependencies Inside venv
+      - name: Install Dependencies
         run: |
-          source venv/bin/activate  # ✅ Activate venv
+          source venv/bin/activate
+
           python -m pip install --upgrade pip
-          python -m pip install --no-cache-dir --force-reinstall moviepy==1.0.3 "numpy>=1.26.0,<2.0.0" imageio imageio[ffmpeg] "Pillow>=10.1.0"
-          pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
-          pip install oauth2client boto3 python-dotenv pyfiglet transformers gtts
+
+          python -m pip install --no-cache-dir \
+            moviepy==1.0.3 \
+            "numpy>=1.26.0,<2.0.0" \
+            "Pillow>=10.1.0" \
+            imageio \
+            "imageio[ffmpeg]"
+
+          python -m pip install \
+            google-auth \
+            google-auth-oauthlib \
+            google-auth-httplib2 \
+            google-api-python-client \
+            oauth2client \
+            boto3 \
+            python-dotenv \
+            pyfiglet \
+            transformers \
+            gtts
+
       - name: Install ImageMagick
-        run: sudo apt-get update && sudo apt-get install -y imagemagick
-      - name: Update ImageMagick policy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
+      - name: Configure ImageMagick
         run: |
           if [ -f /etc/ImageMagick-7/policy.xml ]; then
             POLICY_FILE="/etc/ImageMagick-7/policy.xml"
           elif [ -f /etc/ImageMagick-6/policy.xml ]; then
             POLICY_FILE="/etc/ImageMagick-6/policy.xml"
           else
-            echo "No ImageMagick policy.xml file found."
+            echo "ImageMagick policy not found"
             exit 1
           fi
-          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"/<!-- <policy domain="path" rights="none" pattern="@\*" -->/' $POLICY_FILE || true
-          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PS"/<!-- <policy domain="coder" rights="none" pattern="PS" -->/' $POLICY_FILE || true
-          sudo sed -i 's/<policy domain="coder" rights="none" pattern="EPI"/<!-- <policy domain="coder" rights="none" pattern="EPI" -->/' $POLICY_FILE || true
-          sudo sed -i 's/<policy domain="coder" rights="none" pattern="URL"/<!-- <policy domain="coder" rights="none" pattern="URL" -->/' $POLICY_FILE || true
-          sudo sed -i 's/<policy domain="coder" rights="none" pattern="MVG"/<!-- <policy domain="coder" rights="none" pattern="MVG" -->/' $POLICY_FILE || true
-          sudo sed -i 's/<policy domain="coder" rights="none" pattern="MSL"/<!-- <policy domain="coder" rights="none" pattern="MSL" -->/' $POLICY_FILE || true
-          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PDF"/<!-- <policy domain="coder" rights="none" pattern="PDF" -->/' $POLICY_FILE || true
-  
 
-      - name: Verify MoviePy Installation
+          sudo sed -i \
+            's/<policy domain="path" rights="none" pattern="@\*"/<!-- <policy domain="path" rights="none" pattern="@\*" -->/' \
+            "$POLICY_FILE"
+
+      - name: Fix MoviePy Pillow Compatibility
         run: |
           source venv/bin/activate
-          find venv/lib -name resize.py -exec sed -i 's/Image.ANTIALIAS/Image.LANCZOS/g' {} +
-          python -m pip list | grep moviepy || echo "❌ moviepy is NOT installed!"
-          python -m pip list | grep google-api-core
 
-      - name: Run script using Virtual Environment
+          python - <<'PY'
+          import pathlib
+          import moviepy
+
+          resize_file = (
+              pathlib.Path(moviepy.__file__).parent
+              / "video"
+              / "fx"
+              / "resize.py"
+          )
+
+          source = resize_file.read_text()
+          source = source.replace(
+              "Image.ANTIALIAS",
+              "Image.Resampling.LANCZOS"
+          )
+          resize_file.write_text(source)
+
+          print("MoviePy Pillow compatibility applied")
+          PY
+
+      - name: Verify Dependencies
+        run: |
+          source venv/bin/activate
+
+          python -m pip show moviepy Pillow
+          python -c "from moviepy.editor import VideoFileClip; print('MoviePy OK')"
+
+      - name: Generate Video
         run: |
           source venv/bin/activate
           python produce_short.py
-      - name: Ensure Output Directory Exists
-        run: mkdir -p out
-  
-      - name: Commit and Push Video
+
+      - name: Verify Generated Video
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add output.mp4
-          git commit -m "Auto-generated video output.mp4" || echo "No changes to commit"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
+          if [ ! -s output.mp4 ]; then
+            echo "ERROR: output.mp4 missing or empty"
+            exit 1
+          fi
+
+          ls -lh output.mp4
+
+      - name: Upload Generated Video
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-video-${{ github.run_id }}
+          path: output.mp4
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Cleanup Generated Files
+        if: always()
+        run: |
+          rm -f output.mp4
+          echo "Temporary generated video removed"
