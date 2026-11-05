@@ -1,6 +1,6 @@
 """Generate FLUX.1 Schnell illustrations, then make correctly proportioned 9:16 or 16:9 PNGs.
 Usage: python3 gen_images_fixed.py job_dir
-Requires CF_ACCOUNT_ID and CF_API_TOKEN. Existing images are left untouched.
+Requires CF_ACCOUNT_ID and CF_API_TOKEN; optional CF_BACKUP_ACCOUNT_ID and CF_BACKUP_API_TOKEN.
 """
 import os
 import sys
@@ -29,13 +29,20 @@ FRAME = {
 SIZE = {'9:16': (1080, 1920), '16:9': (1920, 1080)}
 ACC = os.getenv('CF_ACCOUNT_ID', '').strip()
 TOK = os.getenv('CF_API_TOKEN', '').strip()
+BACKUP_ACC = os.getenv('CF_BACKUP_ACCOUNT_ID', '').strip()
+BACKUP_TOK = os.getenv('CF_BACKUP_API_TOKEN', '').strip()
 MODEL = os.getenv('CF_IMAGE_MODEL', '@cf/black-forest-labs/flux-1-schnell').strip()
 if len(sys.argv) != 2:
     sys.exit('Usage: python3 gen_images_fixed.py job_dir')
 if not ACC or not TOK:
     sys.exit('MISSING_SECRETS: CF_ACCOUNT_ID and CF_API_TOKEN')
 ROOT = Path(sys.argv[1]).resolve()
-URL = f'https://api.cloudflare.com/client/v4/accounts/{ACC}/ai/run/{MODEL}'
+ACCOUNTS = [('primary', ACC, TOK)]
+if BACKUP_ACC and BACKUP_TOK and BACKUP_ACC != ACC:
+    ACCOUNTS.append(('backup', BACKUP_ACC, BACKUP_TOK))
+elif BACKUP_ACC or BACKUP_TOK:
+    print('WARNING: backup requires both secrets and a different account ID.', flush=True)
+EXHAUSTED = set()
 
 
 def fit_image(im, size):
@@ -55,58 +62,60 @@ def fit_image(im, size):
 
 
 def fetch(prompt, seed, path, aspect):
+    # FLUX.1 Schnell does not accept `seed` in the Workers AI REST API schema.
     prompt = (STYLE.replace('{FRAME}', FRAME.get(aspect, FRAME['9:16'])) + prompt)[:2048]
-    # FLUX.1 Schnell's official Workers AI input schema does not offer width/height.
     body = json.dumps({'prompt': prompt, 'steps': 4}).encode('utf-8')
-    for attempt in range(5):
-        try:
-            req = urllib.request.Request(URL, data=body, headers={
-                'Authorization': f'Bearer {TOK}',
-                'Content-Type': 'application/json',
-            })
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                response = json.load(resp)
-            if response.get('success') is False:
-                raise ValueError(str(response.get('errors', []))[:200])
-            encoded = (response.get('result') or {}).get('image')
-            if not encoded:
-                raise ValueError('Image missing from Cloudflare response')
-            with Image.open(io.BytesIO(base64.b64decode(encoded))) as im:
-                adjusted = fit_image(im, SIZE.get(aspect, SIZE['9:16']))
-                path.parent.mkdir(parents=True, exist_ok=True)
-                adjusted.save(path, format='PNG', optimize=True)
-            print('ok', path.name, adjusted.size, flush=True)
-            return True
-        except urllib.error.HTTPError as e:
-            details = e.read(300).decode('utf-8', 'replace')
-            print('retry', path.name, attempt, e.code, details, flush=True)
-            if e.code == 400 and ('"code":8007' in details.replace(' ', '') or 'NSFW' in details.upper()):
-                # Never resubmit a moderation-rejected prompt; render a neutral placeholder.
-                from PIL import ImageDraw, ImageFont
-                w, h = SIZE.get(aspect, SIZE['9:16'])
-                fallback = Image.new('RGB', (w, h), (20, 28, 46))
-                draw = ImageDraw.Draw(fallback)
-                rad = min(w, h) // 7
-                cx, cy = w // 2, h // 2
-                draw.ellipse((cx-rad,cy-rad,cx+rad,cy+rad), fill=(35,55,80), outline=(48,211,134), width=12)
-                try:
-                    ff = ImageFont.truetype('DejaVuSans-Bold.ttf', rad)
-                except OSError:
-                    ff = ImageFont.load_default()
-                draw.text((cx,cy), '?', fill='white', font=ff, anchor='mm')
-                path.parent.mkdir(parents=True, exist_ok=True)
-                fallback.save(path)
-                print('moderation fallback', path.name, flush=True)
+
+    for label, account_id, token in ACCOUNTS:
+        if label in EXHAUSTED:
+            continue
+        url = f'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{MODEL}'
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(url, data=body, headers={
+                    'Authorization': f'Bearer {token}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                })
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    response = json.load(resp)
+                if response.get('success') is False:
+                    errors = response.get('errors') or []
+                    raise ValueError(f'Cloudflare reported errors: {errors}')
+                encoded = (response.get('result') or {}).get('image')
+                if not encoded:
+                    raise ValueError('Image missing from Cloudflare response')
+                with Image.open(io.BytesIO(base64.b64decode(encoded))) as im:
+                    adjusted = fit_image(im, SIZE.get(aspect, SIZE['9:16']))
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    adjusted.save(path, format='PNG', optimize=True)
+                print('ok', path.name, adjusted.size, 'account:', label, flush=True)
                 return True
-            if e.code in (400, 401, 403):
-                sys.exit(3)
-            if e.code == 429 and 'neuron' in details.lower():
-                print('DAILY_FREE_LIMIT_REACHED')
-                sys.exit(4)
-        except Exception as e:
-            print('retry', path.name, attempt, str(e)[:200], flush=True)
-        if attempt < 4:
-            time.sleep(10 + attempt * 10)
+            except urllib.error.HTTPError as e:
+                raw = e.read(4096).decode('utf-8', 'replace')
+                try:
+                    errs = json.loads(raw).get('errors') or []
+                except ValueError:
+                    errs = []
+                codes = {item.get('code') for item in errs if isinstance(item, dict)}
+                depleted = (e.code == 429 and (4006 in codes or 'daily free allocation' in raw.lower() or 'neuron' in raw.lower()))
+                print(f'{label}: {path.name} HTTP {e.code}, attempt {attempt+1}: {raw[:250]}', flush=True)
+                if depleted:
+                    EXHAUSTED.add(label)
+                    print(f'DAILY_FREE_LIMIT_REACHED: {label}; attempting next configured account', flush=True)
+                    break
+                if e.code in (400, 401, 403):
+                    # Invalid inputs or credentials cannot be repaired by retrying.
+                    print(f'{label}: non-retryable error', flush=True)
+                    return False
+                if e.code not in (429, 500, 502, 503, 504):
+                    return False
+            except Exception as e:
+                print(f'{label}: {path.name} attempt {attempt+1}: {type(e).__name__}: {str(e)[:180]}', flush=True)
+            if attempt < 2:
+                time.sleep(5 * (attempt + 1))
+
+    print(f'NO_AVAILABLE_IMAGE_ACCOUNT: {path.name}', flush=True)
     return False
 
 
