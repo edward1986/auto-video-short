@@ -1,28 +1,29 @@
-# Automatic AI Stickman Shorts
+# Trivia Time: scheduled YouTube Shorts
 
-This package generates a five-scene vertical comedy video automatically using a Cloudflare Workers AI text model, FLUX.1 Schnell images, Kokoro ONNX narration, and FFmpeg.
+Copy all files into the root of your `Production` branch, preserving `.github/workflows/trivia-time-youtube.yml`.
 
-## Install
+## GitHub Actions secrets
 
-Copy `.github/workflows/create-ai-shorts.yml`, `auto_spec.py`, `gen_images.py`, `shorts.py`, and `requirements-shorts.txt` into the indicated paths in the `Production` branch. Commit `jobs/example/spec.json` only if you want an example.
-
-In GitHub Repository Settings → Secrets and variables → Actions, configure:
-- `CF_ACCOUNT_ID`: Cloudflare account identifier
-- `CF_API_TOKEN`: scoped token with Workers AI access
-
-Optionally configure `CF_TEXT_MODEL` as a repository variable and add its environment mapping to the workflow (default model: `@cf/meta/llama-3.1-8b-instruct`).
+- `CF_ACCOUNT_ID`: Cloudflare account ID
+- `CF_API_TOKEN`: Workers AI API token with Workers AI access
+- `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`: OAuth2 credentials authorized for **YouTube Data API v3** `youtube.upload` scope on the intended channel. Obtain refresh token through an OAuth consent flow once. Do not use a YouTube API key; uploads require OAuth. Never commit credentials.
 
 ## Run
 
-In Actions → **Generate AI Short (Cloudflare + Kokoro)** → Run workflow:
-- Leave `spec_path` blank to generate a **new** storyboard automatically.
-- Optionally fill `topic`, such as `A stickman tries to teach a robot to make coffee`.
-- Or set `spec_path` to `jobs/example/spec.json` to render an existing storyboard.
+GitHub -> Actions -> **Trivia Time - Generate and Publish YouTube Short** -> Run workflow.
 
-The workflow also runs once a day at 09:10 Asia/Manila, choosing a rotating topic. Scheduled events are subject to GitHub timing delays and repository Actions configuration.
+Manual runs default to **private** for safe preview, and you can select `public` to publish. Scheduled runs are set to **public**, every day at 09:10 in the Philippines. To preview all runs first, change the `YT_PRIVACY` workflow expression to `'private'`.
 
-Output is downloadable under each Actions run as an MP4 artifact; the generated scene JSON/images are also available as a separate artifact. The workflow never pushes videos to Git. Current repository size issues must be resolved independently.
+The default question comes from a **reviewed local trivia bank**. Set `use_ai=true` to generate new questions with Workers AI; AI-generated facts need verification before public use. `topic` filters the curated bank when AI mode is off.
 
-## Notes
+Pipeline: `auto_trivia_spec.py` -> `gen_images.py` (FLUX, no unsupported seed parameter) -> Kokoro model -> `trivia_render.py` -> MP4 Actions artifact -> `upload_youtube.py`.
 
-`gen_images.py` sends only `prompt` and `steps` to FLUX.1 Schnell. `seed` is intentionally not passed because it caused an HTTP 400 input schema error. Cloudflare quota / rate limits and available text models depend on the account. `auto_spec.py` fails visibly if the text model returns malformed JSON rather than rendering corrupted scenes.
+No MP4 is committed to Git. An existing repository size quota violation can still affect GitHub pushes until old history is cleaned or Support resolves it.
+
+## Video design
+
+1080x1920, visible question and four labeled answers, timer countdown, separate green correct-answer reveal, spoken question and explanation, safe margins. Generated content is one question per video.
+
+## OAuth reminder
+
+A `YT_REFRESH_TOKEN` must belong to a Google account authorized to upload to the desired channel. If you copied old OAuth credentials into public source code, revoke and rotate them before using this workflow.
