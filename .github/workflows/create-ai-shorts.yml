@@ -40,6 +40,8 @@ jobs:
       CF_BACKUP_API_TOKEN: ${{ secrets.CF_BACKUP_API_TOKEN }}
       CF_BACKUP_ACCOUNT_ID_2: ${{ secrets.CF_BACKUP_ACCOUNT_ID_2 }}
       CF_BACKUP_API_TOKEN_2: ${{ secrets.CF_BACKUP_API_TOKEN_2 }}
+      CF_BACKUP_ACCOUNT_ID_3: ${{ secrets.CF_BACKUP_ACCOUNT_ID_3 }}
+      CF_BACKUP_API_TOKEN_3: ${{ secrets.CF_BACKUP_API_TOKEN_3 }}
       KOKORO_DIR: ${{ github.workspace }}/.cache/kokoro
       PYTHONUNBUFFERED: '1'
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
