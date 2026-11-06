@@ -150,7 +150,7 @@ def call_ai(story):
 Return ONLY JSON exactly in the format:
 {{"title":"short catchy title","scenes":[{{"prompt":"full visual description","narration":"one spoken sentence"}}]}}
 Rules:
-- EXACTLY 5 scenes with a faithful beginning, conflict, consequences, ending and moral.
+- EXACTLY 20 scenes with a faithful beginning, conflict, consequences, ending and moral.
 - Maintain the same character designs, clothing, animal colors, background and lighting across scenes.
 - All images: polished 2D animated illustration, portrait framing, distinct expressions, no written words.
 - Each visual prompt: 50–250 words describing specific visible action and framing.
