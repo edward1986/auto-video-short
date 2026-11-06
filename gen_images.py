@@ -34,6 +34,7 @@ ACCOUNT_FIELDS = [
     ('primary', 'CF_ACCOUNT_ID', 'CF_API_TOKEN'),
     ('backup', 'CF_BACKUP_ACCOUNT_ID', 'CF_BACKUP_API_TOKEN'),
     ('backup_2', 'CF_BACKUP_ACCOUNT_ID_2', 'CF_BACKUP_API_TOKEN_2'),
+    ('backup_3', 'CF_BACKUP_ACCOUNT_ID_3', 'CF_BACKUP_API_TOKEN_3'),
 ]
 ACCOUNTS = []
 seen_ids = set()
