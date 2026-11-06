@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a five-scene Shorts spec from a random Short Stories API fable.
+"""Generate a 20-image Shorts spec from a random Short Stories API fable.
 
 Usage:
     python3 auto_spec.py jobs/auto/spec.json
@@ -24,8 +24,8 @@ import urllib.error
 import urllib.request
 
 STORIES_URL = "https://shortstories-api.onrender.com/"
-MOVES = ["zoom_in", "pan_right", "zoom_out", "pan_left", "zoom_in"]
-TRANSITIONS = ["cut", "punch", "cut", "whip", "flash"]
+MOVES = ["zoom_in", "pan_right", "zoom_out", "pan_left"]
+TRANSITIONS = ["cut", "punch", "cut", "whip"]
 
 
 def extract_json(value):
@@ -121,145 +121,211 @@ def cloudflare_accounts():
         yield (label, account_id, token)
 
 
+def make_prompt(source):
+    if isinstance(source, str):
+        story_block = f"TOPIC: {source}"
+        constraint = "Create an original family-friendly story based on this topic."
+    else:
+        story_block = (
+            f"TITLE: {source['title']}\nAUTHOR: {source['author']}\n"
+            f"SOURCE STORY: {source['story']}\nMORAL: {source['moral']}"
+        )
+        constraint = (
+            "Adapt the actual fable faithfully: characters, species, events and outcome. "
+            "Never depict animals as stickmen. Keep difficult endings non-graphic. "
+            "The final scene must convey the moral in easy English."
+        )
+    return f"""Adapt this into a vertical animated STORYBOARD containing EXACTLY FIVE KEY STORY BEATS.
+{story_block}
+{constraint}
+Return one strictly valid JSON object and NOTHING else:
+{{"title":"story title","scenes":[{{"prompt":"visible 2D cartoon action in a portrait composition","narration":"one spoken sentence"}}]}}
+Rules: exactly five scene objects (not twenty); each prompt 35-90 words, concrete physical actions,
+consistent species, colors, location, clothing, background and characters; no visible text.
+Each narration 7-15 words, plain English; keep scene order and moral accurate.
+JSON only, escape any internal quotation marks. Do not output markdown or trailing commas.
+"""
+
+
+def parse_five(content):
+    raw = extract_json(content)
+    if not isinstance(raw, dict) or not isinstance(raw.get("scenes"), list) or len(raw["scenes"]) != 5:
+        raise ValueError("AI must return exactly five key story beats")
+    for index, scene in enumerate(raw["scenes"], 1):
+        if not isinstance(scene, dict) or not isinstance(scene.get("prompt"), str) or not isinstance(scene.get("narration"), str):
+            raise ValueError(f"Invalid scene {index}: missing prompt/narration")
+        if len(scene["prompt"].strip()) < 20 or len(scene["narration"].strip()) < 10:
+            raise ValueError(f"Invalid scene {index}: prompt or narration too short")
+    return raw
+
+
+def fallback_storyboard(source):
+    """Keep GitHub Actions running if Cloudflare returns invalid JSON repeatedly.
+
+    The fallback uses ONLY the supplied original fable, not invented story details.
+    """
+    text = source if isinstance(source, str) else source["story"]
+    chunks = [x.strip() for x in re.split(r"(?<=[.!?])\s+", text) if x.strip()]
+    if not chunks:
+        chunks = [text]
+    title = source[:85] if isinstance(source, str) else source["title"]
+    moral = "" if isinstance(source, str) else source["moral"].strip().rstrip(".")
+    scenes = []
+    for index in range(5):
+        position = min(len(chunks)-1, (index * len(chunks)) // 5)
+        chunk = chunks[position]
+        if index == 4 and moral:
+            narration = "The lesson is: " + moral.rstrip(".") + "."
+            cue = f"Conclude the fable with the consequences and its lesson: {moral}."
+        else:
+            narration = chunk
+            cue = chunk
+        # Limit narration duration in long-source fallback
+        words = narration.split()
+        if len(words) > 18:
+            narration = " ".join(words[:18]).rstrip(",;:") + "."
+        visual = (
+            "Family friendly 2D illustrated storybook frame, portrait 9:16. "
+            f"Story: {title}. The characters, species, setting and actions must remain "
+            f"faithful to this source: {text[:750]}. "
+            f"At this moment, depict: {cue}. "
+            "Consistent character designs, expressive poses, cinematic soft lighting, no words or text."
+        )[:1250]
+        scenes.append({"prompt": visual, "narration": narration})
+    return {"title": title, "scenes": scenes}
+
+
+def cloudflare_content(payload):
+    result = payload.get("result") or {}
+    if isinstance(result, dict):
+        content = result.get("response")
+        if content:
+            return content
+        choices = result.get("choices") or []
+        if choices:
+            return (choices[0].get("message") or {}).get("content") or choices[0].get("text")
+    raise ValueError("Text model returned no response content")
+
+
 def call_ai(story):
     model = os.getenv("CF_TEXT_MODEL", "@cf/meta/llama-3.1-8b-instruct").strip()
-
-    if isinstance(story, str):
-        source = f"USER TOPIC: {story}"
-        directions = "Create an original family-friendly story based on the user's topic."
-    else:
-        source = (
-            f"FABLE TITLE: {story['title']}\n"
-            f"ATTRIBUTION: {story['author']}\n"
-            f"SOURCE STORY: {story['story']}\n"
-            f"MORAL: {story['moral']}"
-        )
-        directions = (
-            "Adapt this source fable, not a newly invented story. Preserve the real "
-            "characters, causal sequence, ending, and moral. Do NOT make every character "
-            "a stickman; show the animals or people described in the fable. "
-            "Use an age-appropriate, non-graphic depiction if the ending is harsh. "
-            "Scene five must communicate the source moral in easy language."
-        )
-
-    prompt = f"""Create a 25–40 second vertical illustrated YouTube Short based on the source below.
-
-{source}
-
-{directions}
-Return ONLY JSON exactly in the format:
-{{"title":"short catchy title","scenes":[{{"prompt":"full visual description","narration":"one spoken sentence"}}]}}
-Rules:
-- EXACTLY 20 scenes with a faithful beginning, conflict, consequences, ending and moral.
-- Maintain the same character designs, clothing, animal colors, background and lighting across scenes.
-- All images: polished 2D animated illustration, portrait framing, distinct expressions, no written words.
-- Each visual prompt: 50–250 words describing specific visible action and framing.
-- Each narration: 7–18 easy-English words. Keep narration faithful to source; do not fabricate facts.
-- Do not include text in images, brand names, real people, or graphic injuries.
-- Only valid JSON, with no markdown.
-"""
-    body = json.dumps(
-        {"messages": [
-            {"role": "system", "content": "You adapt supplied fables into accurate visual storyboards. Output JSON only."},
-            {"role": "user", "content": prompt},
-        ], "max_tokens": 2300, "temperature": 0.4}
-    ).encode("utf-8")
+    prompt = make_prompt(story)
     accounts = list(cloudflare_accounts())
-    payload = None
+    if not accounts:
+        raise RuntimeError("No Cloudflare accounts configured")
+    malformed = []
     for index, (label, account_id, token) in enumerate(accounts):
         url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
-        request = urllib.request.Request(
-            url, data=body,
-            headers={
+        # Retry malformed JSON on the SAME account (never reattempt an exhausted one).
+        for attempt in range(1, 4):
+            if attempt == 1:
+                instruction = prompt
+            else:
+                instruction = prompt + (
+                    "\nIMPORTANT: previous response was INVALID JSON. Use simple descriptions, "
+                    "no nested objects, exact 5 scenes, escape quotes, and close every brace."
+                )
+            body = json.dumps({"messages": [
+                {"role": "system", "content": "You write well-formed JSON storyboards. Respond with exactly one JSON object."},
+                {"role": "user", "content": instruction},
+            ], "max_tokens": 2900, "temperature": 0.25}).encode("utf-8")
+            req = urllib.request.Request(url, data=body, headers={
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
                 "Accept": "application/json",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=120) as response:
-                payload = json.load(response)
-        except urllib.error.HTTPError as exc:
-            details = exc.read(2000).decode("utf-8", "replace")
+            }, method="POST")
             try:
-                error_payload = json.loads(details)
-            except json.JSONDecodeError:
-                error_payload = details
-            if daily_quota_exhausted(exc.code, error_payload):
-                print(f"{label.capitalize()} Cloudflare account exhausted its daily neuron allocation.", flush=True)
-                if index + 1 < len(accounts):
-                    print(f"Switching to {accounts[index + 1][0]} Cloudflare account for text generation.", flush=True)
-                    continue
-                raise RuntimeError("All configured Cloudflare accounts have exhausted their daily neuron allocations") from exc
-            # Do not expose tokens or retry invalid requests/authentication errors.
-            raise RuntimeError(f"{label.capitalize()} Cloudflare text model HTTP {exc.code}: {details[:600]}") from exc
-        if not isinstance(payload, dict):
-            raise RuntimeError(f"{label.capitalize()} Cloudflare returned an invalid response")
-        if payload.get("success") is False:
-            if daily_quota_exhausted(429, payload):
-                print(f"{label.capitalize()} Cloudflare account exhausted its daily neuron allocation.", flush=True)
-                if index + 1 < len(accounts):
-                    print(f"Switching to {accounts[index + 1][0]} Cloudflare account for text generation.", flush=True)
-                    continue
-                raise RuntimeError("All configured Cloudflare accounts have exhausted their daily neuron allocations")
-            raise RuntimeError(f"{label.capitalize()} Cloudflare text model error: {payload.get('errors')}")
-        print(f"Cloudflare text spec generated using {label} account.", flush=True)
-        break
-    if payload is None:
-        raise RuntimeError("No Cloudflare response received")
-    result = payload.get("result") or {}
-    content = result.get("response") if isinstance(result, dict) else None
-    if not content and isinstance(result, dict):
-        choices = result.get("choices") or []
-        if choices:
-            content = (choices[0].get("message") or {}).get("content") or choices[0].get("text")
-    if not content:
-        raise ValueError("Cloudflare text model returned no response")
-    return extract_json(content)
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    payload = json.load(resp)
+            except urllib.error.HTTPError as exc:
+                details = exc.read(1500).decode("utf-8", "replace")
+                try:
+                    error_payload = json.loads(details)
+                except json.JSONDecodeError:
+                    error_payload = details
+                if daily_quota_exhausted(exc.code, error_payload):
+                    print(f"{label}: daily neurons exhausted", flush=True)
+                    if index+1 < len(accounts):
+                        print(f"Switching to {accounts[index+1][0]} account", flush=True)
+                    break
+                raise RuntimeError(f"{label} text HTTP {exc.code}: {details[:400]}") from exc
+            if not isinstance(payload, dict):
+                malformed.append(f"{label} attempt {attempt}: invalid Cloudflare response")
+                continue
+            if payload.get("success") is False:
+                if daily_quota_exhausted(429, payload):
+                    print(f"{label}: daily neurons exhausted", flush=True)
+                    break
+                raise RuntimeError(f"{label} text model error: {payload.get('errors')}")
+            try:
+                raw = parse_five(cloudflare_content(payload))
+                print(f"Story beats generated on {label} account (attempt {attempt})", flush=True)
+                return raw
+            except (ValueError, TypeError, json.JSONDecodeError) as exc:
+                malformed.append(f"{label} attempt {attempt}: {type(exc).__name__}: {str(exc)[:125]}")
+                print(f"INVALID_AI_JSON: {label} attempt {attempt}/3; retrying if possible", flush=True)
+        else:
+            # Don't switch accounts just because the model produced bad JSON.
+            break
+    if malformed:
+        print("AI JSON retries unsuccessful; generating safe source-based storyboard.", flush=True)
+        for message in malformed:
+            print("WARNING", message, flush=True)
+        return fallback_storyboard(story)
+    raise RuntimeError("All configured Cloudflare accounts have exhausted their daily neuron allocations")
+
+
+CAMERAS = [
+    "A wide establishing shot with the full scene and clear character positions.",
+    "A medium shot revealing the characters' expressions and their reactions.",
+    "A closer side-angle shot showing the key physical action in progress.",
+    "A cinematic reaction shot with the characters and consequences in the same setting.",
+]
 
 
 def validate_and_build(raw, source):
-    if not isinstance(raw, dict) or not isinstance(raw.get("scenes"), list) or len(raw["scenes"]) != 5:
-        raise ValueError("AI must provide exactly five scenes")
-    segments = []
-    for i, scene in enumerate(raw["scenes"]):
-        if not isinstance(scene, dict):
-            raise ValueError(f"Scene {i+1} must be an object")
-        visual, narration = scene.get("prompt"), scene.get("narration")
-        if not isinstance(visual, str) or not 30 <= len(visual.strip()) <= 1400:
-            raise ValueError(f"Scene {i+1} requires a 30–1400 character visual prompt")
-        if not isinstance(narration, str) or not 10 <= len(narration.strip()) <= 250:
-            raise ValueError(f"Scene {i+1} requires a short narration sentence")
-        segments.append({
-            "type": "still",
-            "path": f"scene-{i+1:02d}.png",
-            "prompt": visual.strip(),
-            "move": MOVES[i],
-            "transition": TRANSITIONS[i],
-            "min": 3.0,
-            "pad": 0.5,
-            "narration": narration.strip(),
-        })
+    """Expand 5 narrated story beats into 20 uniquely composed image segments.
 
+    5 x 4 scenes keeps the Cloudflare LLM JSON small enough to avoid truncation.
+    Images are still 20 separate prompts and filenames. The narration is spoken
+    once per beat to avoid repeating the same sentence four times.
+    """
+    raw = parse_five(raw)
+    segments = []
+    for beat_idx, scene in enumerate(raw["scenes"]):
+        for shot_idx, camera in enumerate(CAMERAS):
+            idx = beat_idx * 4 + shot_idx
+            visual = scene["prompt"].strip()
+            segments.append({
+                "type": "still",
+                "path": f"scene-{idx+1:02d}.png",
+                "prompt": (
+                    f"Image {idx+1} of a 20-image continuous story. {visual} "
+                    f"SHOT {shot_idx+1} of beat {beat_idx+1}: {camera} "
+                    "Show an original coherent frame of the SAME ongoing action. "
+                    "Keep the characters, setting, clothing and palette consistent. "
+                    "No printed text, captions or watermarks."
+                )[:1800],
+                "move": MOVES[shot_idx],
+                "transition": TRANSITIONS[shot_idx] if idx else "cut",
+                "min": 2.4,
+                "pad": 0.35,
+                "narration": scene["narration"].strip() if shot_idx == 0 else "",
+            })
+    if len(segments) != 20:
+        raise AssertionError("Expected exactly 20 scenes")
     source_title = source["title"] if isinstance(source, dict) else str(source)
     title = str(raw.get("title") or source_title).strip()[:90]
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:45] or "fable-short"
     suffix = os.getenv("GITHUB_RUN_ID") or dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d%H%M%S")
     spec = {
-        "slug": f"{slug}-{suffix}",
-        "aspect": "9:16",
-        "voice": "am_puck",
-        "speed": 1.05,
-        "music_gain": 0.32,
-        "segments": segments,
+        "slug": f"{slug}-{suffix}", "aspect": "9:16", "voice": "am_puck",
+        "speed": 1.05, "music_gain": 0.32, "segments": segments,
     }
     if isinstance(source, dict):
         spec["source"] = {
-            "provider": "shortstories-api",
-            "id": source["_id"],
-            "title": source["title"],
-            "author": source["author"],
+            "provider": "shortstories-api", "id": source["_id"],
+            "title": source["title"], "author": source["author"],
             "moral": source["moral"],
             "url": os.getenv("SHORT_STORIES_API_URL", STORIES_URL).strip(),
         }
@@ -276,7 +342,7 @@ def main():
     spec = validate_and_build(raw, source)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Generated {output} with {len(spec['segments'])} scenes")
+    print(f"Generated {output} with {len(spec['segments'])} image scenes")
     print("Source:", source if isinstance(source, str) else source["title"])
     print("Slug:", spec["slug"])
 
