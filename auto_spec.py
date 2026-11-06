@@ -139,10 +139,10 @@ def make_prompt(source):
 {story_block}
 {constraint}
 Return one strictly valid JSON object and NOTHING else:
-{{"title":"story title","scenes":[{{"prompt":"visible 2D cartoon action in a portrait composition","narration":"one spoken sentence"}}]}}
+{{"title":"story title","scenes":[{{"prompt":"visible 2D cartoon action in a portrait composition","narration":"one summary sentence","shot_narrations":["short line for shot 1","short line for shot 2","short line for shot 3","short line for shot 4"]}}]}}
 Rules: exactly five scene objects (not twenty); each prompt 35-90 words, concrete physical actions,
 consistent species, colors, location, clothing, background and characters; no visible text.
-Each narration 7-15 words, plain English; keep scene order and moral accurate.
+Each shot_narrations item is 4-10 easy-English words describing that shot and continuing the actual fable; exactly 4 nonempty strings per beat. Every one of the 20 pictures MUST have spoken narration. Each beat narration is a short optional summary (7-15 words); keep scene order and moral accurate.
 JSON only, escape any internal quotation marks. Do not output markdown or trailing commas.
 """
 
@@ -156,6 +156,12 @@ def parse_five(content):
             raise ValueError(f"Invalid scene {index}: missing prompt/narration")
         if len(scene["prompt"].strip()) < 20 or len(scene["narration"].strip()) < 10:
             raise ValueError(f"Invalid scene {index}: prompt or narration too short")
+        lines = scene.get("shot_narrations")
+        if lines is not None and (
+            not isinstance(lines, list) or len(lines) != 4
+            or any(not isinstance(item, str) or len(item.strip()) < 2 for item in lines)
+        ):
+            raise ValueError(f"Scene {index} must have exactly four nonempty shot_narrations")
     return raw
 
 
@@ -283,16 +289,35 @@ CAMERAS = [
 ]
 
 
+def distribute_narration(text, count=4):
+    """Fallback for older model responses: distribute existing dialogue across shots.
+
+    The spoken words stay in their original order without repeating an entire
+    sentence four times. This is used only when the AI omits shot_narrations.
+    """
+    words = str(text).strip().split()
+    if not words:
+        raise ValueError("Narration cannot be empty")
+    if len(words) < count:
+        # Extremely short AI text: repeated as a last resort to avoid silent shots.
+        return [str(text).strip()] * count
+    n = len(words)
+    boundaries = [round(i * n / count) for i in range(count + 1)]
+    return [" ".join(words[boundaries[i]:boundaries[i + 1]]) for i in range(count)]
+
+
 def validate_and_build(raw, source):
     """Expand 5 narrated story beats into 20 uniquely composed image segments.
 
     5 x 4 scenes keeps the Cloudflare LLM JSON small enough to avoid truncation.
-    Images are still 20 separate prompts and filenames. The narration is spoken
-    once per beat to avoid repeating the same sentence four times.
+    Every image has its OWN spoken line (no silent frames by default).
+    If the LLM does not supply four lines for each beat, the original
+    narration is split across the four images rather than duplicated.
     """
     raw = parse_five(raw)
     segments = []
     for beat_idx, scene in enumerate(raw["scenes"]):
+        spoken_lines = scene.get("shot_narrations") or distribute_narration(scene["narration"])
         for shot_idx, camera in enumerate(CAMERAS):
             idx = beat_idx * 4 + shot_idx
             visual = scene["prompt"].strip()
@@ -310,10 +335,12 @@ def validate_and_build(raw, source):
                 "transition": TRANSITIONS[shot_idx] if idx else "cut",
                 "min": 2.4,
                 "pad": 0.35,
-                "narration": scene["narration"].strip() if shot_idx == 0 else "",
+                "narration": spoken_lines[shot_idx].strip(),
             })
     if len(segments) != 20:
         raise AssertionError("Expected exactly 20 scenes")
+    if not all(segment["narration"] for segment in segments):
+        raise AssertionError("Every image must have narration")
     source_title = source["title"] if isinstance(source, dict) else str(source)
     title = str(raw.get("title") or source_title).strip()[:90]
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:45] or "fable-short"
