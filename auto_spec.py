@@ -7,6 +7,8 @@ Usage:
 
 Environment:
     CF_ACCOUNT_ID, CF_API_TOKEN
+    CF_BACKUP_ACCOUNT_ID, CF_BACKUP_API_TOKEN (optional)
+    CF_BACKUP_ACCOUNT_ID_2, CF_BACKUP_API_TOKEN_2 (optional third account)
     CF_TEXT_MODEL (optional)
     SHORT_STORIES_API_URL (optional; default https://shortstories-api.onrender.com/)
     SHORTS_TOPIC (optional; overrides API story when supplied)
@@ -97,16 +99,26 @@ def daily_quota_exhausted(status, payload):
 
 
 def cloudflare_accounts():
-    """Yield primary, then optional separately authorized backup credentials."""
-    primary = (os.getenv("CF_ACCOUNT_ID", "").strip(), os.getenv("CF_API_TOKEN", "").strip())
-    backup = (os.getenv("CF_BACKUP_ACCOUNT_ID", "").strip(), os.getenv("CF_BACKUP_API_TOKEN", "").strip())
-    if not all(primary):
-        raise RuntimeError("CF_ACCOUNT_ID and CF_API_TOKEN are required")
-    if any(backup) and not all(backup):
-        raise RuntimeError("Set both CF_BACKUP_ACCOUNT_ID and CF_BACKUP_API_TOKEN")
-    yield ("primary", *primary)
-    if all(backup):
-        yield ("backup", *backup)
+    """Use primary -> backup 1 -> backup 2, if configured.
+
+    The fallback is intended for separately authorized Cloudflare accounts,
+    subject to Cloudflare's service terms and account restrictions.
+    """
+    credentials = [
+        ("primary", "CF_ACCOUNT_ID", "CF_API_TOKEN"),
+        ("backup 1", "CF_BACKUP_ACCOUNT_ID", "CF_BACKUP_API_TOKEN"),
+        ("backup 2", "CF_BACKUP_ACCOUNT_ID_2", "CF_BACKUP_API_TOKEN_2"),
+    ]
+    for label, id_key, token_key in credentials:
+        account_id = os.getenv(id_key, "").strip()
+        token = os.getenv(token_key, "").strip()
+        if not account_id and not token:
+            if label == "primary":
+                raise RuntimeError(f"Set both {id_key} and {token_key}")
+            continue
+        if not account_id or not token:
+            raise RuntimeError(f"Set both {id_key} and {token_key}")
+        yield (label, account_id, token)
 
 
 def call_ai(story):
@@ -177,7 +189,7 @@ Rules:
             if daily_quota_exhausted(exc.code, error_payload):
                 print(f"{label.capitalize()} Cloudflare account exhausted its daily neuron allocation.", flush=True)
                 if index + 1 < len(accounts):
-                    print("Switching to backup Cloudflare account for text generation.", flush=True)
+                    print(f"Switching to {accounts[index + 1][0]} Cloudflare account for text generation.", flush=True)
                     continue
                 raise RuntimeError("All configured Cloudflare accounts have exhausted their daily neuron allocations") from exc
             # Do not expose tokens or retry invalid requests/authentication errors.
@@ -188,7 +200,7 @@ Rules:
             if daily_quota_exhausted(429, payload):
                 print(f"{label.capitalize()} Cloudflare account exhausted its daily neuron allocation.", flush=True)
                 if index + 1 < len(accounts):
-                    print("Switching to backup Cloudflare account for text generation.", flush=True)
+                    print(f"Switching to {accounts[index + 1][0]} Cloudflare account for text generation.", flush=True)
                     continue
                 raise RuntimeError("All configured Cloudflare accounts have exhausted their daily neuron allocations")
             raise RuntimeError(f"{label.capitalize()} Cloudflare text model error: {payload.get('errors')}")
