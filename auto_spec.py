@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
-"""Generate a validated Shorts spec using Cloudflare Workers AI.
-Usage: python auto_spec.py jobs/auto/spec.json [optional topic]
-Environment: CF_ACCOUNT_ID, CF_API_TOKEN, optional CF_TEXT_MODEL, SHORTS_TOPIC.
+"""Generate a five-scene Shorts spec from a random Short Stories API fable.
+
+Usage:
+    python3 auto_spec.py jobs/auto/spec.json
+    python3 auto_spec.py jobs/auto/spec.json "optional custom topic"
+
+Environment:
+    CF_ACCOUNT_ID, CF_API_TOKEN
+    CF_TEXT_MODEL (optional)
+    SHORT_STORIES_API_URL (optional; default https://shortstories-api.onrender.com/)
+    SHORTS_TOPIC (optional; overrides API story when supplied)
 """
 import datetime as dt
 import json
@@ -9,127 +17,205 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
-TOPICS = [
-    'A stickman tries to work from home while a mischievous cat interrupts every meeting',
-    'A stickman buys a robot vacuum that believes it is the household boss',
-    'A stickman attempts to cook breakfast and accidentally invents a new sport',
-    'A stickman goes to the gym and mistakes the machines for modern art',
-    'A stickman orders a tiny coffee and receives a gigantic cup',
-    'A stickman tries to fix a dripping faucet with increasingly silly solutions',
-    'A stickman misses a bus but discovers an absurd alternative commute',
-    'A stickman learns to dance from a very confident pigeon',
-]
-MOVES = ['zoom_in', 'pan_right', 'zoom_out', 'pan_left', 'zoom_in', 'pan_up']
-TRANSITIONS = ['cut', 'punch', 'cut', 'whip', 'flash', 'cut']
+STORIES_URL = "https://shortstories-api.onrender.com/"
+MOVES = ["zoom_in", "pan_right", "zoom_out", "pan_left", "zoom_in"]
+TRANSITIONS = ["cut", "punch", "cut", "whip", "flash"]
 
 
 def extract_json(value):
     if isinstance(value, dict):
         return value
     if not isinstance(value, str):
-        raise ValueError('AI response is not JSON text')
-    value = value.strip()
-    value = re.sub(r'^```(?:json)?\s*|\s*```$', '', value, flags=re.I)
+        raise ValueError("AI response is not JSON text")
+    value = re.sub(r"^```(?:json)?\s*|\s*```$", "", value.strip(), flags=re.I)
     try:
         return json.loads(value)
     except json.JSONDecodeError:
-        a, b = value.find('{'), value.rfind('}')
+        a, b = value.find("{"), value.rfind("}")
         if a < 0 or b <= a:
             raise
         return json.loads(value[a:b + 1])
 
 
-def call_ai(topic):
-    acc = os.environ.get('CF_ACCOUNT_ID', '').strip()
-    token = os.environ.get('CF_API_TOKEN', '').strip()
-    model = os.environ.get('CF_TEXT_MODEL', '@cf/meta/llama-3.1-8b-instruct').strip()
-    if not acc or not token:
-        raise RuntimeError('CF_ACCOUNT_ID and CF_API_TOKEN secrets are required')
-    url = f'https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{model}'
-    prompt = f'''Write an ORIGINAL, family-friendly visual stickman comedy for a 20–30 second vertical YouTube Short.
-TOPIC: {topic}
-Return ONLY valid JSON with exactly this structure:
-{{"title":"short catchy title","scenes":[{{"prompt":"full visual scene description", "narration":"one short spoken sentence"}}]}}
+def fetch_story():
+    """GET / returns one randomly selected story; no API key is needed."""
+    url = os.getenv("SHORT_STORIES_API_URL", STORIES_URL).strip()
+    if not url.startswith("https://"):
+        raise ValueError("SHORT_STORIES_API_URL must be an HTTPS URL")
+    last_error = None
+    for attempt in range(3):
+        try:
+            request = urllib.request.Request(
+                url,
+                headers={"Accept": "application/json", "User-Agent": "ShortsSpecBot/1.0"},
+                method="GET",
+            )
+            with urllib.request.urlopen(request, timeout=35) as response:
+                raw = json.load(response)
+            if not isinstance(raw, dict):
+                raise ValueError("Story API must return a JSON object")
+            for key in ("title", "story", "moral"):
+                if not isinstance(raw.get(key), str) or not raw[key].strip():
+                    raise ValueError(f"Story API response missing nonempty {key!r}")
+            return {
+                "_id": str(raw.get("_id", "")),
+                "title": raw["title"].strip(),
+                "author": str(raw.get("author") or "Unknown").strip(),
+                "story": raw["story"].strip(),
+                "moral": raw["moral"].strip(),
+            }
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code not in (429, 500, 502, 503, 504):
+                raise RuntimeError(f"Story API HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_error = exc
+        if attempt < 2:
+            time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"Could not fetch a story from {url}: {last_error}")
+
+
+def call_ai(story):
+    account_id = os.getenv("CF_ACCOUNT_ID", "").strip()
+    token = os.getenv("CF_API_TOKEN", "").strip()
+    model = os.getenv("CF_TEXT_MODEL", "@cf/meta/llama-3.1-8b-instruct").strip()
+    if not account_id or not token:
+        raise RuntimeError("CF_ACCOUNT_ID and CF_API_TOKEN GitHub secrets are required")
+    url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
+
+    if isinstance(story, str):
+        source = f"USER TOPIC: {story}"
+        directions = "Create an original family-friendly story based on the user's topic."
+    else:
+        source = (
+            f"FABLE TITLE: {story['title']}\n"
+            f"ATTRIBUTION: {story['author']}\n"
+            f"SOURCE STORY: {story['story']}\n"
+            f"MORAL: {story['moral']}"
+        )
+        directions = (
+            "Adapt this source fable, not a newly invented story. Preserve the real "
+            "characters, causal sequence, ending, and moral. Do NOT make every character "
+            "a stickman; show the animals or people described in the fable. "
+            "Use an age-appropriate, non-graphic depiction if the ending is harsh. "
+            "Scene five must communicate the source moral in easy language."
+        )
+
+    prompt = f"""Create a 25–40 second vertical illustrated YouTube Short based on the source below.
+
+{source}
+
+{directions}
+Return ONLY JSON exactly in the format:
+{{"title":"short catchy title","scenes":[{{"prompt":"full visual description","narration":"one spoken sentence"}}]}}
 Rules:
-- Exactly 5 scenes, clear beginning / escalating mishaps / funny payoff.
-- Visually consistent single white-headed stickman and a consistent location across scenes.
-- Each scene's prompt describes visible actions, subject positions, background details, facial expressions and 2D cartoon lighting. Avoid text inside illustrations.
-- Narration is easy English, approximately 7–14 words per scene.
-- No quotes inside string values unless escaped. No markdown, no commentary.
-- No copyrighted characters, trademarks, identifiable real people, dangerous activities, or misleading facts.'''
-    body = json.dumps({'messages': [
-        {'role': 'system', 'content': 'You are a storyboard writer. Respond with a single valid JSON object and no extra text.'},
-        {'role': 'user', 'content': prompt},
-    ], 'max_tokens': 1300, 'temperature': 0.75}).encode('utf-8')
-    req = urllib.request.Request(url, body, {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-    })
+- EXACTLY 5 scenes with a faithful beginning, conflict, consequences, ending and moral.
+- Maintain the same character designs, clothing, animal colors, background and lighting across scenes.
+- All images: polished 2D animated illustration, portrait framing, distinct expressions, no written words.
+- Each visual prompt: 50–250 words describing specific visible action and framing.
+- Each narration: 7–18 easy-English words. Keep narration faithful to source; do not fabricate facts.
+- Do not include text in images, brand names, real people, or graphic injuries.
+- Only valid JSON, with no markdown.
+"""
+    body = json.dumps(
+        {"messages": [
+            {"role": "system", "content": "You adapt supplied fables into accurate visual storyboards. Output JSON only."},
+            {"role": "user", "content": prompt},
+        ], "max_tokens": 2300, "temperature": 0.4}
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        url, data=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
     try:
-        with urllib.request.urlopen(req, timeout=120) as response:
+        with urllib.request.urlopen(request, timeout=120) as response:
             payload = json.load(response)
-    except urllib.error.HTTPError as error:
-        details = error.read(600).decode('utf-8', 'replace')
-        raise RuntimeError(f'Cloudflare text model HTTP {error.code}: {details}') from error
-    if payload.get('success') is False:
-        raise RuntimeError(f'Cloudflare text model error: {payload.get("errors")}')
-    result = payload.get('result', {})
-    content = result.get('response') if isinstance(result, dict) else None
+    except urllib.error.HTTPError as exc:
+        details = exc.read(600).decode("utf-8", "replace")
+        raise RuntimeError(f"Cloudflare text model HTTP {exc.code}: {details}") from exc
+    if payload.get("success") is False:
+        raise RuntimeError(f"Cloudflare text model error: {payload.get('errors')}")
+    result = payload.get("result") or {}
+    content = result.get("response") if isinstance(result, dict) else None
     if not content and isinstance(result, dict):
-        choices = result.get('choices') or []
+        choices = result.get("choices") or []
         if choices:
-            content = (choices[0].get('message') or {}).get('content') or choices[0].get('text')
+            content = (choices[0].get("message") or {}).get("content") or choices[0].get("text")
     if not content:
-        raise ValueError('Text model returned no response field')
+        raise ValueError("Cloudflare text model returned no response")
     return extract_json(content)
 
 
-def validate_and_build(raw, topic):
-    if not isinstance(raw, dict) or not isinstance(raw.get('scenes'), list) or len(raw['scenes']) != 5:
-        raise ValueError('AI must provide exactly five scenes')
+def validate_and_build(raw, source):
+    if not isinstance(raw, dict) or not isinstance(raw.get("scenes"), list) or len(raw["scenes"]) != 5:
+        raise ValueError("AI must provide exactly five scenes")
     segments = []
-    for i, scene in enumerate(raw['scenes']):
+    for i, scene in enumerate(raw["scenes"]):
         if not isinstance(scene, dict):
-            raise ValueError(f'Scene {i + 1} must be an object')
-        visual, narration = scene.get('prompt'), scene.get('narration')
-        if not isinstance(visual, str) or not 30 <= len(visual.strip()) <= 950:
-            raise ValueError(f'Scene {i + 1} requires a 30–950 character visual prompt')
+            raise ValueError(f"Scene {i+1} must be an object")
+        visual, narration = scene.get("prompt"), scene.get("narration")
+        if not isinstance(visual, str) or not 30 <= len(visual.strip()) <= 1400:
+            raise ValueError(f"Scene {i+1} requires a 30–1400 character visual prompt")
         if not isinstance(narration, str) or not 10 <= len(narration.strip()) <= 250:
-            raise ValueError(f'Scene {i + 1} requires a short narration sentence')
+            raise ValueError(f"Scene {i+1} requires a short narration sentence")
         segments.append({
-            'type': 'still', 'path': f'scene-{i + 1:02d}.png',
-            'prompt': visual.strip(), 'move': MOVES[i], 'transition': TRANSITIONS[i],
-            'min': 3.0, 'pad': 0.50, 'narration': narration.strip(),
+            "type": "still",
+            "path": f"scene-{i+1:02d}.png",
+            "prompt": visual.strip(),
+            "move": MOVES[i],
+            "transition": TRANSITIONS[i],
+            "min": 3.0,
+            "pad": 0.5,
+            "narration": narration.strip(),
         })
-    title = str(raw.get('title') or topic).strip()[:90]
-    slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:45] or 'stickman-short'
-    suffix = os.environ.get('GITHUB_RUN_ID') or dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d%H%M%S')
-    return {
-        'slug': f'{slug}-{suffix}', 'aspect': '9:16', 'voice': 'am_puck',
-        'speed': 1.05, 'music_gain': 0.32, 'segments': segments,
+
+    source_title = source["title"] if isinstance(source, dict) else str(source)
+    title = str(raw.get("title") or source_title).strip()[:90]
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:45] or "fable-short"
+    suffix = os.getenv("GITHUB_RUN_ID") or dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d%H%M%S")
+    spec = {
+        "slug": f"{slug}-{suffix}",
+        "aspect": "9:16",
+        "voice": "am_puck",
+        "speed": 1.05,
+        "music_gain": 0.32,
+        "segments": segments,
     }
+    if isinstance(source, dict):
+        spec["source"] = {
+            "provider": "shortstories-api",
+            "id": source["_id"],
+            "title": source["title"],
+            "author": source["author"],
+            "moral": source["moral"],
+            "url": os.getenv("SHORT_STORIES_API_URL", STORIES_URL).strip(),
+        }
+    return spec
 
 
 def main():
     if len(sys.argv) not in (2, 3):
-        raise SystemExit('Usage: python auto_spec.py jobs/auto/spec.json [topic]')
+        raise SystemExit("Usage: python auto_spec.py jobs/auto/spec.json [optional topic]")
     output = Path(sys.argv[1])
-    topic = (sys.argv[2] if len(sys.argv) == 3 else os.environ.get('SHORTS_TOPIC', '')).strip()
-    if not topic:
-        rotation = dt.datetime.now(dt.timezone.utc).date().toordinal()
-        topic = TOPICS[rotation % len(TOPICS)]
-    raw = call_ai(topic)
-    spec = validate_and_build(raw, topic)
+    override = (sys.argv[2] if len(sys.argv) == 3 else os.getenv("SHORTS_TOPIC", "")).strip()
+    source = override if override else fetch_story()
+    raw = call_ai(source)
+    spec = validate_and_build(raw, source)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
-    print(f'Auto-generated spec: {output} ({len(spec["segments"])} scenes)')
-    print('Topic:', topic)
-    print('Slug:', spec['slug'])
+    output.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Generated {output} with {len(spec['segments'])} scenes")
+    print("Source:", source if isinstance(source, str) else source["title"])
+    print("Slug:", spec["slug"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
