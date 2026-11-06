@@ -1,0 +1,90 @@
+name: AiEnvoy - Generate and Publish YouTube Short
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'The story idea for the Short'
+        required: true
+        default: 'A stickman buys a smart refrigerator that starts ordering food for itself'
+        type: string
+      publish:
+        description: 'Upload the finished video to YouTube'
+        default: false
+        type: boolean
+      privacy:
+        description: 'YouTube upload visibility'
+        default: private
+        type: choice
+        options:
+          - private
+          - unlisted
+          - public
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aienvoy-shorts-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      AI_ENVOY_KEY: ${{ secrets.AI_ENVOY_KEY }}
+      AI_ENVOY_STATUS_URL_TEMPLATE: ${{ vars.AI_ENVOY_STATUS_URL_TEMPLATE }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      YT_PRIVACY: ${{ inputs.privacy }}
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install -r requirements-aienvoy.txt
+
+      - name: Generate AiEnvoy story and portrait Short
+        env:
+          SHORT_TOPIC: ${{ inputs.topic }}
+        run: |
+          python aienvoy_short.py --topic "$SHORT_TOPIC" --output-dir render_output
+
+      - name: Store video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aienvoy-short-${{ github.run_id }}
+          path: |
+            render_output/aienvoy-short.mp4
+            render_output/metadata.json
+            render_output/aienvoy-create-response.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Publish to YouTube
+        if: ${{ inputs.publish == true }}
+        run: |
+          python upload_youtube.py render_output/metadata.json render_output/aienvoy-short.mp4
+
+      - name: Store YouTube upload link
+        if: ${{ inputs.publish == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-details-${{ github.run_id }}
+          path: youtube-upload.json
+          if-no-files-found: error
