@@ -79,13 +79,38 @@ def fetch_story():
     raise RuntimeError(f"Could not fetch a story from {url}: {last_error}")
 
 
+def daily_quota_exhausted(status, payload):
+    """Detect Cloudflare Workers AI daily neuron exhaustion (code 4006)."""
+    if isinstance(payload, dict):
+        errors = payload.get("errors") or []
+        if any(isinstance(e, dict) and str(e.get("code")) == "4006" for e in errors):
+            return True
+        message = " ".join(str(e.get("message", "")) for e in errors if isinstance(e, dict))
+    else:
+        message = str(payload)
+    msg = message.lower()
+    return status == 429 and (
+        "daily free allocation" in msg
+        or "daily_free_limit_reached" in msg
+        or ("neuron" in msg and ("limit" in msg or "allocation" in msg))
+    )
+
+
+def cloudflare_accounts():
+    """Yield primary, then optional separately authorized backup credentials."""
+    primary = (os.getenv("CF_ACCOUNT_ID", "").strip(), os.getenv("CF_API_TOKEN", "").strip())
+    backup = (os.getenv("CF_BACKUP_ACCOUNT_ID", "").strip(), os.getenv("CF_BACKUP_API_TOKEN", "").strip())
+    if not all(primary):
+        raise RuntimeError("CF_ACCOUNT_ID and CF_API_TOKEN are required")
+    if any(backup) and not all(backup):
+        raise RuntimeError("Set both CF_BACKUP_ACCOUNT_ID and CF_BACKUP_API_TOKEN")
+    yield ("primary", *primary)
+    if all(backup):
+        yield ("backup", *backup)
+
+
 def call_ai(story):
-    account_id = os.getenv("CF_ACCOUNT_ID", "").strip()
-    token = os.getenv("CF_API_TOKEN", "").strip()
     model = os.getenv("CF_TEXT_MODEL", "@cf/meta/llama-3.1-8b-instruct").strip()
-    if not account_id or not token:
-        raise RuntimeError("CF_ACCOUNT_ID and CF_API_TOKEN GitHub secrets are required")
-    url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
 
     if isinstance(story, str):
         source = f"USER TOPIC: {story}"
@@ -127,23 +152,50 @@ Rules:
             {"role": "user", "content": prompt},
         ], "max_tokens": 2300, "temperature": 0.4}
     ).encode("utf-8")
-    request = urllib.request.Request(
-        url, data=body,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            payload = json.load(response)
-    except urllib.error.HTTPError as exc:
-        details = exc.read(600).decode("utf-8", "replace")
-        raise RuntimeError(f"Cloudflare text model HTTP {exc.code}: {details}") from exc
-    if payload.get("success") is False:
-        raise RuntimeError(f"Cloudflare text model error: {payload.get('errors')}")
+    accounts = list(cloudflare_accounts())
+    payload = None
+    for index, (label, account_id, token) in enumerate(accounts):
+        url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
+        request = urllib.request.Request(
+            url, data=body,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                payload = json.load(response)
+        except urllib.error.HTTPError as exc:
+            details = exc.read(2000).decode("utf-8", "replace")
+            try:
+                error_payload = json.loads(details)
+            except json.JSONDecodeError:
+                error_payload = details
+            if daily_quota_exhausted(exc.code, error_payload):
+                print(f"{label.capitalize()} Cloudflare account exhausted its daily neuron allocation.", flush=True)
+                if index + 1 < len(accounts):
+                    print("Switching to backup Cloudflare account for text generation.", flush=True)
+                    continue
+                raise RuntimeError("All configured Cloudflare accounts have exhausted their daily neuron allocations") from exc
+            # Do not expose tokens or retry invalid requests/authentication errors.
+            raise RuntimeError(f"{label.capitalize()} Cloudflare text model HTTP {exc.code}: {details[:600]}") from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"{label.capitalize()} Cloudflare returned an invalid response")
+        if payload.get("success") is False:
+            if daily_quota_exhausted(429, payload):
+                print(f"{label.capitalize()} Cloudflare account exhausted its daily neuron allocation.", flush=True)
+                if index + 1 < len(accounts):
+                    print("Switching to backup Cloudflare account for text generation.", flush=True)
+                    continue
+                raise RuntimeError("All configured Cloudflare accounts have exhausted their daily neuron allocations")
+            raise RuntimeError(f"{label.capitalize()} Cloudflare text model error: {payload.get('errors')}")
+        print(f"Cloudflare text spec generated using {label} account.", flush=True)
+        break
+    if payload is None:
+        raise RuntimeError("No Cloudflare response received")
     result = payload.get("result") or {}
     content = result.get("response") if isinstance(result, dict) else None
     if not content and isinstance(result, dict):
