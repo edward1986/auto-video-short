@@ -1,6 +1,6 @@
 """Generate FLUX.1 Schnell illustrations, then make correctly proportioned 9:16 or 16:9 PNGs.
-Usage: python3 gen_images_fixed.py job_dir
-Requires CF_ACCOUNT_ID and CF_API_TOKEN; optional CF_BACKUP_ACCOUNT_ID and CF_BACKUP_API_TOKEN.
+Usage: python3 gen_images.py job_dir
+Supports primary and two separately authorized backup Cloudflare accounts.
 """
 import os
 import sys
@@ -15,33 +15,44 @@ from pathlib import Path
 from PIL import Image, ImageFilter
 
 STYLE = (
-    "Polished 2D cartoon illustration from a viral stickman comedy animation: "
-    "clean bold black outlines, flat cel shading, rich painted full-color background, "
-    "warm cinematic light, {FRAME}. Stickman characters with large solid white round heads "
-    "with a thin black outline, big expressive eyes with small black pupils, "
-    "black eyebrow strokes, small expressive mouth, thin black stick arms and legs, "
-    "small black rounded hands and feet. No text, letters, numbers, captions, watermark. SCENE: "
+    "Polished 2D illustrated storybook art, accurate to the characters and animals "
+    "in the scene description, consistent character designs across scenes, "
+    "clean outlines, rich painted background, cinematic lighting, {FRAME}. "
+    "No text, letters, captions, numbers, logos or watermarks. SCENE: "
 )
 FRAME = {
     '9:16': 'portrait composition, all people fully visible and centered, ample room around heads and feet',
     '16:9': 'wide cinematic composition, all people fully visible with generous edges',
 }
 SIZE = {'9:16': (1080, 1920), '16:9': (1920, 1080)}
-ACC = os.getenv('CF_ACCOUNT_ID', '').strip()
-TOK = os.getenv('CF_API_TOKEN', '').strip()
-BACKUP_ACC = os.getenv('CF_BACKUP_ACCOUNT_ID', '').strip()
-BACKUP_TOK = os.getenv('CF_BACKUP_API_TOKEN', '').strip()
 MODEL = os.getenv('CF_IMAGE_MODEL', '@cf/black-forest-labs/flux-1-schnell').strip()
 if len(sys.argv) != 2:
-    sys.exit('Usage: python3 gen_images_fixed.py job_dir')
-if not ACC or not TOK:
-    sys.exit('MISSING_SECRETS: CF_ACCOUNT_ID and CF_API_TOKEN')
+    sys.exit('Usage: python3 gen_images.py job_dir')
 ROOT = Path(sys.argv[1]).resolve()
-ACCOUNTS = [('primary', ACC, TOK)]
-if BACKUP_ACC and BACKUP_TOK and BACKUP_ACC != ACC:
-    ACCOUNTS.append(('backup', BACKUP_ACC, BACKUP_TOK))
-elif BACKUP_ACC or BACKUP_TOK:
-    print('WARNING: backup requires both secrets and a different account ID.', flush=True)
+
+ACCOUNT_FIELDS = [
+    ('primary', 'CF_ACCOUNT_ID', 'CF_API_TOKEN'),
+    ('backup', 'CF_BACKUP_ACCOUNT_ID', 'CF_BACKUP_API_TOKEN'),
+    ('backup_2', 'CF_BACKUP_ACCOUNT_ID_2', 'CF_BACKUP_API_TOKEN_2'),
+]
+ACCOUNTS = []
+seen_ids = set()
+for label, id_key, token_key in ACCOUNT_FIELDS:
+    account_id = os.getenv(id_key, '').strip()
+    token = os.getenv(token_key, '').strip()
+    if not account_id and not token:
+        continue
+    if not account_id or not token:
+        print(f'WARNING: {label} requires both {id_key} and {token_key}; skipping.', flush=True)
+        continue
+    if account_id in seen_ids:
+        print(f'WARNING: duplicate Cloudflare account ID for {label}; skipping.', flush=True)
+        continue
+    ACCOUNTS.append((label, account_id, token))
+    seen_ids.add(account_id)
+if not ACCOUNTS:
+    sys.exit('MISSING_SECRETS: Configure at least one complete Cloudflare account pair')
+print('Configured image accounts:', ', '.join(label for label, _, _ in ACCOUNTS), flush=True)
 EXHAUSTED = set()
 
 
@@ -61,7 +72,7 @@ def fit_image(im, size):
     return bg
 
 
-def fetch(prompt, seed, path, aspect):
+def fetch(prompt, path, aspect):
     # FLUX.1 Schnell does not accept `seed` in the Workers AI REST API schema.
     prompt = (STYLE.replace('{FRAME}', FRAME.get(aspect, FRAME['9:16'])) + prompt)[:2048]
     body = json.dumps({'prompt': prompt, 'steps': 4}).encode('utf-8')
@@ -98,7 +109,7 @@ def fetch(prompt, seed, path, aspect):
                 except ValueError:
                     errs = []
                 codes = {item.get('code') for item in errs if isinstance(item, dict)}
-                depleted = (e.code == 429 and (4006 in codes or 'daily free allocation' in raw.lower() or 'neuron' in raw.lower()))
+                depleted = (4006 in codes or 'daily free allocation' in raw.lower() or 'daily neuron' in raw.lower())
                 print(f'{label}: {path.name} HTTP {e.code}, attempt {attempt+1}: {raw[:250]}', flush=True)
                 if depleted:
                     EXHAUSTED.add(label)
@@ -115,7 +126,7 @@ def fetch(prompt, seed, path, aspect):
             if attempt < 2:
                 time.sleep(5 * (attempt + 1))
 
-    print(f'NO_AVAILABLE_IMAGE_ACCOUNT: {path.name}', flush=True)
+    print(f'NO_AVAILABLE_IMAGE_ACCOUNT: {path.name}; configured={len(ACCOUNTS)}, exhausted={len(EXHAUSTED)}', flush=True)
     return False
 
 
@@ -133,7 +144,7 @@ for spec_path in sorted(glob.glob(str(ROOT / '*.json'))):
         if dest.is_file():
             print('skip', dest.name, flush=True)
             continue
-        if not fetch(seg['prompt'], seg.get('seed', idx + 1000), dest, aspect):
+        if not fetch(seg['prompt'], dest, aspect):
             failed.append(str(dest))
 if failed:
     print('FAILED', failed)
