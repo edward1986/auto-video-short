@@ -14,6 +14,8 @@ import random
 import shutil
 import subprocess
 import tempfile
+import json
+import secrets
 import wave
 
 import chess
@@ -42,28 +44,95 @@ def find_stockfish(explicit):
     raise SystemExit('Stockfish missing: install with sudo apt-get install -y stockfish')
 
 
-def make_game(engine_path, ply_count, think_time, seed):
-    rng = random.Random(seed)
+# Named, legal opening lines in UCI notation. They are validated before use.
+# The run number cycles through openings to avoid identical *consecutive*
+# openings on scheduled/manual GitHub runs; independent runs still use entropy.
+OPENINGS = [
+    ("Italian Game", ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4"]),
+    ("Ruy Lopez", ["e2e4", "e7e5", "g1f3", "b8c6", "f1b5"]),
+    ("Sicilian Defense", ["e2e4", "c7c5", "g1f3", "d7d6"]),
+    ("French Defense", ["e2e4", "e7e6", "d2d4", "d7d5"]),
+    ("Caro-Kann Defense", ["e2e4", "c7c6", "d2d4", "d7d5"]),
+    ("Scandinavian Defense", ["e2e4", "d7d5", "e4d5", "d8d5"]),
+    ("Pirc Defense", ["e2e4", "d7d6", "d2d4", "g8f6"]),
+    ("Queen's Gambit", ["d2d4", "d7d5", "c2c4"]),
+    ("Queen's Gambit Declined", ["d2d4", "d7d5", "c2c4", "e7e6"]),
+    ("King's Indian Defense", ["d2d4", "g8f6", "c2c4", "g7g6"]),
+    ("Nimzo-Indian Defense", ["d2d4", "g8f6", "c2c4", "e7e6", "b1c3", "f8b4"]),
+    ("English Opening", ["c2c4", "e7e5", "b1c3"]),
+    ("Réti Opening", ["g1f3", "d7d5", "c2c4"]),
+    ("Dutch Defense", ["d2d4", "f7f5", "c2c4"]),
+    ("Vienna Game", ["e2e4", "e7e5", "b1c3"]),
+    ("Four Knights Game", ["e2e4", "e7e5", "g1f3", "b8c6", "b1c3", "g8f6"]),
+]
+
+
+def choose_opening(rng, run_number=None):
+    if run_number is not None and run_number > 0:
+        # GitHub run numbers grow by one each new run of this workflow.
+        # Neighboring runs start with a different opening until cycle wraps.
+        return OPENINGS[(run_number - 1) % len(OPENINGS)]
+    return rng.choice(OPENINGS)
+
+
+def validate_openings():
+    for name, sequence in OPENINGS:
+        board = chess.Board()
+        for text in sequence:
+            move = chess.Move.from_uci(text)
+            if move not in board.legal_moves:
+                raise ValueError(f"Invalid opening {name}: {text}")
+            board.push(move)
+
+
+def make_game(engine_path, ply_count, think_time, seed, run_number=None):
+    # Do not reuse the same RNG seed on each run.
+    rng = random.Random(seed if seed is not None else secrets.randbits(64))
+    opening_name, opening_moves = choose_opening(rng, run_number)
     board = chess.Board()
     game = chess.pgn.Game()
-    game.headers['Event'] = 'Chess Engine Short'
-    game.headers['Date'] = datetime.datetime.now(datetime.timezone.utc).strftime('%Y.%m.%d')
-    game.headers['White'] = 'Stockfish White'
-    game.headers['Black'] = 'Stockfish Black'
+    game.headers["Event"] = "Random Chess Opening Short"
+    game.headers["Date"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y.%m.%d")
+    game.headers["White"] = "Stockfish White"
+    game.headers["Black"] = "Stockfish Black"
+    game.headers["Opening"] = opening_name
     node = game
-    board_states = [(board.copy(), None, 'Opening position', None)]
+    board_states = [(board.copy(), None, "Opening position", None)]
+
+    # First play this run's named opening, saving each board position and move.
+    for uci in opening_moves[:ply_count]:
+        move = chess.Move.from_uci(uci)
+        if move not in board.legal_moves:
+            raise ValueError(f"Opening {opening_name} has illegal move {uci}")
+        san = board.san(move)
+        number = board.fullmove_number
+        label = f"{number}. {san}" if board.turn == chess.WHITE else f"{number}... {san}"
+        before = board.copy()
+        node = node.add_variation(move)
+        board.push(move)
+        board_states.append((board.copy(), move, label, before))
+
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
     try:
         engine.configure({'Threads': 1, 'Hash': 32})
-        for i in range(ply_count):
+        for i in range(max(0, ply_count - len(opening_moves))):
             if board.is_game_over(claim_draw=True):
                 break
-            # Top alternatives prevent repeated identical games; all moves remain legal.
-            lines = engine.analyse(board, chess.engine.Limit(time=think_time), multipv=3)
-            options = [entry['pv'][0] for entry in lines if entry.get('pv')]
+            # Choose among multiple strong legal moves rather than deterministic
+            # Stockfish best_move. A minority of moves pick alternatives.
+            legal_count = board.legal_moves.count()
+            multipv = min(4, legal_count)
+            if multipv == 0:
+                break
+            lines = engine.analyse(board, chess.engine.Limit(time=think_time), multipv=multipv)
+            if isinstance(lines, dict):
+                lines = [lines]
+            options = [entry["pv"][0] for entry in lines
+                       if entry.get("pv") and entry["pv"][0] in board.legal_moves]
             if not options:
                 break
-            pick = options[0] if rng.random() < .72 else rng.choice(options[:min(3,len(options))])
+            weights = [7, 4, 2, 1][:len(options)]
+            pick = rng.choices(options, weights=weights, k=1)[0]
             san = board.san(pick)
             number = board.fullmove_number
             label = f'{number}. {san}' if board.turn == chess.WHITE else f'{number}... {san}'
@@ -73,7 +142,7 @@ def make_game(engine_path, ply_count, think_time, seed):
         game.headers['Result'] = board.result(claim_draw=True) if board.is_game_over(claim_draw=True) else '*'
     finally:
         engine.quit()
-    return game, board_states
+    return game, board_states, opening_name
 
 
 def board_image(board, lastmove):
@@ -87,7 +156,7 @@ def board_image(board, lastmove):
     return Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg.encode('utf-8')))).convert('RGB')
 
 
-def make_frame(board, lastmove, move_text, idx, count, w, h):
+def make_frame(board, lastmove, move_text, idx, count, w, h, opening_name="Chess Game"):
     canvas = Image.new('RGB',(w,h),(12,20,27))
     draw = ImageDraw.Draw(canvas)
     # modern vertical gradient
@@ -95,7 +164,7 @@ def make_frame(board, lastmove, move_text, idx, count, w, h):
         t=y/max(1,h-1)
         draw.line((0,y,w,y),fill=(round(13+6*t),round(26+10*t),round(32+14*t)))
     draw.text((w//2, int(.085*h)), 'CHESS  •  ENGINE DUEL', font=font(max(22,w//24)), fill='#C9FFE2',anchor='mm')
-    draw.text((w//2, int(.145*h)), 'STOCKFISH vs STOCKFISH', font=font(max(30,w//15)), fill='#FFFFFF',anchor='mm')
+    draw.text((w//2, int(.145*h)), opening_name.upper(), font=font(max(24,min(w//21, 35))), fill='#FFFFFF',anchor='mm')
     bs=min(int(w*.93),int(h*.53))
     board_img=board_image(board,lastmove).resize((bs,bs),Image.Resampling.LANCZOS)
     bx=(w-bs)//2
@@ -182,6 +251,7 @@ def run():
     p.add_argument('--width',type=int,default=720)
     p.add_argument('--height',type=int,default=1280)
     p.add_argument('--seed',type=int,default=None)
+    p.add_argument('--metadata',default='chess_metadata.json')
     p.add_argument('--music-gain',type=float,default=0.55)
     p.add_argument('--sfx-gain',type=float,default=1.0)
     args=p.parse_args()
@@ -192,7 +262,21 @@ def run():
     if args.seconds_per_move<=0 or args.think_time<=0:
         p.error('Durations must be positive')
     stockfish=find_stockfish(args.stockfish)
-    game,states=make_game(stockfish,args.moves,args.think_time,args.seed)
+    validate_openings()
+    run_number_string = os.getenv("GITHUB_RUN_NUMBER", "")
+    run_number = int(run_number_string) if run_number_string.isdigit() else None
+    game,states,opening_name=make_game(
+        stockfish,args.moves,args.think_time,args.seed,run_number=run_number
+    )
+    metadata = {
+        "opening": opening_name,
+        "moves": len(states) - 1,
+        "game_result": game.headers.get("Result", "*"),
+        "run_id": os.getenv("GITHUB_RUN_ID", ""),
+        "run_number": run_number,
+        "title": f"{opening_name} | Stockfish Chess Battle ♟️ #Shorts",
+    }
+    Path(args.metadata).write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     Path(args.pgn).parent.mkdir(parents=True,exist_ok=True)
     Path(args.pgn).write_text(str(game)+'\n',encoding='utf-8')
     Path(args.output).parent.mkdir(parents=True,exist_ok=True)
@@ -203,7 +287,7 @@ def run():
         entries=[]
         for idx,(board,lastmove,label,_) in enumerate(states):
             target=work/f'frame_{idx:03}.png'
-            make_frame(board,lastmove,label,idx,len(states)-1,args.width,args.height).save(target,optimize=True)
+            make_frame(board,lastmove,label,idx,len(states)-1,args.width,args.height,opening_name).save(target,optimize=True)
             entries.extend([f"file '{target.as_posix()}'",f'duration {args.seconds_per_move:.4f}'])
         entries.append(f"file '{(work/f'frame_{len(states)-1:03}.png').as_posix()}'")
         manifest.write_text('\n'.join(entries)+'\n')
@@ -218,6 +302,7 @@ def run():
         subprocess.run(cmd,check=True)
     print(f'Created {args.output} ({len(states)-1} moves; {total:.1f}s)')
     print(f'Saved {args.pgn}')
+    print(f'Opening: {opening_name}; metadata: {args.metadata}')
 
 
 if __name__=='__main__':

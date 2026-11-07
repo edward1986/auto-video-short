@@ -11,6 +11,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--video', default='output.mp4')
     parser.add_argument('--pgn', default='random_game.pgn')
+    parser.add_argument('--metadata', default='chess_metadata.json')
     parser.add_argument('--privacy', choices=('public', 'unlisted', 'private'), default='public')
     args = parser.parse_args()
 
@@ -35,9 +36,17 @@ def main():
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
 
-    title = os.getenv('YT_CHESS_TITLE', 'Stockfish vs Stockfish ♟️ Engine Battle #Shorts').strip()[:100]
+    metadata = {}
+    meta_file = Path(args.metadata)
+    if meta_file.exists():
+        metadata = json.loads(meta_file.read_text(encoding='utf-8'))
+    opening = metadata.get('opening') or 'Chess'
+    run_id = metadata.get('run_id') or os.getenv('GITHUB_RUN_ID', '')
+    default_title = metadata.get('title') or f'{opening} | Stockfish Chess Battle #Shorts'
+    title = (os.getenv('YT_CHESS_TITLE') or default_title).strip()[:100]
     pgn_excerpt = Path(args.pgn).read_text(encoding='utf-8')[:1200] if Path(args.pgn).exists() else ''
     description = (
+        f'Opening played: {opening}. Run: {run_id or "local"}.\n'
         'Watch Stockfish play both sides in this chess engine battle! '
         'Every move comes with original sound effects and background music.\n\n'
         'Game PGN (excerpt):\n' + pgn_excerpt + '\n\n#Shorts #Chess #Stockfish'
@@ -72,7 +81,7 @@ def main():
             print(f'Upload progress: {progress.progress()*100:.1f}%', flush=True)
 
     watch_url = f'https://www.youtube.com/watch?v={response["id"]}'
-    result = {'video_id': response['id'], 'url': watch_url, 'requested_privacy': args.privacy}
+    result = {'video_id': response['id'], 'url': watch_url, 'requested_privacy': args.privacy, 'opening': opening, 'title': title}
     Path('youtube-upload.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print('YouTube upload completed:', watch_url)
     if os.getenv('GITHUB_STEP_SUMMARY'):
