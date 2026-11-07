@@ -49,108 +49,139 @@ load_dotenv(".env")
 WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
 CATFACT_URL = "https://catfact.ninja/fact"
 # =========================
-# MODERN SHORTS CAPTIONS
+# PREMIUM SHORT-FORM SUBTITLES
 # =========================
-# Caption style is controlled by environment variables. All captions are
-# rendered with Pillow (no ImageMagick or Arial dependency).
-# Style: small, premium dark frosted pill; modern bold text; warm accent.
-# Placement: lower third, away from the center of the video.
-CAPTION_Y = float(os.getenv("CAPTION_Y", "0.77"))
-CAPTION_MAX_WIDTH = float(os.getenv("CAPTION_MAX_WIDTH", "0.80"))
+# Clean floating typography, subtle dark stroke/shadow, and a lime active-word
+# highlight. No black button or bulky caption box.
+# All rendering uses Pillow; no ImageMagick is required.
+CAPTION_Y = float(os.getenv("CAPTION_Y", "0.765"))
+CAPTION_MAX_WIDTH = float(os.getenv("CAPTION_MAX_WIDTH", "0.82"))
 CAPTION_FONT_PATH = os.getenv("CAPTION_FONT", "").strip()
+CAPTION_ACTIVE_COLOR = os.getenv("CAPTION_ACTIVE_COLOR", "#D9FF65")
+CAPTION_GROUP_WORDS = max(1, min(5, int(os.getenv("CAPTION_GROUP_WORDS", "3"))))
+_CAPTION_SUPERSAMPLE = 2
 
 
 def _caption_font(size):
-    paths = [
+    candidates = [
         CAPTION_FONT_PATH,
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/Arial_Bold.ttf",
         "/Library/Fonts/Arial Bold.ttf",
         "C:/Windows/Fonts/arialbd.ttf",
     ]
-    for path in paths:
-        if path and os.path.isfile(path):
-            return ImageFont.truetype(path, size)
+    for filename in candidates:
+        if filename and os.path.isfile(filename):
+            return ImageFont.truetype(filename, size)
     return ImageFont.load_default()
 
 
-def _caption_lines(text, font, draw, width, max_lines=3):
-    words = str(text).upper().split()
-    lines, line = [], ""
-    for word in words:
-        candidate = (line + " " + word).strip()
-        if draw.textbbox((0, 0), candidate, font=font)[2] <= width:
-            line = candidate
-        else:
-            if line:
-                lines.append(line)
-            line = word
-    if line:
-        lines.append(line)
-    return lines
+def _caption_color(s):
+    from PIL import ImageColor
+    try:
+        return ImageColor.getrgb(s)
+    except ValueError:
+        return (217, 255, 101)
 
 
-def modern_caption_clip(text, start, duration, video_size):
-    """Transparent RGBA overlay; no full-screen black rectangle or stretched text."""
-    text = str(text or "").strip()
-    if not text:
+def _caption_frame(words, active_index, video_size):
+    """Render a small transparent RGBA sprite containing 1–5 words.
+
+    The words retain one baseline; the active word is highlighted without
+    enlarging/reflowing the caption. A soft black shadow ensures readability.
+    """
+    W, H = map(int, video_size)
+    scale = _CAPTION_SUPERSAMPLE
+    words = [str(w).upper().strip() for w in words if str(w).strip()]
+    if not words:
+        return None
+    active_index = max(0, min(len(words) - 1, int(active_index)))
+    max_width = int(W * CAPTION_MAX_WIDTH) * scale
+    base_size = int((70 if len(words) < 4 else 61) * W / 1080) * scale
+    padding = 25 * scale
+    space_factor = 0.30
+
+    for sz in range(base_size, int(30 * scale) - 1, -4 * scale):
+        ft = _caption_font(sz)
+        probe = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+        space = max(12 * scale, int(sz * space_factor))
+        lengths = [probe.textbbox((0, 0), word, font=ft, stroke_width=0)[2] for word in words]
+        total = sum(lengths) + (len(words) - 1) * space
+        if total + 2 * padding <= max_width:
+            break
+    width = int(total + 2 * padding)
+    height = int(sz * 1.65 + 2 * padding)
+    layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    dr = ImageDraw.Draw(layer)
+    x = (width - total) // 2
+    y = int(padding + sz * .12)
+    active_rgb = _caption_color(CAPTION_ACTIVE_COLOR)
+    for i, (word, word_width) in enumerate(zip(words, lengths)):
+        color = (*active_rgb, 255) if i == active_index else (255, 255, 255, 255)
+        sd.text((x + 2 * scale, y + 5 * scale), word, font=ft,
+                fill=(0, 0, 0, 230), stroke_width=7 * scale, stroke_fill=(0, 0, 0, 180))
+        dr.text((x, y), word, font=ft, fill=color,
+                stroke_width=2 * scale, stroke_fill=(16, 20, 26, 195))
+        x += word_width + space
+    # Dark blur behind the text, not a visible rectangular subtitle button.
+    layer = Image.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(7 * scale)), layer)
+    return np.array(layer.resize((max(1, width // scale), max(1, height // scale)),
+                                 Image.Resampling.LANCZOS))
+
+
+def modern_caption_clip(text, start, duration, video_size, active_index=0):
+    """One polished transparent caption overlay, compatible with MoviePy 1.x."""
+    if isinstance(text, (list, tuple)):
+        words = [str(w) for w in text]
+    else:
+        words = str(text or "").split()
+    if not words:
+        return None
+    rgba = _caption_frame(words, active_index, video_size)
+    if rgba is None:
         return None
     W, H = map(int, video_size)
-    scale = 2  # high-quality antialiasing
-    max_w = round(W * CAPTION_MAX_WIDTH) * scale
-    text_padding = round(30 * W / 1080) * scale
-    base_font = round((62 if len(text) <= 14 else 51) * W / 1080) * scale
-    shadow_pad = 20 * scale
-    sample = Image.new("RGBA", (max_w + 4, H // 3 * scale), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(sample)
-    for sz in range(base_font, 27 * scale - 1, -4 * scale):
-        font = _caption_font(sz)
-        lines = _caption_lines(text, font, draw, max_w - text_padding * 2)
-        if len(lines) <= 2:
-            break
-    else:
-        font = _caption_font(27 * scale)
-        lines = _caption_lines(text, font, draw, max_w - text_padding * 2)
-    line_h = round(font.size * 1.32)
-    widths = [draw.textbbox((0, 0), x, font=font)[2] for x in lines]
-    panel_w = min(max_w, max(widths) + text_padding * 2)
-    panel_h = line_h * len(lines) + 32 * scale
-    w = panel_w + shadow_pad * 2
-    h = panel_h + shadow_pad * 2
-    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(layer)
-    x0, y0 = shadow_pad, shadow_pad
-    radius = min(38 * scale, panel_h // 2)
-    sd.rounded_rectangle((x0 + 3 * scale, y0 + 6 * scale, x0 + panel_w + 3 * scale, y0 + panel_h + 6 * scale), radius=radius, fill=(0, 0, 0, 120))
-    shadow = layer.filter(ImageFilter.GaussianBlur(9 * scale))
-    top = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(top)
-    d.rounded_rectangle((x0, y0, x0 + panel_w, y0 + panel_h), radius=radius, fill=(15, 19, 25, 202), outline=(245, 245, 245, 65), width=2 * scale)
-    d.rounded_rectangle((x0 + 15 * scale, y0 + 10 * scale, x0 + 21 * scale, y0 + panel_h - 10 * scale), radius=3 * scale, fill=(255, 198, 92, 255))
-    for i, line in enumerate(lines):
-        tw = widths[i]
-        x = x0 + (panel_w - tw) // 2
-        y = y0 + 15 * scale + i * line_h
-        d.text((x, y), line, font=font, fill=(250, 252, 255, 255), stroke_width=1 * scale, stroke_fill=(12, 16, 22, 230))
-    art = Image.alpha_composite(shadow, top)
-    art = art.resize((round(w / scale), round(h / scale)), Image.Resampling.LANCZOS)
-    clip = ImageClip(np.asarray(art), transparent=True).set_start(max(0, float(start))).set_duration(max(0.05, float(duration)))
-    y = max(0, min(H - clip.h, round(H * CAPTION_Y - clip.h / 2)))
-    return clip.set_position(((W - clip.w) // 2, y))
+    clip = (ImageClip(rgba, transparent=True)
+            .set_start(max(0.0, float(start)))
+            .set_duration(max(0.06, float(duration))))
+    y = round(H * CAPTION_Y - clip.h / 2)
+    return clip.set_position(((W - clip.w) // 2, max(0, min(H - clip.h, y))))
 
 
 def build_word_by_word_captions(words, video_size):
-    clips = []
-    for item in words:
+    """Group Whisper timestamps into phrases, highlighting the spoken word.
+
+    Each active word gets its own timed transparent sprite. This replaces the
+    previous single-word black-box style, keeping the whole phrase visible.
+    """
+    valid = []
+    for item in words or []:
+        if not isinstance(item, dict):
+            continue
         word = str(item.get("word", "")).strip()
         if not word:
             continue
-        start = max(0, float(item.get("start", 0)))
-        end = float(item.get("end", start + 0.4))
-        caption = modern_caption_clip(word, start, max(0.12, end - start), video_size)
-        if caption is not None:
-            clips.append(caption)
+        try:
+            start = max(0.0, float(item.get("start", 0)))
+            end = max(start + .08, float(item.get("end", start + .35)))
+        except (TypeError, ValueError):
+            continue
+        valid.append((word, start, end))
+    clips = []
+    for offset in range(0, len(valid), CAPTION_GROUP_WORDS):
+        group = valid[offset:offset + CAPTION_GROUP_WORDS]
+        labels = [word for word, _, _ in group]
+        for index, (_, start, end) in enumerate(group):
+            # No artificial overlap; group text stays stable as color advances.
+            if offset + index + 1 < len(valid):
+                end = min(end, valid[offset + index + 1][1])
+            if end <= start:
+                continue
+            clip = modern_caption_clip(labels, start, end - start, video_size, active_index=index)
+            if clip is not None:
+                clips.append(clip)
     return clips
 
 
@@ -597,7 +628,11 @@ try:
         text_clips = build_word_by_word_captions(whisper_words, video_clip.size)
         final = CompositeVideoClip([video_clip] + text_clips, size=video_clip.size)
     else:
-        text_chunks = split_text_chunks(text_quote, max_length=90)
+        all_words = text_quote.split()
+        text_chunks = [" ".join(all_words[i:i + CAPTION_GROUP_WORDS])
+                       for i in range(0, len(all_words), CAPTION_GROUP_WORDS)]
+        if not text_chunks:
+            text_chunks = ["FACTS"]
         chunk_duration = total_duration / max(len(text_chunks), 1)
 
         text_clips = []
