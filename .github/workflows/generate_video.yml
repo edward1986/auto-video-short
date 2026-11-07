@@ -9,16 +9,35 @@ on:
         type: number
         default: 24
         required: true
+
       seconds_per_move:
         description: Seconds per chess position
         type: string
         default: '1.65'
         required: true
 
+      publish:
+        description: Publish to YouTube
+        type: boolean
+        default: true
+        required: true
+
+      privacy:
+        description: YouTube visibility
+        type: choice
+        options:
+          - public
+          - unlisted
+          - private
+        default: public
+        required: true
+
   push:
     branches: [Production]
     paths:
       - 'generate_chess_short.py'
+      - 'upload_chess_youtube.py'
+      - 'requirements-chess.txt'
       - '.github/workflows/generate-chess-video.yml'
 
 permissions:
@@ -27,7 +46,7 @@ permissions:
 jobs:
   generate_video:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -41,14 +60,22 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg stockfish libcairo2 fonts-dejavu-core
+          sudo apt-get install -y \
+            ffmpeg stockfish libcairo2 fonts-dejavu-core
+
           python -m pip install --upgrade pip
           python -m pip install -r requirements-chess.txt
+
+          python -m pip install \
+            google-api-python-client \
+            google-auth \
+            google-auth-httplib2
+
           test -x /usr/games/stockfish
 
       - name: Generate chess video
         env:
-          MOVES: ${{ inputs.moves || '24' }}
+          MOVES: ${{ inputs.moves || 24 }}
           SECONDS_PER_MOVE: ${{ inputs.seconds_per_move || '1.65' }}
         run: |
           python generate_chess_short.py \
@@ -59,14 +86,31 @@ jobs:
             --pgn random_game.pgn
 
           test -s output.mp4
+          test -s random_game.pgn
 
-      - name: Publish chess Short to YouTube
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true }}
+      - name: Verify YouTube credentials
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          YT_PRIVACY: ${{ inputs.privacy || 'public' }}
+        run: |
+          for key in YT_CLIENT_ID YT_CLIENT_SECRET YT_REFRESH_TOKEN; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing GitHub secret: $key"
+              exit 1
+            fi
+          done
+
+          echo "YouTube OAuth secrets configured."
+
+      - name: Publish chess Short to YouTube
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_PRIVACY: ${{ inputs.privacy }}
         run: |
           python upload_chess_youtube.py \
             --video output.mp4 \
@@ -74,12 +118,14 @@ jobs:
             --privacy "$YT_PRIVACY"
 
       - name: Upload video and PGN
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: chess-short-${{ github.run_id }}
           path: |
             output.mp4
             random_game.pgn
-          if-no-files-found: error
+            youtube-upload.json
+          if-no-files-found: warn
           retention-days: 7
           compression-level: 0
