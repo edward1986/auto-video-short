@@ -10,6 +10,9 @@ import random
 import shutil
 import subprocess
 import tempfile
+import urllib.request
+import urllib.error
+import time
 import wave
 
 from kokoro_onnx import Kokoro
@@ -25,6 +28,55 @@ BOLD = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 BACKGROUND = (12, 20, 35)
 OLD = (255, 170, 91)
 NEW = (105, 235, 210)
+
+
+
+KOKORO_RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1"
+KOKORO_FILES = {"kokoro-v1.0.int8.onnx": 50_000_000, "voices-v1.0.bin": 5_000_000}
+
+
+def ensure_kokoro_models(directory):
+    """Download the public Kokoro model files to one stable, cached directory.
+
+    Download into temporary files so interrupted downloads aren't cached as valid
+    models. File-size checks catch HTTP error pages or partial downloads.
+    """
+    directory = Path(directory).expanduser().resolve()
+    directory.mkdir(parents=True, exist_ok=True)
+    for name, min_bytes in KOKORO_FILES.items():
+        target = directory / name
+        if target.is_file() and target.stat().st_size >= min_bytes:
+            print(f"Kokoro cache OK: {target} ({target.stat().st_size:,} bytes)", flush=True)
+            continue
+        if target.exists():
+            print(f"Invalid/incomplete cached file: {target}; replacing", flush=True)
+            target.unlink()
+        source_url = f"{KOKORO_RELEASE}/{name}"
+        last_error = None
+        for attempt in range(1, 4):
+            temporary = directory / f".{name}.download"
+            try:
+                print(f"Downloading Kokoro {name} (attempt {attempt}/3)", flush=True)
+                req = urllib.request.Request(source_url, headers={"User-Agent": "Kokoro-Shorts/1.0"})
+                with urllib.request.urlopen(req, timeout=120) as response, temporary.open("wb") as output:
+                    shutil.copyfileobj(response, output, length=1024 * 1024)
+                actual = temporary.stat().st_size
+                if actual < min_bytes:
+                    raise RuntimeError(f"Model download too small: {actual:,} bytes")
+                temporary.replace(target)
+                print(f"Saved {target} ({actual:,} bytes)", flush=True)
+                break
+            except (OSError, urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                last_error = exc
+                temporary.unlink(missing_ok=True)
+                if attempt < 3:
+                    time.sleep(2 * attempt)
+        else:
+            raise RuntimeError(
+                f"Could not download {name} from {source_url}: {last_error}. "
+                f"Check network access or download it manually into {directory}"
+            )
+    return directory / "kokoro-v1.0.int8.onnx", directory / "voices-v1.0.bin"
 
 
 def run(*argv):
@@ -215,7 +267,14 @@ def main():
     p.add_argument('--topic',default='auto',help='auto or topic ID from topics.json')
     p.add_argument('--voice',default=os.getenv('KOKORO_VOICE', 'am_puck'))
     p.add_argument('--voice-speed',type=float,default=float(os.getenv('KOKORO_SPEED', '1.08')))
+    p.add_argument('--ensure-model',action='store_true',help='Download/verify Kokoro files then exit')
     args=p.parse_args()
+    # The action and the renderer share the same stable cache location.
+    model_dir = Path(os.getenv('KOKORO_DIR') or (Path.home() / '.cache' / 'kokoro'))
+    model_file, voices_file = ensure_kokoro_models(model_dir)
+    if args.ensure_model:
+        print(f'Kokoro files ready in {model_file.parent}', flush=True)
+        return
     for executable in ('ffmpeg','ffprobe'):
         if not shutil.which(executable):
             raise SystemExit(f'Missing required executable: {executable}')
@@ -232,12 +291,6 @@ def main():
         chosen=next((x for x in topics if x['id']==args.topic),None)
         if chosen is None:raise SystemExit('Unknown topic: '+args.topic)
     # Offline Kokoro neural text-to-speech (voice is selectable in Actions).
-    model_dir=Path(os.getenv('KOKORO_DIR',str(Path.home()/'.cache/kokoro')))
-    model_file=model_dir/'kokoro-v1.0.int8.onnx'
-    voices_file=model_dir/'voices-v1.0.bin'
-    for path in (model_file, voices_file):
-        if not path.is_file() or path.stat().st_size == 0:
-            raise SystemExit(f'Missing Kokoro model file: {path}. Run the workflow model download step.')
     if not (0.65 <= args.voice_speed <= 1.6):
         raise SystemExit('Voice speed must be between 0.65 and 1.6')
     kokoro=Kokoro(str(model_file),str(voices_file))
