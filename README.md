@@ -1,43 +1,51 @@
-# Technology Then vs. Now — YouTube Shorts GitHub Action
+# Technology Then vs. Now — Kokoro Voice Edition
 
-Produces a vertical 720×1280 Short that compares old and modern technologies, uses custom drawn split-screen illustrations, English voiceover via `espeak-ng`, original synthesized background music, and transition sounds. No Cloudflare image credits, third-party footage, or paid stock images required.
+This version replaces the earlier `espeak-ng` narration with **Kokoro ONNX neural TTS**. It keeps the existing split-screen technology illustrations, original synthesized background music, transition sounds, 9:16 video rendering, topic rotation, daily schedule, and YouTube uploader.
 
-## Install
+## Install in GitHub
 
-Copy the following into the **Production** branch of `edward1986/auto-video-short`:
+Copy the ZIP contents into your `Production` branch, preserving `.github/workflows/technology-then-now.yml`.
 
+Files to replace/add:
 - `.github/workflows/technology-then-now.yml`
 - `generate_tech_short.py`
-- `upload_tech_youtube.py`
 - `requirements-tech.txt`
 - `topics.json`
+- `upload_tech_youtube.py`
 
-Add GitHub Actions secrets: `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, and `YT_REFRESH_TOKEN`. Existing secrets from your other YouTube workflows can be reused. The YouTube Data API must be enabled on the Google Cloud project and the refresh token must authorize `youtube.upload` for the correct channel. YouTube may restrict public uploads from unverified API projects.
+The workflow downloads and caches these official Kokoro ONNX assets automatically:
+- `kokoro-v1.0.int8.onnx`
+- `voices-v1.0.bin`
 
-Go to **Actions → Technology Then vs Now - YouTube Shorts → Run workflow**. Set topic (`auto` rotates), publish (`true` by default), and privacy (`public` by default).
+You do **not** need a Cloudflare AI key or an external TTS account. GitHub Actions still uses `espeak-ng` as a local phonemizer dependency for Kokoro, but it no longer uses its synthesized voice for narration.
 
-The workflow is scheduled **daily at 09:10 Philippine time** (01:10 UTC) and scheduled runs **automatically request Public YouTube uploads**. To disable automatic publication, remove the `schedule:` section from the workflow or modify the publish condition. GitHub scheduled workflows only run from the repository's default branch; if `Production` isn't the default branch, manual dispatch works on `Production` but the daily schedule will not execute until the workflow is present on the default branch. GitHub may delay scheduled runs.
+## Voice selection
 
-## Content rotation
+Run **Technology Then vs Now - YouTube Shorts** under GitHub Actions. Choose one of the voice inputs:
+- `am_puck` (default)
+- `af_heart`
+- `am_adam`
+- `af_bella`
 
-`topics.json` contains 12 curated comparisons (phones, cameras, storage, music, computers, lighting and more). Auto mode selects an entry using `GITHUB_RUN_NUMBER`, so consecutive workflow runs cycle through different subjects. After all 12, entries repeat unless you add more.
+You can set `KOKORO_SPEED` as a job environment variable or pass `--voice-speed 1.08` to the generator.
 
-To add a comparison, edit `topics.json` and add `id`, `topic`, `then`, `now`, `then_year`, `now_year`, `fact`, `change`, `takeaway`, and `symbol` fields.
+## YouTube upload
 
-## Output files
+Use the same repository secrets as your existing YouTube workflows:
+- `YT_CLIENT_ID`
+- `YT_CLIENT_SECRET`
+- `YT_REFRESH_TOKEN`
 
-- `output.mp4`: 9:16 video with English narration, music and motion-free illustrated slides
-- `tech_metadata.json`: topic, title, description, duration, run number
-- `youtube-upload.json`: YouTube URL and ID (only if published successfully)
+Manual runs publish only when `publish` is checked. Scheduled runs request public visibility. YouTube may impose API restrictions independent of the workflow.
 
-This workflow **does not commit videos to Git**, preventing repository-size growth. If uploading fails, the job should report failure; the MP4 artifact is still saved.
+## Local usage
 
-## Local run
-
-Install ffmpeg and espeak-ng, then `pip install -r requirements-tech.txt`.
+Install `ffmpeg`, `espeak-ng`, Python dependencies from `requirements-tech.txt`, then download the Kokoro model assets to `KOKORO_DIR` (default `~/.cache/kokoro`).
 
 ```bash
-python generate_tech_short.py --topic phones --output output.mp4
+python generate_tech_short.py --topic phones --voice am_puck --voice-speed 1.08 --output output.mp4
 ```
 
-Output is illustrated with Pillow, not Wikimedia photographs. Narration uses a local synthetic voice and can be upgraded later to Kokoro. The curated copy is designed to avoid exact technical performance claims without references.
+## Testing
+
+Python compilation and YAML structure have been checked. The complete Kokoro inference and YouTube upload require model files and credentials; neither was run here. The previously tested original generator confirmed MP4 H.264/AAC rendering before this TTS change.

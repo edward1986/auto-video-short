@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate a 9:16 technology comparison Short with local graphics, TTS and original music.
-Needs: Pillow, numpy, ffmpeg, ffprobe, espeak-ng. No external image/text API.
+Needs: Pillow, numpy, kokoro-onnx, ffmpeg, ffprobe, espeak-ng. No external image/text API.
 """
 import argparse
 import json
@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import tempfile
 import wave
+
+from kokoro_onnx import Kokoro
 from pathlib import Path
 
 import numpy as np
@@ -211,9 +213,10 @@ def main():
     p.add_argument('--metadata',default='tech_metadata.json')
     p.add_argument('--seed',type=int,default=None)
     p.add_argument('--topic',default='auto',help='auto or topic ID from topics.json')
-    p.add_argument('--tts-rate',type=int,default=160)
+    p.add_argument('--voice',default=os.getenv('KOKORO_VOICE', 'am_puck'))
+    p.add_argument('--voice-speed',type=float,default=float(os.getenv('KOKORO_SPEED', '1.08')))
     args=p.parse_args()
-    for executable in ('ffmpeg','ffprobe','espeak-ng'):
+    for executable in ('ffmpeg','ffprobe'):
         if not shutil.which(executable):
             raise SystemExit(f'Missing required executable: {executable}')
     topics=json.loads(Path(args.topics).read_text())
@@ -228,6 +231,17 @@ def main():
     else:
         chosen=next((x for x in topics if x['id']==args.topic),None)
         if chosen is None:raise SystemExit('Unknown topic: '+args.topic)
+    # Offline Kokoro neural text-to-speech (voice is selectable in Actions).
+    model_dir=Path(os.getenv('KOKORO_DIR',str(Path.home()/'.cache/kokoro')))
+    model_file=model_dir/'kokoro-v1.0.int8.onnx'
+    voices_file=model_dir/'voices-v1.0.bin'
+    for path in (model_file, voices_file):
+        if not path.is_file() or path.stat().st_size == 0:
+            raise SystemExit(f'Missing Kokoro model file: {path}. Run the workflow model download step.')
+    if not (0.65 <= args.voice_speed <= 1.6):
+        raise SystemExit('Voice speed must be between 0.65 and 1.6')
+    kokoro=Kokoro(str(model_file),str(voices_file))
+
     spoken=[
         f'{chosen["topic"]}, then versus now. How much has technology changed?',
         chosen['fact'],
@@ -246,14 +260,25 @@ def main():
             frame=temp/f'frame{index:02}.png'
             draw_frame(chosen,index,index,len(spoken),frame)
             images.append(frame)
-            original=temp/f'narration{index:02}.wav'
-            speech=temp/f'speech{index:02}.wav'
-            run_cmd=['espeak-ng','-s',str(args.tts_rate),'-w',str(original),text]
-            run(*run_cmd)
-            run('ffmpeg','-y','-loglevel','error','-i',original,'-ar',SR,'-ac',1,'-acodec','pcm_s16le',speech)
-            audio=wav_read(speech)
+            try:
+                samples, sample_rate = kokoro.create(
+                    text, voice=args.voice, speed=args.voice_speed, lang='en-us'
+                )
+            except Exception as exc:
+                raise RuntimeError(f'Kokoro failed for narration {index+1}: {exc}') from exc
+            audio=np.asarray(samples,dtype=np.float32).reshape(-1)
+            if sample_rate != SR:
+                # Resample through FFmpeg to avoid another Python dependency.
+                raw=temp/f'kokoro{index:02}.f32'
+                speech=temp/f'speech{index:02}.wav'
+                audio.tofile(raw)
+                run('ffmpeg','-y','-loglevel','error','-f','f32le','-ar',str(sample_rate),
+                    '-ac','1','-i',raw,'-ar',str(SR),'-ac','1','-acodec','pcm_s16le',speech)
+                audio=wav_read(speech)
+            if len(audio)==0 or not np.isfinite(audio).all():
+                raise RuntimeError(f'Kokoro produced invalid audio for narration {index+1}')
             narrations.append(audio)
-            timings.append(max(4.3,len(audio)/SR+0.6))
+            timings.append(max(4.3,len(audio)/SR+0.8))
         duration=sum(timings)
         audio=synthesized_music(duration)
         pos=0
@@ -286,7 +311,8 @@ def main():
           'description':f'{chosen["topic"]}: {chosen["then"]} vs {chosen["now"]}.\n\n'
            f'{chosen["fact"]} {chosen["change"]}\n\n{chosen["takeaway"]}\n\n'
            '#Shorts #Technology #ThenVsNow #TechHistory',
-          'duration_seconds':round(duration,2),'run_number':run_number,'video':str(output.name)}
+          'duration_seconds':round(duration,2),'run_number':run_number,'video':str(output.name),
+          'narration_engine':'Kokoro ONNX','voice':args.voice,'voice_speed':args.voice_speed}
     Path(args.metadata).write_text(json.dumps(data,indent=2)+'\n')
     print(json.dumps(data,indent=2))
     print('Video generated:',output,output.stat().st_size,'bytes')
