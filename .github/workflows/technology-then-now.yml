@@ -1,0 +1,123 @@
+name: Technology Then vs Now - YouTube Shorts
+
+on:
+  schedule:
+    - cron: '10 1 * * *' # 09:10 Asia/Manila daily
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Technology topic ID, or auto for rotating series'
+        type: choice
+        options:
+          - auto
+          - phones
+          - cameras
+          - music
+          - computers
+          - maps
+          - television
+          - storage
+          - gaming
+          - watches
+          - typing
+          - lighting
+          - communication
+        default: auto
+        required: true
+      publish:
+        description: 'Upload the finished video to YouTube'
+        type: boolean
+        default: true
+        required: true
+      privacy:
+        description: 'YouTube visibility'
+        type: choice
+        options:
+          - public
+          - unlisted
+          - private
+        default: public
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: technology-then-now
+  cancel-in-progress: false
+
+jobs:
+  create_video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout Production repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-tech.txt
+
+      - name: Install multimedia tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-tech.txt
+
+      - name: Generate technology comparison Short
+        env:
+          TOPIC: ${{ inputs.topic || 'auto' }}
+        run: |
+          python generate_tech_short.py \
+            --topic "$TOPIC" \
+            --output output.mp4 \
+            --metadata tech_metadata.json
+          test -s output.mp4
+          ffprobe -v error -show_entries stream=codec_name,width,height \
+            -of default=noprint_wrappers=1 output.mp4
+
+      - name: Check publishing credentials
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          for key in YT_CLIENT_ID YT_CLIENT_SECRET YT_REFRESH_TOKEN; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing GitHub secret $key"
+              exit 1
+            fi
+          done
+
+      - name: Publish finished video to YouTube
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_PRIVACY: ${{ inputs.privacy || 'public' }}
+        run: |
+          python upload_tech_youtube.py \
+            --video output.mp4 \
+            --metadata tech_metadata.json \
+            --privacy "$YT_PRIVACY"
+
+      - name: Save MP4 and publishing receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: technology-then-now-${{ github.run_id }}
+          path: |
+            output.mp4
+            tech_metadata.json
+            youtube-upload.json
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0
