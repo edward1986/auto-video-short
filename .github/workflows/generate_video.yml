@@ -60,6 +60,19 @@ jobs:
 
           test -s output.mp4
 
+      - name: Publish chess Short to YouTube
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_PRIVACY: ${{ inputs.privacy || 'public' }}
+        run: |
+          python upload_chess_youtube.py \
+            --video output.mp4 \
+            --pgn random_game.pgn \
+            --privacy "$YT_PRIVACY"
+
       - name: Upload video and PGN
         uses: actions/upload-artifact@v4
         with:
