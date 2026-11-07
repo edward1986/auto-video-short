@@ -121,19 +121,54 @@ def make_frame(board, lastmove, move_text, idx, count, w, h):
     return canvas
 
 
-def create_music(path,seconds):
-    # Synthesized, original quiet chord pad + short move cues (no external audio).
-    sr=24000
-    count=round(seconds*sr)
-    t=np.arange(count,dtype=np.float32)/sr
-    # C-major ambient tones
-    x=(.05*np.sin(2*np.pi*130.81*t)+.035*np.sin(2*np.pi*164.81*t)
-       +.025*np.sin(2*np.pi*196.0*t))
-    x *= np.minimum(1,t/.8)*np.minimum(1,(seconds-t)/.9)
-    x=np.clip(x,-.9,.9)
-    with wave.open(str(path),'wb') as wf:
-        wf.setnchannels(1);wf.setsampwidth(2);wf.setframerate(sr)
-        wf.writeframes((x*32767).astype('<i2').tobytes())
+def create_music(path, seconds, states, seconds_per_move, music_gain=0.55, sfx_gain=1.0):
+    """Original royalty-free ambient music plus one synthesized cue per move.
+
+    Normal move = wooden tick; capture = low click/thump; check = bright bell;
+    checkmate = larger final chime. Designed for mono 24 kHz audio.
+    """
+    sr = 24000
+    count = max(1, round(seconds * sr))
+    t = np.arange(count, dtype=np.float32) / sr
+    # Slow, simple original ambient chord bed; no external audio assets.
+    chord = (0.055 * np.sin(2 * np.pi * 130.81 * t)
+             + 0.037 * np.sin(2 * np.pi * 164.81 * t)
+             + 0.024 * np.sin(2 * np.pi * 196.0 * t))
+    # Gentle pulse to make the bed sound less static.
+    pulse = 0.78 + 0.22 * np.sin(2 * np.pi * 1.15 * t) ** 2
+    envelope = np.minimum(1, t / 0.7) * np.minimum(1, np.maximum(0, seconds - t) / 1.0)
+    audio = (chord * pulse * envelope * float(music_gain)).astype(np.float32)
+
+    for index in range(1, len(states)):
+        board, move, _label, previous = states[index]
+        start = int(index * seconds_per_move * sr)
+        if start >= count:
+            continue
+        duration = min(round(0.39 * sr), count - start)
+        local_t = np.arange(duration, dtype=np.float32) / sr
+        captured = previous.is_capture(move) if previous is not None and move is not None else False
+        if board.is_checkmate():
+            # Final chime: original layered fifth.
+            fx = (0.20 * np.sin(2 * np.pi * 523.25 * local_t)
+                  + 0.14 * np.sin(2 * np.pi * 783.99 * local_t)) * np.exp(-local_t * 8)
+        elif board.is_check():
+            fx = (0.16 * np.sin(2 * np.pi * 880 * local_t)
+                  + 0.11 * np.sin(2 * np.pi * 1174.66 * local_t)) * np.exp(-local_t * 16)
+        elif captured:
+            fx = (0.24 * np.sin(2 * np.pi * (260 - 95 * local_t) * local_t)
+                  + 0.10 * np.sin(2 * np.pi * 430 * local_t)) * np.exp(-local_t * 28)
+        else:
+            fx = (0.19 * np.sin(2 * np.pi * 650 * local_t)
+                  + 0.10 * np.sin(2 * np.pi * 390 * local_t)) * np.exp(-local_t * 38)
+        audio[start:start + duration] += fx.astype(np.float32) * float(sfx_gain)
+
+    # Soft limiter so generated sounds cannot clip.
+    audio = np.tanh(audio * 1.35) / 1.35
+    with wave.open(str(path), 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sr)
+        wf.writeframes((np.clip(audio, -1, 1) * 32767).astype('<i2').tobytes())
 
 
 def run():
@@ -147,9 +182,13 @@ def run():
     p.add_argument('--width',type=int,default=720)
     p.add_argument('--height',type=int,default=1280)
     p.add_argument('--seed',type=int,default=None)
+    p.add_argument('--music-gain',type=float,default=0.55)
+    p.add_argument('--sfx-gain',type=float,default=1.0)
     args=p.parse_args()
     if args.moves<1 or args.moves>65 or args.width<300 or args.height<500:
         p.error('Invalid moves or dimensions')
+    if not (0 <= args.music_gain <= 2 and 0 <= args.sfx_gain <= 2):
+        p.error('Audio gains must be between 0 and 2')
     if args.seconds_per_move<=0 or args.think_time<=0:
         p.error('Durations must be positive')
     stockfish=find_stockfish(args.stockfish)
@@ -170,7 +209,7 @@ def run():
         manifest.write_text('\n'.join(entries)+'\n')
         total=len(states)*args.seconds_per_move
         music=work/'background.wav'
-        create_music(music,total)
+        create_music(music,total,states,args.seconds_per_move,args.music_gain,args.sfx_gain)
         cmd=['ffmpeg','-hide_banner','-loglevel','error','-y',
              '-f','concat','-safe','0','-i',str(manifest),'-i',str(music),
              '-t',str(total),'-r','24','-c:v','libx264','-preset','veryfast',

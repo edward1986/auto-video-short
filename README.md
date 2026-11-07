@@ -1,18 +1,26 @@
-# AiEnvoy YouTube Short automation
+# Chess Shorts: Sound + YouTube
 
-This standalone workflow generates a 9:16 Short using AiEnvoy's published `POST https://api.aienvoy.dev/api/v1/videos/generate` endpoint, downloads the finished MP4, preserves its aspect ratio, and optionally uploads it to YouTube using OAuth.
+## Files
+- `.github/workflows/generate-chess-video.yml` — GitHub Actions workflow
+- `generate_chess_short.py` — chess render with original low-volume music, wooden move clicks, capture thumps, and check/checkmate chimes
+- `upload_chess_youtube.py` — OAuth YouTube Shorts uploader
+- `requirements-chess.txt` — Python requirements
 
 ## Setup
+Copy **all files** into your GitHub repository's `Production` branch. Delete the older chess workflow **contents** rather than keeping two competing workflows.
 
-Put these files in the repository root (preserve `.github/workflows/`). Create GitHub Actions secret `AI_ENVOY_KEY` using the key from AiEnvoy. For optional publishing also configure `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, and `YT_REFRESH_TOKEN`.
+Add GitHub Actions secrets: `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`. OAuth refresh token must grant `youtube.upload` permission for the desired channel.
 
-**Important API documentation gap:** The public AiEnvoy page confirms async generation and a task ID, but does not expose a verified task-status URL. If the initial response provides `status_url`/`poll_url`, the script uses it. Otherwise set GitHub Actions variable `AI_ENVOY_STATUS_URL_TEMPLATE` to the **verified, documented** status endpoint with `{task_id}`, e.g. `https://api.aienvoy.dev/EXACT/DOCUMENTED/PATH/{task_id}`. This example is a placeholder, not a real endpoint. Without it the job stops with a clear error after creating a task. Don't guess a URL because generation may cost credits.
+Under Actions, run **Generate Chess Video and Publish to YouTube**. Leave `publish=true`, `privacy=public`, or choose private/unlisted. Manual runs publish if requested. Push triggers only render the MP4, avoiding accidentally publishing on every code change.
 
-The workflow defaults to manual runs and **no YouTube publishing**. Enable `publish` when ready, choose `public` for public upload. Some YouTube API projects are restricted to private video uploads until audited. YouTube credentials must have the `youtube.upload` scope.
+The output is a vertical `720x1280` MP4 (9:16), with an AAC audio track and PGN game log. The workflow uploads files as Actions artifacts instead of committing large MP4s to Git.
 
-To check the outgoing paid generation request without sending it:
-`python aienvoy_short.py --dry-run`
+### Privacy caveat
+Some YouTube API projects are restricted to private uploads pending verification. OAuth authentication and API quotas must be valid. The uploader requests public visibility but YouTube ultimately controls the published status.
 
-AiEnvoy's story API can charge credits. The workflow does not automatically retry the generation POST or run on a schedule. A single request may create a billable task; always test privately first. The output is normalized to 1080x1920 without distortion, preserving all source pixels with black letterboxing if needed.
-
-No upload is attempted unless a valid MP4 is produced; Git is never used to store the video.
+### Local test
+```bash
+sudo apt-get install ffmpeg stockfish libcairo2 fonts-dejavu-core
+pip install -r requirements-chess.txt
+python generate_chess_short.py --stockfish /usr/games/stockfish --moves 4 --seconds-per-move 1.65
+```
