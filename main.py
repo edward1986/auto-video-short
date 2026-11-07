@@ -14,7 +14,8 @@ from textwrap import fill, shorten
 from typing import Any, Optional, Tuple, Dict
 
 from pyfiglet import Figlet
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import numpy as np
 
 # Compatibility: MoviePy 1.x uses Image.ANTIALIAS, removed in Pillow 10+.
 if not hasattr(Image, "ANTIALIAS"):
@@ -25,7 +26,8 @@ from moviepy.editor import (
     AudioFileClip,
     TextClip,
     CompositeVideoClip,
-    ColorClip
+    ColorClip,
+    ImageClip
 )
 from videoProcess.SoundCreate import make_audio
 from videoProcess.VideoDownload import download_video
@@ -46,51 +48,111 @@ load_dotenv(".env")
 
 WORD_URL = "https://www.merriam-webster.com/word-of-the-day"
 CATFACT_URL = "https://catfact.ninja/fact"
+# =========================
+# MODERN SHORTS CAPTIONS
+# =========================
+# Caption style is controlled by environment variables. All captions are
+# rendered with Pillow (no ImageMagick or Arial dependency).
+# Style: small, premium dark frosted pill; modern bold text; warm accent.
+# Placement: lower third, away from the center of the video.
+CAPTION_Y = float(os.getenv("CAPTION_Y", "0.77"))
+CAPTION_MAX_WIDTH = float(os.getenv("CAPTION_MAX_WIDTH", "0.80"))
+CAPTION_FONT_PATH = os.getenv("CAPTION_FONT", "").strip()
+
+
+def _caption_font(size):
+    paths = [
+        CAPTION_FONT_PATH,
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/Arial_Bold.ttf",
+        "/Library/Fonts/Arial Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+    ]
+    for path in paths:
+        if path and os.path.isfile(path):
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+
+def _caption_lines(text, font, draw, width, max_lines=3):
+    words = str(text).upper().split()
+    lines, line = [], ""
+    for word in words:
+        candidate = (line + " " + word).strip()
+        if draw.textbbox((0, 0), candidate, font=font)[2] <= width:
+            line = candidate
+        else:
+            if line:
+                lines.append(line)
+            line = word
+    if line:
+        lines.append(line)
+    return lines
+
+
+def modern_caption_clip(text, start, duration, video_size):
+    """Transparent RGBA overlay; no full-screen black rectangle or stretched text."""
+    text = str(text or "").strip()
+    if not text:
+        return None
+    W, H = map(int, video_size)
+    scale = 2  # high-quality antialiasing
+    max_w = round(W * CAPTION_MAX_WIDTH) * scale
+    text_padding = round(30 * W / 1080) * scale
+    base_font = round((62 if len(text) <= 14 else 51) * W / 1080) * scale
+    shadow_pad = 20 * scale
+    sample = Image.new("RGBA", (max_w + 4, H // 3 * scale), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(sample)
+    for sz in range(base_font, 27 * scale - 1, -4 * scale):
+        font = _caption_font(sz)
+        lines = _caption_lines(text, font, draw, max_w - text_padding * 2)
+        if len(lines) <= 2:
+            break
+    else:
+        font = _caption_font(27 * scale)
+        lines = _caption_lines(text, font, draw, max_w - text_padding * 2)
+    line_h = round(font.size * 1.32)
+    widths = [draw.textbbox((0, 0), x, font=font)[2] for x in lines]
+    panel_w = min(max_w, max(widths) + text_padding * 2)
+    panel_h = line_h * len(lines) + 32 * scale
+    w = panel_w + shadow_pad * 2
+    h = panel_h + shadow_pad * 2
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(layer)
+    x0, y0 = shadow_pad, shadow_pad
+    radius = min(38 * scale, panel_h // 2)
+    sd.rounded_rectangle((x0 + 3 * scale, y0 + 6 * scale, x0 + panel_w + 3 * scale, y0 + panel_h + 6 * scale), radius=radius, fill=(0, 0, 0, 120))
+    shadow = layer.filter(ImageFilter.GaussianBlur(9 * scale))
+    top = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(top)
+    d.rounded_rectangle((x0, y0, x0 + panel_w, y0 + panel_h), radius=radius, fill=(15, 19, 25, 202), outline=(245, 245, 245, 65), width=2 * scale)
+    d.rounded_rectangle((x0 + 15 * scale, y0 + 10 * scale, x0 + 21 * scale, y0 + panel_h - 10 * scale), radius=3 * scale, fill=(255, 198, 92, 255))
+    for i, line in enumerate(lines):
+        tw = widths[i]
+        x = x0 + (panel_w - tw) // 2
+        y = y0 + 15 * scale + i * line_h
+        d.text((x, y), line, font=font, fill=(250, 252, 255, 255), stroke_width=1 * scale, stroke_fill=(12, 16, 22, 230))
+    art = Image.alpha_composite(shadow, top)
+    art = art.resize((round(w / scale), round(h / scale)), Image.Resampling.LANCZOS)
+    clip = ImageClip(np.asarray(art), transparent=True).set_start(max(0, float(start))).set_duration(max(0.05, float(duration)))
+    y = max(0, min(H - clip.h, round(H * CAPTION_Y - clip.h / 2)))
+    return clip.set_position(((W - clip.w) // 2, y))
+
+
 def build_word_by_word_captions(words, video_size):
     clips = []
-
     for item in words:
         word = str(item.get("word", "")).strip()
-        start = float(item.get("start", 0))
-        end = float(item.get("end", start + 0.5))
-
         if not word:
             continue
-
-        duration = max(end - start, 0.4)
-
-        # Text clip
-        txt = (
-            TextClip(
-                word,
-                fontsize=80,
-                color="white",
-                font="Arial-Bold",
-                method="caption",
-                align="center"
-            )
-            .set_start(start)
-            .set_duration(duration)
-            .set_position(("center", "center"))
-        )
-
-        txt_w, txt_h = txt.size
-
-        # Background highlight
-        bg = (
-            ColorClip(
-                size=(txt_w + 40, txt_h + 20),
-                color=(0, 0, 0)
-            )
-            .set_opacity(0.6)
-            .set_start(start)
-            .set_duration(duration)
-            .set_position(("center", "center"))
-        )
-
-        clips.append(CompositeVideoClip([bg, txt], size=video_size))
-
+        start = max(0, float(item.get("start", 0)))
+        end = float(item.get("end", start + 0.4))
+        caption = modern_caption_clip(word, start, max(0.12, end - start), video_size)
+        if caption is not None:
+            clips.append(caption)
     return clips
+
 
 # =========================
 # HTTP HELPERS
@@ -185,62 +247,16 @@ def transcribe_audio_with_cloudflare(audio_file_path: str) -> dict:
 
 def build_phrase_level_text_clips(words, video_size, group_size=4):
     clips = []
-    grouped = []
-    current = []
-
-    for item in words:
-        word = str(item.get("word", "")).strip()
-        if not word:
-            continue
-
-        current.append(item)
-
-        if len(current) >= group_size:
-            grouped.append(current)
-            current = []
-
-    if current:
-        grouped.append(current)
-
-    for group in grouped:
+    for index in range(0, len(words), group_size):
+        group = words[index:index + group_size]
         text = " ".join(str(x.get("word", "")).strip() for x in group).strip()
-        start = float(group[0].get("start", 0))
-        end = float(group[-1].get("end", start + 1.0))
-
         if not text:
             continue
-        if end <= start:
-            end = start + 0.8
-
-        txt = (
-            TextClip(
-                text,
-                color="white",
-                fontsize=55,
-                align="center",
-                method="caption",
-                size=(900, None)
-            )
-            .set_start(start)
-            .set_duration(end - start)
-            .set_position(("center", "center"))
-        )
-
-        txt_w, txt_h = txt.size
-
-        bg = (
-            ColorClip(
-                size=(txt_w + 40, txt_h + 20),
-                color=(0, 0, 0)
-            )
-            .set_opacity(0.5)
-            .set_start(start)
-            .set_duration(end - start)
-            .set_position(("center", "center"))
-        )
-
-        clips.append(CompositeVideoClip([bg, txt], size=video_size))
-
+        start = float(group[0].get("start", 0))
+        end = float(group[-1].get("end", start + 0.8))
+        caption = modern_caption_clip(text, start, max(0.2, end - start), video_size)
+        if caption is not None:
+            clips.append(caption)
     return clips
 
 
@@ -566,8 +582,13 @@ try:
         VideoFileClip(video_path, audio=False)
         .set_audio(audio_clip)
         .loop(duration=audio_clip.duration)
-        .resize(resolution)
+        .resize(height=resolution[1])
     )
+    # Crop evenly to 9:16 without distorting the cats.
+    if video_clip.w < resolution[0]:
+        video_clip = video_clip.resize(width=resolution[0])
+    video_clip = video_clip.crop(x_center=video_clip.w / 2, y_center=video_clip.h / 2,
+                                 width=resolution[0], height=resolution[1])
 
     total_duration = min(audio_clip.duration, MAX_DURATION)
     video_clip = video_clip.subclip(0, total_duration)
@@ -581,43 +602,14 @@ try:
 
         text_clips = []
         for idx, chunk in enumerate(text_chunks):
-            fact_text = (
-                TextClip(
-                    chunk,
-                    color="white",
-                    fontsize=50,
-                    align="center",
-                    method="caption",
-                    size=(900, None)
-                )
-                .set_position(("center", "center"))
-                .set_start(idx * chunk_duration)
-                .set_duration(chunk_duration)
-            )
-
-            fact_text_width, fact_text_height = fact_text.size
-
-            semi_transparent_bg = (
-                ColorClip(
-                    size=(fact_text_width + 40, fact_text_height + 20),
-                    color=(0, 0, 0)
-                )
-                .set_opacity(0.5)
-                .set_position(("center", "center"))
-                .set_start(idx * chunk_duration)
-                .set_duration(chunk_duration)
-            )
-
-            text_clip_with_bg = CompositeVideoClip(
-                [semi_transparent_bg, fact_text],
-                size=video_clip.size
-            )
-            text_clips.append(text_clip_with_bg)
+            caption = modern_caption_clip(chunk, idx * chunk_duration, chunk_duration, video_clip.size)
+            if caption is not None:
+                text_clips.append(caption)
 
         final = CompositeVideoClip([video_clip] + text_clips, size=video_clip.size)
 
     final_video_path = f"{output_dir}/{FINAL_VIDEO}"
-    final.write_videofile(final_video_path, codec="libx264")
+    final.write_videofile(final_video_path, codec="libx264", audio_codec="aac", fps=30)
     base64_video = video_to_base64(final_video_path)
 
 except Exception as e:
